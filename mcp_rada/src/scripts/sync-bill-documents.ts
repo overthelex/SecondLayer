@@ -43,26 +43,40 @@ function nz(v: any): any {
   return v;
 }
 
-async function fetchBillInfo(conv: number): Promise<any[]> {
-  const url = `${API_BASE}/skl${conv}/billinfo-skl${conv}.json`;
-  console.log(`\n📥 Fetching ${url} …`);
-  const resp = await fetch(url, {
-    headers: { Accept: 'application/json', 'User-Agent': 'SecondLayer-Legal-Platform/1.0' },
-    signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
-  });
-  if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
-  let text = await resp.text();
-  console.log(`   Downloaded ${(text.length / 1_048_576).toFixed(1)} MB, parsing…`);
-  // The Rada feed embeds raw control characters inside string values, which strict
-  // JSON.parse rejects. Escaped sequences (\\n) are two chars and untouched; only raw
-  // bytes 0x00–0x1F get flattened to spaces.
-  text = text.replace(/[\x00-\x1F]/g, ' ');
-  const data = JSON.parse(text);
-  const bills = Array.isArray(data)
-    ? data
-    : (Object.values(data).find((v) => Array.isArray(v)) as any[]) || [];
-  console.log(`   ${bills.length.toLocaleString()} bills in feed`);
-  return bills;
+// Current convocations expose the rich `billinfo-sklN.json` (documents carry kindId,
+// short_review/formal_review verdicts, direct-PDF docFiles). Past convocations only have
+// the legacy `bills-sklN.json`, where each doc is just {date, type, uri} with the doc id in
+// the uri's pf35401 param and no verdict/PDF. We auto-detect and handle both.
+async function fetchFeed(conv: number): Promise<{ bills: any[]; modern: boolean }> {
+  const candidates: [string, boolean][] = [
+    [`${API_BASE}/skl${conv}/billinfo-skl${conv}.json`, true],
+    [`${API_BASE}/skl${conv}/bills-skl${conv}.json`, false],
+  ];
+  for (const [url, modern] of candidates) {
+    console.log(`\n📥 Trying ${url} …`);
+    const resp = await fetch(url, {
+      headers: { Accept: 'application/json', 'User-Agent': 'SecondLayer-Legal-Platform/1.0' },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+    });
+    if (resp.status === 404) {
+      console.log('   404 — trying next candidate…');
+      continue;
+    }
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+    let text = await resp.text();
+    console.log(`   Downloaded ${(text.length / 1_048_576).toFixed(1)} MB (${modern ? 'modern' : 'legacy'} format), parsing…`);
+    // The Rada feed embeds raw control characters inside string values, which strict
+    // JSON.parse rejects. Escaped sequences (\\n) are two chars and untouched; only raw
+    // bytes 0x00–0x1F get flattened to spaces.
+    text = text.replace(/[\x00-\x1F]/g, ' ');
+    const data = JSON.parse(text);
+    const bills = Array.isArray(data)
+      ? data
+      : (Object.values(data).find((v) => Array.isArray(v)) as any[]) || [];
+    console.log(`   ${bills.length.toLocaleString()} bills in feed`);
+    return { bills, modern };
+  }
+  throw new Error(`No bill feed found for skl${conv} (billinfo/bills both 404)`);
 }
 
 // Map one workflow/source document to a bill_documents row (array in column order).
@@ -93,6 +107,33 @@ function toRow(doc: any, bill: any, conv: number, group: 'workflow' | 'source'):
   ];
 }
 
+// Legacy `bills-sklN.json`: each doc is {date, type, uri}. The document id lives in the
+// uri's pf35401 param; there is no kindId / verdict / direct PDF.
+function toOldRow(id: number, doc: any, bill: any, conv: number, group: 'workflow' | 'source'): any[] {
+  return [
+    id, // doc_id (PK) — pf35401 from uri
+    bill.id, // rada_bill_id
+    nz(bill.number || bill.registrationNumber), // bill_number
+    conv, // convocation
+    group, // doc_group
+    null, // kind_id (legacy has none)
+    nz(doc.type), // kind — the document type name
+    null, // registration_num
+    nz(doc.date), // registration_date
+    null, // outcoming_num
+    null, // outcoming_date
+    null, // publish_date
+    null, // meeting_date
+    null, // short_review (legacy has no verdict summary)
+    null, // formal_review
+    null, // main_speaker
+    nz(doc.uri), // file_url — legacy webproc34 portal link
+    null, // file_zip_url
+    null, // doc_files
+    JSON.stringify(doc), // raw
+  ];
+}
+
 const COLS = [
   'doc_id', 'rada_bill_id', 'bill_number', 'convocation', 'doc_group', 'kind_id', 'kind',
   'registration_num', 'registration_date', 'outcoming_num', 'outcoming_date', 'publish_date',
@@ -115,14 +156,14 @@ async function upsertBatch(rows: any[][]): Promise<number> {
   const sql = `
     INSERT INTO rada.bill_documents (${COLS.join(', ')})
     VALUES ${tuples.join(',')}
-    ON CONFLICT (doc_id) DO UPDATE SET ${updates}, updated_at = now()
+    ON CONFLICT (doc_id, convocation) DO UPDATE SET ${updates}, updated_at = now()
   `;
   const res = await pool.query(sql, values);
   return res.rowCount || 0;
 }
 
 async function syncConvocation(conv: number): Promise<{ docs: number; gneu: number }> {
-  const bills = await fetchBillInfo(conv);
+  const { bills, modern } = await fetchFeed(conv);
 
   // A document id can appear more than once in the feed (same doc listed under both
   // `workflow` and `source`, or attached to more than one bill). Postgres rejects a
@@ -130,17 +171,34 @@ async function syncConvocation(conv: number): Promise<{ docs: number; gneu: numb
   // up front. `workflow` is iterated first and wins — it carries the review verdict.
   const byId = new Map<number, any[]>();
   let gneu = 0;
+  let skipped = 0;
   for (const bill of bills) {
     const docs = bill.documents || {};
     for (const group of ['workflow', 'source'] as const) {
-      const arr = Array.isArray(docs[group]) ? docs[group] : [];
-      for (const doc of arr) {
-        if (doc?.id == null || byId.has(doc.id)) continue;
-        if (doc.kindId === 100) gneu++;
-        byId.set(doc.id, toRow(doc, bill, conv, group));
+      if (modern) {
+        const arr = Array.isArray(docs[group]) ? docs[group] : [];
+        for (const doc of arr) {
+          if (doc?.id == null || byId.has(doc.id)) continue;
+          if (doc.kindId === 100) gneu++;
+          byId.set(doc.id, toRow(doc, bill, conv, group));
+        }
+      } else {
+        // legacy: docs[group] = { document: [{date,type,uri}, …] }
+        const grp = docs[group];
+        const arr = grp && Array.isArray(grp.document) ? grp.document : [];
+        for (const doc of arr) {
+          if (!doc || typeof doc !== 'object') continue;
+          const m = /pf35401=(\d+)/.exec(doc.uri || '');
+          if (!m) { skipped++; continue; } // no stable doc id → skip (procedural docs)
+          const id = parseInt(m[1], 10);
+          if (byId.has(id)) continue;
+          if ((doc.type || '').toLowerCase().includes('науково-експертн')) gneu++;
+          byId.set(id, toOldRow(id, doc, bill, conv, group));
+        }
       }
     }
   }
+  if (skipped) console.log(`   (skipped ${skipped.toLocaleString()} legacy docs without a pf35401 id)`);
 
   const rows = [...byId.values()];
   let total = 0;
