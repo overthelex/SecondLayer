@@ -947,7 +947,7 @@ export class LegislationService {
              'chapter_title', la.chapter_title,
              'byte_size', la.byte_size,
              'metadata', la.metadata
-           ) ORDER BY (regexp_match(la.article_number, '^\d+'))[1]::integer NULLS LAST, la.article_number
+           ) ORDER BY (regexp_match(la.article_number, '^\\d+'))[1]::integer NULLS LAST, la.article_number
          ) as articles
        FROM legislation l
        LEFT JOIN legislation_articles la ON l.id = la.legislation_id AND la.is_current = true
