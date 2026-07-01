@@ -382,15 +382,24 @@ export class LegislationTools extends BaseToolHandler {
 
         if (!trusted) {
           try {
-            const supplemental = await this.service.findRelevantArticles(
-              args.query,
-              resolvedRadaId,
-              limit
-            );
+            // Very low grounding means the AI guess — possibly the LAW itself — may be wrong,
+            // so also search UNSCOPED across all legislation, not only within the guessed act
+            // (a scoped-only fallback returns nothing when the wrong law was picked, leaving a
+            // single wrong answer). When the law is suspect, prefer globally-relevant hits.
+            const lawMayBeWrong = grounding < ARTICLE_GROUNDING_MIN_RATIO;
+            const [scoped, unscoped] = await Promise.all([
+              this.service.findRelevantArticles(args.query, resolvedRadaId, limit),
+              lawMayBeWrong
+                ? this.service.findRelevantArticles(args.query, undefined, limit)
+                : Promise.resolve([] as any[]),
+            ]);
+            const supplemental = lawMayBeWrong ? [...unscoped, ...scoped] : [...scoped, ...unscoped];
+
             const seen = new Set<string>([
               `${resolvedArticle.rada_id}:${resolvedArticle.article_number}`,
             ]);
             for (const a of supplemental) {
+              if (response.articles.length >= limit) break; // honor the caller's limit
               const key = `${a.rada_id}:${a.article_number}`;
               if (seen.has(key)) continue;
               seen.add(key);
@@ -418,6 +427,7 @@ export class LegislationTools extends BaseToolHandler {
               ai_article: directRef.articleNumber,
               confidence: directRef.confidence,
               grounding_ratio: Number(grounding.toFixed(2)),
+              law_may_be_wrong: lawMayBeWrong,
               supplemental_count: response.articles.length - 1,
             });
           } catch (err: any) {
