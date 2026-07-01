@@ -544,7 +544,9 @@ export class LegislationTools extends BaseToolHandler {
     return response;
   }
 
-  async getLegislationStructure(args: LegislationToolArgs & { force_refresh?: boolean }): Promise<any> {
+  async getLegislationStructure(
+    args: LegislationToolArgs & { force_refresh?: boolean; include_articles?: boolean; offset?: number; limit?: number }
+  ): Promise<any> {
     if (!args.rada_id) {
       throw new Error('rada_id is required');
     }
@@ -565,9 +567,14 @@ export class LegislationTools extends BaseToolHandler {
       }
     }
 
-    logger.info(`Getting structure for ${radaId}`, { force_refresh: args.force_refresh });
+    const includeArticles = args.include_articles === true;
 
-    const structure = await this.service.getLegislationStructure(radaId, args.force_refresh);
+    logger.info(`Getting structure for ${radaId}`, { force_refresh: args.force_refresh, includeArticles });
+
+    // Always build a headings-only TOC — a full act (e.g. ЦК, ~1300 articles) with per-article
+    // leaves otherwise returns ~1.2M chars and overflows the MCP token limit. The flat per-article
+    // list is opt-in + paginated below (structure.articles is always the full flat set).
+    const structure = await this.service.getLegislationStructure(radaId, args.force_refresh, false);
 
     if (!structure) {
       return {
@@ -576,18 +583,41 @@ export class LegislationTools extends BaseToolHandler {
       };
     }
 
-    return {
+    const base = {
       rada_id: structure.rada_id,
       title: structure.title,
       short_title: structure.short_title,
       type: structure.type,
       total_articles: structure.total_articles,
       table_of_contents: structure.table_of_contents,
-      articles_summary: structure.articles.map((a: any) => ({
-        article_number: a.article_number,
-        title: a.title,
-        byte_size: a.byte_size,
-      })),
+    };
+
+    if (!includeArticles) {
+      return {
+        ...base,
+        note:
+          'Зміст (розділи/глави/статті-лічильники) без повного переліку статей. Для переліку статей передайте include_articles:true з offset/limit, або скористайтесь get_legislation_articles для конкретних статей.',
+      };
+    }
+
+    // include_articles=true → paginated flat article list.
+    const all: any[] = structure.articles || [];
+    const offset = Math.max(0, Number(args.offset) || 0);
+    const limit = Math.min(1000, Math.max(1, Number(args.limit) || 300));
+    const page = all.slice(offset, offset + limit).map((a: any) => ({
+      article_number: a.article_number,
+      title: a.title,
+      byte_size: a.byte_size,
+    }));
+
+    return {
+      ...base,
+      articles_total: all.length,
+      offset,
+      limit,
+      returned: page.length,
+      has_more: offset + limit < all.length,
+      articles_summary: page,
     };
   }
 
@@ -736,13 +766,29 @@ export class LegislationTools extends BaseToolHandler {
       {
         name: 'get_legislation_structure',
         annotations: { title: 'Структура закону', readOnlyHint: true, idempotentHint: true },
-        description: 'Отримати структуру законодавчого акту (зміст, розділи, глави, список статей). Корисно для навігації по великому документу.',
+        description:
+          'Отримати структуру законодавчого акту: зміст (розділи, глави, параграфи) з лічильником статей у кожному вузлі. За замовчуванням БЕЗ повного переліку статей (великі кодекси інакше не вміщуються). Для переліку статей передайте include_articles:true з offset/limit; для конкретних статей — get_legislation_articles.',
         inputSchema: {
           type: 'object',
           properties: {
             rada_id: {
               type: 'string',
               description: 'ID законодавчого акту',
+            },
+            include_articles: {
+              type: 'boolean',
+              default: false,
+              description: 'Додати плоский перелік статей (пагінований через offset/limit). За замовчуванням false — повертається лише зміст.',
+            },
+            offset: {
+              type: 'number',
+              default: 0,
+              description: 'Зміщення для переліку статей (лише коли include_articles:true)',
+            },
+            limit: {
+              type: 'number',
+              default: 300,
+              description: 'Макс. статей у переліку (1-1000, лише коли include_articles:true)',
             },
           },
           required: ['rada_id'],
