@@ -324,7 +324,63 @@ export class LegislationTools extends BaseToolHandler {
       if (directRef.articleNumber) {
         const article = await this.service.getArticle(resolvedRadaId, directRef.articleNumber);
         if (!article) {
-          // Article not found but legislation exists — return structure
+          // AI-визначена стаття не існує — класифікатор міг вгадати не той закон або номер
+          // (на його боці немає retrieval/grounding). Замість термінального "не знайдено"
+          // пробуємо семантичний пошук: у межах вгаданого акту та по всьому законодавству
+          // (сам факт "стаття відсутня" — сильний сигнал, що і закон може бути не той).
+          try {
+            const [scoped, unscoped] = await Promise.all([
+              this.service.findRelevantArticles(args.query, resolvedRadaId, limit),
+              this.service.findRelevantArticles(args.query, undefined, limit),
+            ]);
+            const seen = new Set<string>();
+            const fallbackArticles: any[] = [];
+            for (const a of [...unscoped, ...scoped]) {
+              if (fallbackArticles.length >= limit) break;
+              const key = `${a.rada_id}:${a.article_number}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              fallbackArticles.push({
+                rada_id: a.rada_id,
+                article_number: a.article_number,
+                title: a.title,
+                full_text: capText(a.full_text),
+                url: a.url,
+                npa_title: a.npa_title,
+                section_number: a.section_number,
+                section_title: a.section_title,
+                chapter_number: a.chapter_number,
+                chapter_title: a.chapter_title,
+              });
+            }
+            if (fallbackArticles.length > 0) {
+              logger.info('[MCP Tool] search_legislation: AI-resolved article missing, semantic fallback', {
+                rada_id: resolvedRadaId,
+                ai_article: directRef.articleNumber,
+                confidence: directRef.confidence,
+                fallback_count: fallbackArticles.length,
+              });
+              return {
+                query: args.query,
+                resolved_reference: {
+                  rada_id: resolvedRadaId,
+                  article_number: directRef.articleNumber,
+                  source: directRef.source,
+                  confidence: directRef.confidence,
+                  not_found: true,
+                },
+                total_found: fallbackArticles.length,
+                articles: fallbackArticles,
+                note: `Стаття ${directRef.articleNumber} не знайдена в ${resolvedRadaId} — показано релевантні статті за семантичним пошуком.`,
+              };
+            }
+          } catch (err: any) {
+            logger.warn('[MCP Tool] search_legislation semantic fallback failed', {
+              error: err?.message,
+            });
+          }
+
+          // Семантичний fallback нічого не дав — повертаємо структуру акту, якщо він існує
           const structure = await this.service.getLegislationStructure(resolvedRadaId);
           return {
             query: args.query,
