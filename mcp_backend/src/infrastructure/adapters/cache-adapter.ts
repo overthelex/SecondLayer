@@ -14,7 +14,13 @@ type RedisClient = ReturnType<typeof createClient>;
 // request. Bound each op so a hung Redis fails fast and callers degrade (rate limiter → memory)
 // instead of holding the request open. The underlying command stays queued and runs on
 // reconnect, which is harmless for our cache/counter usage.
-const REDIS_OP_TIMEOUT_MS = Number(process.env.REDIS_OP_TIMEOUT_MS || 1000);
+//
+// Redis itself replies in ~0.1ms, so this budget is NOT about Redis latency — it absorbs
+// command-queue + event-loop lag on the single shared connection during heavy work (e.g. the
+// chat agentic loop parsing large tool results). At 1000ms that lag produced spurious
+// "Redis GET timed out" warnings on the hot path (LEXAI-1795); 2500ms clears them while still
+// failing fast on a genuinely dead socket (which keepAlive/pingInterval also detect ~30s).
+const REDIS_OP_TIMEOUT_MS = Number(process.env.REDIS_OP_TIMEOUT_MS || 2500);
 
 export class CacheAdapter implements ICachePort {
   private client: RedisClient;
