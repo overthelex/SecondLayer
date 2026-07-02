@@ -118,6 +118,11 @@ class HTTPMCPServer {
     this.setupMiddleware();
     this.setupRoutes();
 
+    // Scheduler role: these crons must run on exactly ONE instance. Web replicas set
+    // RUN_SCHEDULER=false so escrow release / payout / Monobank reconciliation / cleanup
+    // jobs are not multiplied across workers. Default (unset) = enabled, so a single
+    // container keeps current behaviour (LEXAI-1802).
+    if (process.env.RUN_SCHEDULER !== 'false') {
     // Cron: auto-release stale escrow payments daily at 07:00 Kyiv time
     cron.schedule('0 7 * * *', () => {
       logger.info('[Cron] Running auto-release stale escrow payments');
@@ -180,6 +185,9 @@ class HTTPMCPServer {
         logger.error('[Cron] OAuth cleanup failed', { error: (err as Error).message });
       }
     }, { timezone: 'Europe/Kyiv' });
+    } else {
+      logger.info('[Cron] RUN_SCHEDULER=false — crons disabled on this instance (web replica)');
+    }
   }
 
   private setupMiddleware() {
@@ -1055,13 +1063,17 @@ class HTTPMCPServer {
         });
       }, 5 * 60 * 1000);
       // Run once on startup too
-      this.tools.uploadService.cleanupStale(30).catch((err) => {
-        logger.error('Upload stale cleanup on startup failed', { error: err.message });
-      });
+      // Upload maintenance (stale cleanup + recovery loop) — scheduler instance only, so N
+      // web replicas don't each run recovery/cleanup (LEXAI-1802).
+      if (process.env.RUN_SCHEDULER !== 'false') {
+        this.tools.uploadService.cleanupStale(30).catch((err) => {
+          logger.error('Upload stale cleanup on startup failed', { error: err.message });
+        });
 
-      // Start upload recovery service (30s delay, then every 5 min)
-      this.app_.uploadRecoveryService.start();
-      logger.info('Upload recovery service started');
+        // Start upload recovery service (30s delay, then every 5 min)
+        this.app_.uploadRecoveryService.start();
+        logger.info('Upload recovery service started');
+      }
 
       (this as any)._initialized = true;
       logger.info('HTTP MCP Server services initialized');
