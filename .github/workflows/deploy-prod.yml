@@ -537,9 +537,9 @@ jobs:
 
             # --- 3. Start new-color containers alongside old ones ---
             # Ensure infra services are running WITHOUT recreating them.
-            # Qdrant holds vector indices and may be running long embedding jobs;
-            # recreating it interrupts indexing and takes 10+ min to recover.
-            \$DC up -d --no-recreate qdrant-prod redis-prod pgbouncer-prod
+            # qdrant-prod was removed from the prod compose (LEXAI-1807 Phase B,
+            # PR #2089) — vectors are served from bigbox via QDRANT_URL.
+            \$DC up -d --no-recreate redis-prod pgbouncer-prod
 
             if [ "\$ANY_BACKEND" = "true" ]; then
               if [ "\$NEW_BACKEND" = "green" ]; then

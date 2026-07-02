@@ -204,7 +204,7 @@ start_env() {
             print_msg "$BLUE" "Starting prod services on ${PROD_SERVER}..."
             $ssh_cmd \
                 "cd ${PROD_REMOTE_PATH} && docker compose -f docker-compose.prod.yml --env-file .env.prod up -d \
-                    postgres-prod pgbouncer-prod redis-prod qdrant-prod minio-prod postgres-openreyestr-prod \
+                    postgres-prod pgbouncer-prod redis-prod minio-prod postgres-openreyestr-prod \
                     app-prod rada-mcp-app-prod app-openreyestr-prod document-service-prod lexwebapp-prod \
                     nginx-prod \
                     prometheus-prod grafana-prod cadvisor-prod"
@@ -890,7 +890,7 @@ deploy_to_server() {
                 INFRA_FLAGS="--force-recreate"
             fi
             $DC up -d $INFRA_FLAGS \
-                postgres-prod redis-prod qdrant-prod \
+                postgres-prod redis-prod \
                 postgres-openreyestr-prod minio-prod
             $DC up -d pgbouncer-prod 2>/dev/null || true
 
