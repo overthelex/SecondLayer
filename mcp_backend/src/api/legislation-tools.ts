@@ -25,12 +25,19 @@ interface SearchDedup {
   ts: number;
 }
 
+/** Cap for SEARCH/list hits — many articles per response, protects the chat context window (PR #1846). */
 const MAX_ARTICLE_TEXT_CHARS = 2000;
+/** Cap for an EXPLICIT single-article fetch (get_legislation_section) — the tool promises "повний текст
+ * статті", so only pathological outliers get cut (ПКУ ст. 14 ≈ 216K, ст. 346 ≈ 1M chars). */
+const MAX_SINGLE_ARTICLE_TEXT_CHARS = 60_000;
+/** Total full_text budget for an explicit multi-article fetch (get_legislation_articles) —
+ * split across the requested articles, but never below the search-hit cap. */
+const MAX_ARTICLES_TOTAL_TEXT_CHARS = 120_000;
 
-function capText(text: string | undefined | null): string {
+function capText(text: string | undefined | null, maxChars: number = MAX_ARTICLE_TEXT_CHARS): string {
   if (!text) return '';
-  if (text.length <= MAX_ARTICLE_TEXT_CHARS) return text;
-  return text.slice(0, MAX_ARTICLE_TEXT_CHARS) + '… [обрізано]';
+  if (text.length <= maxChars) return text;
+  return text.slice(0, maxChars) + `… [обрізано; повний текст — ${text.length} символів]`;
 }
 
 /** Confidence at/above which an AI-resolved article is trusted without semantic supplementation. */
@@ -186,7 +193,8 @@ export class LegislationTools extends BaseToolHandler {
       rada_id: article.rada_id,
       article_number: article.article_number,
       title: article.title,
-      full_text: capText(article.full_text),
+      full_text: capText(article.full_text, MAX_SINGLE_ARTICLE_TEXT_CHARS),
+      full_text_length: article.full_text?.length,
       url: article.url,
       metadata: article.metadata,
       npa_title: article.npa_title,
@@ -231,6 +239,13 @@ export class LegislationTools extends BaseToolHandler {
       };
     }
 
+    // Явно названі статті — ділимо загальний бюджет тексту між ними (2-3 статті
+    // отримують повний текст), але не нижче кепу пошукової видачі.
+    const perArticleCap = Math.max(
+      MAX_ARTICLE_TEXT_CHARS,
+      Math.floor(MAX_ARTICLES_TOTAL_TEXT_CHARS / articles.length)
+    );
+
     const response: any = {
       rada_id: args.rada_id,
       total_found: articles.length,
@@ -238,7 +253,7 @@ export class LegislationTools extends BaseToolHandler {
       articles: articles.map(a => ({
         article_number: a.article_number,
         title: a.title,
-        full_text: capText(a.full_text),
+        full_text: capText(a.full_text, perArticleCap),
         url: a.url,
         npa_title: a.npa_title,
         section_number: a.section_number,
@@ -400,7 +415,9 @@ export class LegislationTools extends BaseToolHandler {
           rada_id: article.rada_id,
           article_number: article.article_number,
           title: article.title,
-          full_text: capText(article.full_text),
+          // Пряме посилання на конкретну статтю — віддаємо повний текст, як і
+          // get_legislation_section (кеп лише для патологічно великих статей).
+          full_text: capText(article.full_text, MAX_SINGLE_ARTICLE_TEXT_CHARS),
           url: article.url,
           npa_title: article.npa_title,
           section_number: article.section_number,
