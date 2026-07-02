@@ -38,6 +38,7 @@ const createMockEmbeddingService = () => ({
   generateEmbedding: jest.fn().mockResolvedValue(new Array(1536).fill(0)),
   generateEmbeddings: jest.fn().mockResolvedValue([new Array(1536).fill(0)]),
   searchSimilar: jest.fn().mockResolvedValue([]),
+  searchVectors: jest.fn().mockResolvedValue([]),
   upsertVectors: jest.fn().mockResolvedValue(undefined),
 });
 
@@ -51,6 +52,8 @@ const createMockAdapter = () => ({
   chunkArticles: jest.fn().mockReturnValue([]),
   getLegislationStructure: jest.fn().mockResolvedValue(null),
   searchArticles: jest.fn().mockResolvedValue([]),
+  searchArticlesHybrid: jest.fn().mockResolvedValue([]),
+  createArticleChunks: jest.fn().mockReturnValue([]),
 });
 
 const createMockClassifier = () => ({
@@ -515,6 +518,75 @@ describe('LegislationService', () => {
     it('should delegate to parseLegislationReference', () => {
       const result = service.parseArticleReference('ст. 1 ЦК');
       expect(result).toEqual({ radaId: '435-15', articleNumber: '1' });
+    });
+  });
+
+  describe('findRelevantArticles (hybrid FTS + vector, LEXAI-1806)', () => {
+    it('demotes the broken mega-record below on-point transitional provisions', async () => {
+      // Vector leg surfaces the noisy ~1M-char ст. 346 first (as it does in prod), plus п.69.22.
+      mockEmbedding.searchVectors.mockResolvedValueOnce([
+        { id: 'v1', score: 0.72, payload: { rada_id: '2755-17', article_number: '346', article_id: 1 } },
+        { id: 'v2', score: 0.55, payload: { rada_id: '2755-17', article_number: 'п.69.22', article_id: 2 } },
+      ]);
+      // FTS leg (lexical) finds the actually-relevant transitional provisions.
+      mockAdapter.searchArticlesHybrid.mockResolvedValueOnce([
+        {
+          id: 2, rada_id: '2755-17', article_number: 'п.69.22', title: '69.22',
+          full_text: 'нерухоме майно окуповані території...'.padEnd(13464, 'x'),
+          metadata: { is_transitional: true }, legislation_title: 'ПКУ',
+        },
+        {
+          id: 3, rada_id: '2755-17', article_number: 'п.38.6', title: '38.6',
+          full_text: 'об’єкти нерухомості на тимчасово окупованій території...'.padEnd(2725, 'x'),
+          metadata: { is_transitional: true }, legislation_title: 'ПКУ',
+        },
+      ]);
+      // The vector-only ст. 346 is resolved from DB and is a broken mega-record.
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{
+          id: 1, rada_id: '2755-17', article_number: '346', title: 'Оплата праці ДПС',
+          full_text: 'x'.repeat(997546), metadata: {}, npa_title: 'ПКУ',
+        }],
+        rowCount: 1,
+      });
+
+      const result = await service.findRelevantArticles(
+        'податок на нерухоме майно на тимчасово окупованій території пільга',
+        '2755-17',
+        5
+      );
+
+      const numbers = result.map(r => r.article_number);
+      // The on-point transitional provision ranks first; the mega-record is demoted last.
+      expect(numbers[0]).toBe('п.69.22');
+      expect(numbers).toContain('п.38.6');
+      expect(numbers[numbers.length - 1]).toBe('346');
+      // 346 still present (retrievable), just no longer dominating.
+      expect(numbers).toContain('346');
+    });
+
+    it('boosts an article whose exact number token appears in the query', async () => {
+      mockEmbedding.searchVectors.mockResolvedValueOnce([]);
+      mockAdapter.searchArticlesHybrid.mockResolvedValueOnce([
+        { id: 10, rada_id: '2755-17', article_number: '265', title: '265', full_text: 'склад', metadata: {}, legislation_title: 'ПКУ' },
+        { id: 11, rada_id: '2755-17', article_number: '266', title: '266', full_text: 'нерухоме майно', metadata: {}, legislation_title: 'ПКУ' },
+      ]);
+
+      const result = await service.findRelevantArticles('податок за ст 266', '2755-17', 5);
+      // 265 is FTS rank 1, but 266 is named explicitly → the number-token boost lifts it to the top.
+      expect(result[0].article_number).toBe('266');
+    });
+
+    it('falls back to text search when both legs return nothing', async () => {
+      mockEmbedding.searchVectors.mockResolvedValueOnce([]);
+      mockAdapter.searchArticlesHybrid.mockResolvedValueOnce([]);
+      mockAdapter.searchArticles.mockResolvedValueOnce([
+        { rada_id: '2755-17', legislation_title: 'ПКУ', article_number: '99', title: 'x', full_text: 'y', metadata: {} },
+      ]);
+
+      const result = await service.findRelevantArticles('щось незрозуміле', '2755-17', 5);
+      expect(mockAdapter.searchArticles).toHaveBeenCalled();
+      expect(result[0].article_number).toBe('99');
     });
   });
 

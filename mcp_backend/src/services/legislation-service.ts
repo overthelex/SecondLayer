@@ -4,6 +4,13 @@ import { logger } from '../utils/logger';
 import { createHash } from 'crypto';
 import { LegislationClassifier } from './legislation-classifier';
 import type { ICachePort, ILLMPort } from '../domain/ports/index.js';
+import {
+  legislationKey,
+  extractArticleNumberTokens,
+  fuseRankLists,
+  applyLegislationBoosts,
+  MIN_VECTOR_SCORE_HYBRID,
+} from './legislation-search-utils';
 
 export interface LegislationReference {
   rada_id: string;
@@ -1198,115 +1205,161 @@ export class LegislationService {
     logger.info(`Indexed ${totalChunks} chunks for ${articles.length} articles in legislation ${radaId}`);
   }
 
+  /**
+   * Hybrid (FTS + vector) discovery of the most relevant articles for a free-text query,
+   * used by get_legislation_section query-mode and search_legislation (LEXAI-1806).
+   *
+   * The legacy implementation ran a bare Qdrant cosine search with a 0.6 floor, which let
+   * the broken ~1M-char ПКУ ст. 346 mega-record dominate and never surfaced the on-point
+   * transitional provisions. This now RRF-fuses two legs (mirroring search_court_decisions):
+   *   1. vector leg — Qdrant cosine over legal_sections, collapsed to best-chunk-per-article;
+   *   2. FTS leg — OR-prefix tsquery + exact article-number match over legislation_articles.
+   * The fused candidates are re-scored with an article-number-token boost, a transitional-
+   * provision nudge, and a mega-record demotion, then the top `limit` are returned.
+   */
   async findRelevantArticles(query: string, radaId?: string, limit: number = 5): Promise<LegislationReference[]> {
+    const toReference = (row: any): LegislationReference => ({
+      rada_id: row.rada_id,
+      article_number: row.article_number,
+      title: row.title,
+      full_text: row.full_text,
+      full_text_html: row.full_text_html,
+      url: `https://zakon.rada.gov.ua/laws/show/${row.rada_id}#n${row.article_number}`,
+      metadata: row.metadata,
+      npa_title: row.npa_title ?? row.legislation_title,
+      section_number: row.section_number,
+      section_title: row.section_title,
+      chapter_number: row.chapter_number,
+      chapter_title: row.chapter_title,
+    });
+
+    const textFallback = async (): Promise<LegislationReference[]> => {
+      const textResults = await this.searchLegislation(query, radaId, limit);
+      return textResults.flatMap(r => r.articles.map((a: any) => toReference({
+        ...a,
+        rada_id: r.rada_id,
+        npa_title: r.legislation_title,
+      })));
+    };
+
     try {
-      const queryEmbedding = await this.embeddingService.generateEmbedding(query);
-      
+      const candidateLimit = Math.max(limit * 4, 24);
       const filter: any = { document_type: 'legislation' };
-      if (radaId) {
-        filter.rada_id = radaId;
-      }
+      if (radaId) filter.rada_id = radaId;
 
-      const MIN_SCORE = 0.6;
-      const allResults = await this.embeddingService.searchVectors(queryEmbedding, Math.max(limit * 3, 20), filter);
-      const searchResults = allResults.filter((r: any) => (r.score || 0) >= MIN_SCORE);
+      // Both legs run concurrently; either may fail/return empty without sinking the other.
+      const [vectorHits, ftsRows] = await Promise.all([
+        (async () => {
+          try {
+            const queryEmbedding = await this.embeddingService.generateEmbedding(query);
+            return await this.embeddingService.searchVectors(queryEmbedding, candidateLimit, filter);
+          } catch (e: any) {
+            logger.warn('[LegislationService] hybrid vector leg failed', { error: e?.message });
+            return [] as any[];
+          }
+        })(),
+        (async () => {
+          try {
+            return await this.adapter.searchArticlesHybrid(query, radaId, candidateLimit);
+          } catch (e: any) {
+            logger.warn('[LegislationService] hybrid FTS leg failed', { error: e?.message });
+            return [] as any[];
+          }
+        })(),
+      ]);
 
-      if (searchResults.length === 0) {
-        logger.warn('[LegislationService] Vector search returned 0 results, falling back to text search', {
-          query: query.substring(0, 50),
-        });
-        const textResults = await this.searchLegislation(query, radaId, limit);
-        return textResults.flatMap(r => r.articles.map((a: any) => ({
-          rada_id: r.rada_id,
-          article_number: a.article_number,
-          title: a.title,
-          full_text: a.full_text,
-          full_text_html: a.full_text_html,
-          url: `https://zakon.rada.gov.ua/laws/show/${r.rada_id}#n${a.article_number}`,
-          metadata: a.metadata,
-          npa_title: r.legislation_title,
-          section_number: a.section_number,
-          section_title: a.section_title,
-          chapter_number: a.chapter_number,
-          chapter_title: a.chapter_title,
-        })));
-      }
-
-      // Resolve vector results to DB records via integer IDs or payload lookup
-      const integerIds: number[] = [];
-      const payloadLookups: Array<{ rada_id: string; article_number: string }> = [];
-
-      for (const r of searchResults) {
-        if (r.payload?.article_id) {
-          integerIds.push(r.payload.article_id);
-        } else if (typeof r.id === 'number') {
-          integerIds.push(r.id);
-        } else if (r.payload?.rada_id && r.payload?.article_number) {
-          payloadLookups.push({ rada_id: r.payload.rada_id, article_number: r.payload.article_number });
+      // Vector leg: collapse chunk hits to the best-scoring chunk per article, keep score order.
+      const vectorBest = new Map<string, { score: number; articleId?: number; radaId: string; articleNumber: string }>();
+      for (const h of vectorHits as any[]) {
+        const rid = h.payload?.rada_id;
+        const an = h.payload?.article_number;
+        if (!rid || an == null) continue;
+        if ((h.score || 0) < MIN_VECTOR_SCORE_HYBRID) continue;
+        const key = legislationKey(rid, an);
+        const prev = vectorBest.get(key);
+        if (!prev || (h.score || 0) > prev.score) {
+          vectorBest.set(key, { score: h.score || 0, articleId: h.payload?.article_id, radaId: rid, articleNumber: an });
         }
       }
+      const vectorKeys = [...vectorBest.entries()].sort((a, b) => b[1].score - a[1].score).map(([k]) => k);
 
-      const queries: Promise<any>[] = [];
-      if (integerIds.length > 0) {
-        queries.push(this.db.query(
+      // FTS leg: rows already ts_rank-ordered; keep first row per article.
+      const ftsRowByKey = new Map<string, any>();
+      const ftsKeys: string[] = [];
+      for (const row of ftsRows as any[]) {
+        const key = legislationKey(row.rada_id, row.article_number);
+        if (!ftsRowByKey.has(key)) { ftsRowByKey.set(key, row); ftsKeys.push(key); }
+      }
+
+      const fused = fuseRankLists(vectorKeys, ftsKeys);
+      if (fused.size === 0) {
+        logger.warn('[LegislationService] hybrid search returned 0 candidates, falling back to text search', {
+          query: query.substring(0, 50),
+        });
+        return await textFallback();
+      }
+
+      // Resolve a generous candidate pool to full DB rows, then re-score with boosts.
+      const pool = [...fused.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, Math.max(limit * 3, 15));
+
+      // Vector-only winners need a DB fetch (payload lacks full_text/hierarchy); fetch by
+      // article_id where the payload carried one, else by (rada_id, article_number).
+      const fetchIds: number[] = [];
+      const fetchPairs: Array<{ rada_id: string; article_number: string }> = [];
+      for (const [key] of pool) {
+        if (ftsRowByKey.has(key)) continue;
+        const v = vectorBest.get(key);
+        if (v?.articleId) fetchIds.push(v.articleId);
+        else if (v) fetchPairs.push({ rada_id: v.radaId, article_number: v.articleNumber });
+      }
+
+      const fetchedByKey = new Map<string, any>();
+      const fetchQueries: Promise<any>[] = [];
+      if (fetchIds.length > 0) {
+        fetchQueries.push(this.db.query(
           `SELECT la.*, l.rada_id, l.title as npa_title
            FROM legislation_articles la JOIN legislation l ON la.legislation_id = l.id
-           WHERE la.id = ANY($1)`, [[...new Set(integerIds)]]
+           WHERE la.id = ANY($1)`, [[...new Set(fetchIds)]]
         ));
       }
-      for (const pl of payloadLookups.slice(0, limit)) {
-        queries.push(this.db.query(
+      for (const p of fetchPairs) {
+        fetchQueries.push(this.db.query(
           `SELECT la.*, l.rada_id, l.title as npa_title
            FROM legislation_articles la JOIN legislation l ON la.legislation_id = l.id
            WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.is_current = true
-           LIMIT 1`, [pl.rada_id, pl.article_number]
+           LIMIT 1`, [p.rada_id, p.article_number]
         ));
       }
-
-      const queryResults = await Promise.all(queries);
-      const seen = new Set<string>();
-      const allRows: any[] = [];
-      for (const qr of queryResults) {
+      for (const qr of await Promise.all(fetchQueries)) {
         for (const row of qr.rows) {
-          const key = `${row.rada_id}:${row.article_number}`;
-          if (!seen.has(key)) { seen.add(key); allRows.push(row); }
+          fetchedByKey.set(legislationKey(row.rada_id, row.article_number), row);
         }
       }
 
-      // Return rows above MIN_SCORE, capped at the caller's limit (hard max 15 for safety).
-      const result = { rows: allRows.slice(0, Math.max(1, Math.min(limit, 15))) };
+      const numberTokens = extractArticleNumberTokens(query);
+      const scored = pool
+        .map(([key, base]) => {
+          const row = ftsRowByKey.get(key) || fetchedByKey.get(key);
+          if (!row) return null;
+          const isTransitional = Boolean(row.metadata?.is_transitional) || /^\s*п\./i.test(row.article_number || '');
+          const score = applyLegislationBoosts(base, {
+            article_number: row.article_number,
+            full_text_length: (row.full_text || '').length,
+            is_transitional: isTransitional,
+          }, numberTokens);
+          return { row, score };
+        })
+        .filter((x): x is { row: any; score: number } => x !== null)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, Math.max(1, Math.min(limit, 15)));
 
-      return result.rows.map((row: any) => ({
-        rada_id: row.rada_id,
-        article_number: row.article_number,
-        title: row.title,
-        full_text: row.full_text,
-        full_text_html: row.full_text_html,
-        url: `https://zakon.rada.gov.ua/laws/show/${row.rada_id}#n${row.article_number}`,
-        metadata: row.metadata,
-        npa_title: row.npa_title,
-        section_number: row.section_number,
-        section_title: row.section_title,
-        chapter_number: row.chapter_number,
-        chapter_title: row.chapter_title,
-      }));
+      if (scored.length === 0) return await textFallback();
+      return scored.map(s => toReference(s.row));
     } catch (error: any) {
-      logger.error('Vector search failed, falling back to text search:', error.message);
-      const results = await this.searchLegislation(query, radaId, limit);
-      return results.flatMap(r => r.articles.map((a: any) => ({
-        rada_id: r.rada_id,
-        article_number: a.article_number,
-        title: a.title,
-        full_text: a.full_text,
-        full_text_html: a.full_text_html,
-        url: `https://zakon.rada.gov.ua/laws/show/${r.rada_id}#n${a.article_number}`,
-        metadata: a.metadata,
-        npa_title: r.legislation_title,
-        section_number: a.section_number,
-        section_title: a.section_title,
-        chapter_number: a.chapter_number,
-        chapter_title: a.chapter_title,
-      })));
+      logger.error('[LegislationService] hybrid search failed, falling back to text search:', error?.message);
+      return await textFallback();
     }
   }
 
