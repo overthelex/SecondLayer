@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import { logger } from '../utils/logger';
 import type { IDatabase } from '../domain/ports/index.js';
+import { buildLegislationTsquery, extractArticleNumberTokens } from '../services/legislation-search-utils';
 
 /**
  * КУпАП (Кодекс України про адміністративні правопорушення) is split in RADA
@@ -890,6 +891,65 @@ export class RadaLegislationAdapter {
 
     sql += ` ORDER BY ts_rank(to_tsvector('simple', la.full_text), plainto_tsquery('simple', $1)) DESC LIMIT $${params.length + 1}`;
     params.push(limit);
+
+    const result = await this.db.query(sql, params);
+    return result.rows;
+  }
+
+  /**
+   * FTS leg for the hybrid legislation retrieval path (LEXAI-1806).
+   *
+   * Unlike `searchArticles` (which AND-joins terms via plainto_tsquery('simple', …) and
+   * is brittle against Ukrainian inflection), this builds an OR-of-prefixes tsquery
+   * ("подат:* | нерух:* | окупова:*") so an article matching more topical stems ranks
+   * higher, and separately matches exact article-number tokens from the query
+   * (e.g. "266" → art. 266, "38.6" → п.38.6). Returns rows ordered by ts_rank, best first.
+   */
+  async searchArticlesHybrid(query: string, radaId?: string, limit: number = 24): Promise<any[]> {
+    const tsq = buildLegislationTsquery(query);
+    // Match both the bare token and its transitional "п."-prefixed form.
+    const numberTokens = extractArticleNumberTokens(query);
+    const articleNumberVariants = [
+      ...numberTokens,
+      ...numberTokens.map((t) => `п.${t}`),
+    ];
+
+    const params: any[] = [];
+    const conditions: string[] = [];
+
+    if (tsq) {
+      params.push(tsq);
+      conditions.push(`to_tsvector('simple', la.full_text) @@ to_tsquery('simple', $${params.length})`);
+    }
+    if (articleNumberVariants.length > 0) {
+      params.push(articleNumberVariants);
+      conditions.push(`la.article_number = ANY($${params.length})`);
+    }
+
+    // No usable terms at all → nothing to search on.
+    if (conditions.length === 0) return [];
+
+    let sql = `
+      SELECT la.*, l.rada_id, l.title as legislation_title, l.short_title
+      FROM legislation_articles la
+      JOIN legislation l ON la.legislation_id = l.id
+      WHERE la.is_current = true
+        AND (${conditions.join(' OR ')})
+    `;
+
+    if (radaId) {
+      params.push(expandKupapRadaIds(radaId.toLowerCase()).map((id) => id.toLowerCase()));
+      sql += ` AND LOWER(l.rada_id) = ANY($${params.length})`;
+    }
+
+    // Rank by lexical relevance when we have a tsquery; otherwise fall back to a stable order.
+    if (tsq) {
+      sql += ` ORDER BY ts_rank(to_tsvector('simple', la.full_text), to_tsquery('simple', $1)) DESC`;
+    } else {
+      sql += ` ORDER BY la.id ASC`;
+    }
+    params.push(limit);
+    sql += ` LIMIT $${params.length}`;
 
     const result = await this.db.query(sql, params);
     return result.rows;
