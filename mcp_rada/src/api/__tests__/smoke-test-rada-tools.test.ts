@@ -34,12 +34,19 @@ describe('RADA MCP Tools - Smoke Tests', () => {
 
   test('List all tools', async () => {
     const response = await client.get('/api/tools');
-    expect(response.data.tools.length).toBe(4);
+    expect(response.data.tools.length).toBe(5);
   });
 
   test('search_parliament_bills works', async () => {
     const result = await callTool('search_parliament_bills', {
       query: 'бюджет', limit: 3
+    });
+    expect(result.success).toBe(true);
+  }, 30000);
+
+  test('search_bill_documents works', async () => {
+    const result = await callTool('search_bill_documents', {
+      query: 'торговельні марки', doc_kind: 'gneu', limit: 3
     });
     expect(result.success).toBe(true);
   }, 30000);

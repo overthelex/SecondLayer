@@ -247,9 +247,10 @@ export class ToolRegistry {
     // Backend tool routes are created dynamically by registerHandler().
     // Only remote (proxy) tools need hardcoded routes.
 
-    // ========== RADA Tools (4 tools) - Prefix 'rada_', HTTP proxy ==========
+    // ========== RADA Tools (5 tools) - Prefix 'rada_', HTTP proxy ==========
     const radaTools = [
       { clientName: 'rada_search_parliament_bills', serviceName: 'search_parliament_bills' },
+      { clientName: 'rada_search_bill_documents', serviceName: 'search_bill_documents' },
       { clientName: 'rada_get_deputy_info', serviceName: 'get_deputy_info' },
       { clientName: 'rada_search_legislation_text', serviceName: 'search_legislation_text' },
       { clientName: 'rada_analyze_voting_record', serviceName: 'analyze_voting_record' },

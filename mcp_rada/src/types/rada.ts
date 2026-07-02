@@ -124,6 +124,17 @@ export interface SearchParliamentBillsArgs {
   limit?: number;
 }
 
+export interface SearchBillDocumentsArgs {
+  query?: string;
+  bill_number?: string;
+  doc_kind?: 'gneu' | 'committee' | 'legal' | 'all';
+  convocation?: number;
+  initiator?: string;
+  date_from?: string;
+  date_to?: string;
+  limit?: number;
+}
+
 export interface GetDeputyInfoArgs {
   name?: string;
   rada_id?: string;
