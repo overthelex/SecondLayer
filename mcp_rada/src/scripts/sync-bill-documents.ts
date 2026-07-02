@@ -43,6 +43,17 @@ function nz(v: any): any {
   return v;
 }
 
+// The legacy feeds contain source-typo dates (year 0006, 3013, …). Drop anything whose
+// year is outside a sane window so they don't pollute registration_date / its index.
+const MAX_DATE_YEAR = new Date().getFullYear() + 2;
+function nzDate(v: any): any {
+  const s = nz(v);
+  if (s === null) return null;
+  const year = parseInt(String(s).slice(0, 4), 10);
+  if (Number.isNaN(year) || year < 1990 || year > MAX_DATE_YEAR) return null;
+  return s;
+}
+
 // Current convocations expose the rich `billinfo-sklN.json` (documents carry kindId,
 // short_review/formal_review verdicts, direct-PDF docFiles). Past convocations only have
 // the legacy `bills-sklN.json`, where each doc is just {date, type, uri} with the doc id in
@@ -92,11 +103,11 @@ function toRow(doc: any, bill: any, conv: number, group: 'workflow' | 'source'):
     nz(doc.kindId), // kind_id
     nz(doc.kind), // kind
     nz(doc.registrationNum), // registration_num
-    nz(doc.registrationDate), // registration_date
+    nzDate(doc.registrationDate), // registration_date
     nz(doc.outcomingNum), // outcoming_num
-    nz(doc.outcomingDate), // outcoming_date
-    nz(doc.publishDate), // publish_date
-    nz(doc.meetingDate), // meeting_date
+    nzDate(doc.outcomingDate), // outcoming_date
+    nzDate(doc.publishDate), // publish_date
+    nzDate(doc.meetingDate), // meeting_date
     nz(doc.short_review), // short_review
     nz(doc.formal_review), // formal_review
     nz(doc.mainSpeaker), // main_speaker
@@ -104,6 +115,8 @@ function toRow(doc: any, bill: any, conv: number, group: 'workflow' | 'source'):
     nz(f0.archiveWithSignsUrl), // file_zip_url
     files.length ? JSON.stringify(files) : null, // doc_files
     JSON.stringify(doc), // raw
+    nz(bill.title || bill.name), // bill_title (modern feed uses `name`)
+    nz(bill.subject), // bill_subject
   ];
 }
 
@@ -119,7 +132,7 @@ function toOldRow(id: number, doc: any, bill: any, conv: number, group: 'workflo
     null, // kind_id (legacy has none)
     nz(doc.type), // kind — the document type name
     null, // registration_num
-    nz(doc.date), // registration_date
+    nzDate(doc.date), // registration_date
     null, // outcoming_num
     null, // outcoming_date
     null, // publish_date
@@ -131,6 +144,8 @@ function toOldRow(id: number, doc: any, bill: any, conv: number, group: 'workflo
     null, // file_zip_url
     null, // doc_files
     JSON.stringify(doc), // raw
+    nz(bill.title || bill.name), // bill_title
+    nz(bill.subject), // bill_subject
   ];
 }
 
@@ -138,7 +153,7 @@ const COLS = [
   'doc_id', 'rada_bill_id', 'bill_number', 'convocation', 'doc_group', 'kind_id', 'kind',
   'registration_num', 'registration_date', 'outcoming_num', 'outcoming_date', 'publish_date',
   'meeting_date', 'short_review', 'formal_review', 'main_speaker', 'file_url', 'file_zip_url',
-  'doc_files', 'raw',
+  'doc_files', 'raw', 'bill_title', 'bill_subject',
 ];
 
 async function upsertBatch(rows: any[][]): Promise<number> {
