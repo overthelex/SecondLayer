@@ -18,7 +18,10 @@ import * as https from 'https';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const API_BASE = 'https://sis.nipo.gov.ua/api/v1/open-data/';
-const RATE_LIMIT_MS = 1100; // 1 req/sec + margin
+// 1 req/sec API limit; the sleep runs BEFORE each fetch, so effective period =
+// RATE_LIMIT_MS + fetch latency (~0.6s). Override via env to pace closer to the
+// real limit (429s are retried with a 5s backoff anyway).
+const RATE_LIMIT_MS = parseInt(process.env.RATE_LIMIT_MS || '1100');
 const BATCH_INSERT_SIZE = 50;
 const CHECKPOINT_DIR = '/tmp/uipv-import-checkpoints';
 const CONCURRENCY = parseInt(process.env.CONCURRENCY || '1'); // stay at 1 for rate limit
