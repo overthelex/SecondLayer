@@ -2,6 +2,8 @@ import type { IDatabase, IEmbeddingPort } from '../domain/ports/index.js';
 import { RadaLegislationAdapter, LegislationArticle } from '../adapters/rada-legislation-adapter';
 import { logger } from '../utils/logger';
 import { createHash } from 'crypto';
+import { QdrantClient } from '@qdrant/js-client-rest';
+import { BgeM3Client } from '../utils/bge-m3-client.js';
 import { LegislationClassifier } from './legislation-classifier';
 import type { ICachePort, ILLMPort } from '../domain/ports/index.js';
 import {
@@ -336,6 +338,26 @@ export class LegislationService {
   private embeddingService: IEmbeddingPort;
   private db: IDatabase;
   private classifier: LegislationClassifier | null = null;
+
+  // bge-m3 migration (LEXAI-1807): when LEGISLATION_VECTOR_BACKEND=bge, the vector leg
+  // embeds queries with bge-m3 (TEI) and searches the bge collection. Default 'voyage'
+  // preserves the legacy path so this deploy is behavior-preserving until env is flipped.
+  private readonly legVectorBackend = (process.env.LEGISLATION_VECTOR_BACKEND || 'voyage').toLowerCase();
+  private readonly legBgeCollection = process.env.LEG_BGE_COLLECTION || 'legal_sections_bge';
+  private _bgeClient: BgeM3Client | null = null;
+  private _bgeQdrant: QdrantClient | null = null;
+  private get bgeClient(): BgeM3Client {
+    if (!this._bgeClient) this._bgeClient = new BgeM3Client(process.env.BGE_M3_URL || 'http://tei-bge-m3:80');
+    return this._bgeClient;
+  }
+  private get bgeQdrant(): QdrantClient {
+    if (!this._bgeQdrant) {
+      const url = process.env.QDRANT_URL || 'http://localhost:6333';
+      const apiKey = process.env.QDRANT_API_KEY;
+      this._bgeQdrant = new QdrantClient({ url, ...(apiKey && { apiKey }) });
+    }
+    return this._bgeQdrant;
+  }
 
   constructor(
     db: IDatabase,
@@ -1206,6 +1228,44 @@ export class LegislationService {
   }
 
   /**
+   * Vector leg of legislation search. Routed by LEGISLATION_VECTOR_BACKEND:
+   *   - 'voyage' (default/legacy): shared EmbeddingService over legal_sections.
+   *   - 'bge': bge-m3 (TEI) over legal_sections_bge (LEXAI-1807). Supports as_of_date
+   *     time-travel via valid_from_ts/valid_to_ts; without it, filters is_current=true.
+   * Returns hits as { id, score, payload } (same shape as EmbeddingService.searchVectors).
+   */
+  private async legislationVectorSearch(
+    query: string,
+    limit: number,
+    filter: Record<string, any>,
+    asOfDate?: string,
+  ): Promise<any[]> {
+    if (this.legVectorBackend !== 'bge') {
+      const queryEmbedding = await this.embeddingService.generateEmbedding(query);
+      return await this.embeddingService.searchVectors(queryEmbedding, limit, filter);
+    }
+    const embedding = await this.bgeClient.generateEmbedding(query);
+    const must: any[] = [{ key: 'document_type', match: { value: 'legislation' } }];
+    if (filter.rada_id) must.push({ key: 'rada_id', match: { value: filter.rada_id } });
+    if (asOfDate) {
+      const ts = parseInt(asOfDate.slice(0, 10).replace(/-/g, ''), 10);
+      if (!Number.isNaN(ts)) {
+        must.push({ key: 'valid_from_ts', range: { lte: ts } });
+        must.push({ key: 'valid_to_ts', range: { gt: ts } });
+      }
+    } else {
+      must.push({ key: 'is_current', match: { value: true } });
+    }
+    const res = await this.bgeQdrant.search(this.legBgeCollection, {
+      vector: embedding,
+      limit,
+      filter: { must },
+      with_payload: true,
+    });
+    return res.map((r) => ({ id: r.id, score: r.score, payload: r.payload }));
+  }
+
+  /**
    * Hybrid (FTS + vector) discovery of the most relevant articles for a free-text query,
    * used by get_legislation_section query-mode and search_legislation (LEXAI-1806).
    *
@@ -1217,7 +1277,7 @@ export class LegislationService {
    * The fused candidates are re-scored with an article-number-token boost, a transitional-
    * provision nudge, and a mega-record demotion, then the top `limit` are returned.
    */
-  async findRelevantArticles(query: string, radaId?: string, limit: number = 5): Promise<LegislationReference[]> {
+  async findRelevantArticles(query: string, radaId?: string, limit: number = 5, asOfDate?: string): Promise<LegislationReference[]> {
     const toReference = (row: any): LegislationReference => ({
       rada_id: row.rada_id,
       article_number: row.article_number,
@@ -1251,8 +1311,7 @@ export class LegislationService {
       const [vectorHits, ftsRows] = await Promise.all([
         (async () => {
           try {
-            const queryEmbedding = await this.embeddingService.generateEmbedding(query);
-            return await this.embeddingService.searchVectors(queryEmbedding, candidateLimit, filter);
+            return await this.legislationVectorSearch(query, candidateLimit, filter, asOfDate);
           } catch (e: any) {
             logger.warn('[LegislationService] hybrid vector leg failed', { error: e?.message });
             return [] as any[];
