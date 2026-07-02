@@ -90,10 +90,44 @@ async function fetchFeed(conv: number): Promise<{ bills: any[]; modern: boolean 
   throw new Error(`No bill feed found for skl${conv} (billinfo/bills both 404)`);
 }
 
+// Extract the bill's initiators (co-sponsors) as a readable "; "-joined name list plus the
+// deputy person-ids (for linking to rada.deputies). Handles both feeds: modern wraps each
+// initiator in mp/inner/outter, legacy in `official`; all carry person {surname,firstname,
+// patronymic,id}. Bodies (President/Cabinet/committee) without a person fall back to the
+// post/organization/department label.
+function extractInitiators(bill: any): { names: string | null; ids: number[] } {
+  const arr = Array.isArray(bill.initiators)
+    ? bill.initiators
+    : Array.isArray(bill.authors)
+      ? bill.authors
+      : [];
+  const names: string[] = [];
+  const ids: number[] = [];
+  for (const ini of arr) {
+    if (typeof ini === 'string') {
+      const s = ini.trim();
+      if (s) names.push(s);
+      continue;
+    }
+    const slot = ini?.mp || ini?.inner || ini?.outter || ini?.official || ini || {};
+    const p = slot.person || null;
+    let nm = '';
+    if (p) {
+      nm = [p.surname, p.firstname, p.patronymic].filter(Boolean).join(' ').trim();
+      const pid = Number(p.id);
+      if (Number.isFinite(pid) && pid > 0) ids.push(pid);
+    }
+    if (!nm) nm = (slot.post || slot.organization || slot.department || '').trim();
+    if (nm) names.push(nm);
+  }
+  return { names: names.length ? names.join('; ') : null, ids };
+}
+
 // Map one workflow/source document to a bill_documents row (array in column order).
 function toRow(doc: any, bill: any, conv: number, group: 'workflow' | 'source'): any[] {
   const files = Array.isArray(doc.docFiles) ? doc.docFiles : [];
   const f0 = files[0] || {};
+  const bi = extractInitiators(bill);
   return [
     doc.id, // doc_id (PK)
     bill.id, // rada_bill_id
@@ -117,12 +151,15 @@ function toRow(doc: any, bill: any, conv: number, group: 'workflow' | 'source'):
     JSON.stringify(doc), // raw
     nz(bill.title || bill.name), // bill_title (modern feed uses `name`)
     nz(bill.subject), // bill_subject
+    bi.names, // bill_initiators
+    bi.ids.length ? bi.ids : null, // bill_initiator_ids
   ];
 }
 
 // Legacy `bills-sklN.json`: each doc is {date, type, uri}. The document id lives in the
 // uri's pf35401 param; there is no kindId / verdict / direct PDF.
 function toOldRow(id: number, doc: any, bill: any, conv: number, group: 'workflow' | 'source'): any[] {
+  const bi = extractInitiators(bill);
   return [
     id, // doc_id (PK) — pf35401 from uri
     bill.id, // rada_bill_id
@@ -146,6 +183,8 @@ function toOldRow(id: number, doc: any, bill: any, conv: number, group: 'workflo
     JSON.stringify(doc), // raw
     nz(bill.title || bill.name), // bill_title
     nz(bill.subject), // bill_subject
+    bi.names, // bill_initiators
+    bi.ids.length ? bi.ids : null, // bill_initiator_ids
   ];
 }
 
@@ -153,7 +192,7 @@ const COLS = [
   'doc_id', 'rada_bill_id', 'bill_number', 'convocation', 'doc_group', 'kind_id', 'kind',
   'registration_num', 'registration_date', 'outcoming_num', 'outcoming_date', 'publish_date',
   'meeting_date', 'short_review', 'formal_review', 'main_speaker', 'file_url', 'file_zip_url',
-  'doc_files', 'raw', 'bill_title', 'bill_subject',
+  'doc_files', 'raw', 'bill_title', 'bill_subject', 'bill_initiators', 'bill_initiator_ids',
 ];
 
 async function upsertBatch(rows: any[][]): Promise<number> {
