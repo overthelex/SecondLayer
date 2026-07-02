@@ -209,7 +209,19 @@ function extractPatent(record: any, objType: number): any[] {
 }
 
 // ── Batch insert ────────────────────────────────────────────────────────────
-async function insertTrademarks(rows: any[][]): Promise<number> {
+/**
+ * NIPO pages occasionally contain the same app_number twice; a duplicate inside one
+ * multi-row INSERT makes Postgres abort with "ON CONFLICT DO UPDATE command cannot
+ * affect row a second time" (SQLSTATE 21000). Keep the LAST occurrence per key.
+ */
+function dedupeByKey(rows: any[][], keyOf: (r: any[]) => string): any[][] {
+  const map = new Map<string, any[]>();
+  for (const r of rows) map.set(keyOf(r), r);
+  return Array.from(map.values());
+}
+
+async function insertTrademarks(inputRows: any[][]): Promise<number> {
+  const rows = dedupeByKey(inputRows, r => String(r[0])); // key: app_number
   if (rows.length === 0) return 0;
 
   const values: any[] = [];
@@ -248,7 +260,8 @@ async function insertTrademarks(rows: any[][]): Promise<number> {
   return res.rowCount || 0;
 }
 
-async function insertPatents(rows: any[][]): Promise<number> {
+async function insertPatents(inputRows: any[][]): Promise<number> {
+  const rows = dedupeByKey(inputRows, r => `${r[2]}::${r[0]}`); // key: (app_number, obj_type)
   if (rows.length === 0) return 0;
 
   const values: any[] = [];
