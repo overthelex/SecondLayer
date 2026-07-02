@@ -66,7 +66,38 @@ export class RadaLegislationAdapter {
   private readonly BASE_URL = 'https://zakon.rada.gov.ua';
   private readonly CHUNK_SIZE = 500; // characters per chunk for vector search
   private readonly CHUNK_OVERLAP = 100; // overlap between chunks
+  /**
+   * full_text length above which a parsed article is almost certainly a broken parse
+   * (the last "Стаття N." swallowing the document tail — LEXAI-1809). The largest legit
+   * article observed is ПКУ ст. 14 «визначення понять» ≈ 216K chars, so 400K is a safe
+   * alarm threshold. We keep the record but log an error so the anomaly is visible.
+   */
+  private readonly MEGA_ARTICLE_WARN_CHARS = 400_000;
+  /**
+   * Headings that begin the "Прикінцеві та перехідні положення" block. Article bodies
+   * must stop here — the block is extracted separately by extractTransitionalProvisions,
+   * and letting the last article run past it produces the ст. 346 mega-record.
+   */
+  private static readonly TRANSITIONAL_HEADER_PATTERNS = [
+    /ПРИКІНЦЕВІ\s+ТА\s+ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
+    /ПЕРЕХІДНІ\s+ТА\s+ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
+    /ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
+    /ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
+  ];
   private externalApiMetrics: ((service: string, status: string, durationSec: number) => void) | null = null;
+
+  /**
+   * Index of the earliest "Прикінцеві та перехідні положення" heading in the HTML, or -1.
+   * Used to bound the main-article scan so the last article can't swallow the tail.
+   */
+  private findTransitionalSectionStart(html: string): number {
+    let earliest = -1;
+    for (const pat of RadaLegislationAdapter.TRANSITIONAL_HEADER_PATTERNS) {
+      const m = pat.exec(html);
+      if (m && (earliest < 0 || m.index < earliest)) earliest = m.index;
+    }
+    return earliest;
+  }
 
   constructor(db: IDatabase) {
     this.db = db;
@@ -161,11 +192,20 @@ export class RadaLegislationAdapter {
     // Chapters: <span class=rvts15>Глава 1 </span><br><span class=rvts15>TITLE</span>
     const structureMap = this.extractStructureMap(bodyHtml);
 
-    // Parse articles: handles both <span class=rvts9>Стаття N. Title</span> and <span class=rvts9>Стаття N.</span>
-    const articleRegex = /<span\s+class=["']?rvts9["']?>Стаття\s+(\d+(?:-\d+)?)\.?\s*([^<]*)<\/span>\s*(.*?)(?=<span\s+class=["']?rvts9["']?>Стаття\s+\d|$)/gs;
+    // Bound the article scan at the "Прикінцеві та перехідні положення" heading: that block
+    // is parsed separately (extractTransitionalProvisions), and without this bound the last
+    // "Стаття N." greedily absorbs the entire tail (the ст. 346 ≈1M-char mega-record, LEXAI-1809).
+    // Slicing only the tail keeps match.index aligned with structureMap (built on full bodyHtml).
+    const transitionalStart = this.findTransitionalSectionStart(bodyHtml);
+    const scanHtml = transitionalStart >= 0 ? bodyHtml.slice(0, transitionalStart) : bodyHtml;
+
+    // Parse articles: handles both <span class=rvts9>Стаття N. Title</span> and <span class=rvts9>Стаття N.</span>.
+    // A body also terminates at the next structural header (Розділ/Підрозділ/Глава/Книга) so an article
+    // never swallows a following section that has no "Стаття N." of its own.
+    const articleRegex = /<span\s+class=["']?rvts9["']?>Стаття\s+(\d+(?:-\d+)?)\.?\s*([^<]*)<\/span>\s*(.*?)(?=<span\s+class=["']?rvts9["']?>Стаття\s+\d|<span\s+class=["']?rvts15["']?>\s*(?:Розділ|Підрозділ|Глава|Книга)\b|$)/gs;
 
     let match;
-    while ((match = articleRegex.exec(bodyHtml)) !== null) {
+    while ((match = articleRegex.exec(scanHtml)) !== null) {
       const articleNumber = match[1];
       const inlineTitle = match[2]?.trim(); // Title text inside the <span> tag
       const articleHtml = match[3];
@@ -204,6 +244,15 @@ export class RadaLegislationAdapter {
         : bodyText;
 
       if (fullText.length < 10) continue;
+
+      // Alarm on a likely broken parse (a body that swallowed the tail). Kept, not dropped,
+      // but logged so the anomaly surfaces instead of silently polluting search (LEXAI-1809).
+      if (fullText.length > this.MEGA_ARTICLE_WARN_CHARS) {
+        logger.error(
+          `[legislation] Suspiciously large article ${radaId} ст.${articleNumber}: ${fullText.length} chars ` +
+          `(> ${this.MEGA_ARTICLE_WARN_CHARS}) — probable parser tail-swallow, please re-check`
+        );
+      }
 
       // Use inline title from span if available, otherwise extract from body text
       let title: string | undefined;
@@ -421,17 +470,10 @@ export class RadaLegislationAdapter {
   private extractTransitionalProvisions(bodyHtml: string, radaId: string): LegislationArticle[] {
     const articles: LegislationArticle[] = [];
 
-    // Find the transitional provisions section header
-    const headerPatterns = [
-      /ПРИКІНЦЕВІ\s+ТА\s+ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
-      /ПЕРЕХІДНІ\s+ТА\s+ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
-      /ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
-      /ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
-    ];
-
+    // Find the transitional provisions section header (shared with the article-scan bound).
     let sectionStart = -1;
     let sectionTitle = '';
-    for (const pat of headerPatterns) {
+    for (const pat of RadaLegislationAdapter.TRANSITIONAL_HEADER_PATTERNS) {
       const m = pat.exec(bodyHtml);
       if (m) {
         sectionStart = m.index;
@@ -1027,12 +1069,16 @@ export class RadaLegislationAdapter {
 
   private extractArticlesPreBold(html: string): LegislationArticle[] {
     const articles: LegislationArticle[] = [];
+    // Bound the scan at the transitional block so the last <b>Стаття N.</b> can't swallow
+    // the document tail (same mega-record defect as the /print parser — LEXAI-1809).
+    const transitionalStart = this.findTransitionalSectionStart(html);
+    const scanHtml = transitionalStart >= 0 ? html.slice(0, transitionalStart) : html;
     // Edition pages wrap text in <pre> blocks with <b>Стаття N.</b> headers
     const articleRegex = /<b>Стаття\s+(\d+(?:-\d+)?)\.?<\/b>\s*(.*?)(?=<b>Стаття\s+\d|<\/pre>\s*$|$)/gs;
 
     const seen = new Set<string>();
     let match;
-    while ((match = articleRegex.exec(html)) !== null) {
+    while ((match = articleRegex.exec(scanHtml)) !== null) {
       const articleNumber = match[1].trim();
       if (seen.has(articleNumber)) continue;
       seen.add(articleNumber);
@@ -1053,6 +1099,13 @@ export class RadaLegislationAdapter {
       body = body.trim();
 
       if (body.length < 5) continue;
+
+      if (body.length > this.MEGA_ARTICLE_WARN_CHARS) {
+        logger.error(
+          `[legislation] Suspiciously large edition article ст.${articleNumber}: ${body.length} chars ` +
+          `(> ${this.MEGA_ARTICLE_WARN_CHARS}) — probable parser tail-swallow, please re-check`
+        );
+      }
 
       const firstLine = body.split('\n')[0].trim();
       const title = firstLine.length < 200 ? firstLine : undefined;
