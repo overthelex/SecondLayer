@@ -147,34 +147,6 @@ services:
         reservations:
           memory: 2G
 
-  qdrant-prod:
-    image: qdrant/qdrant:v1.17.0
-    container_name: secondlayer-qdrant-prod
-    ports:
-    - "127.0.0.1:6339:6333"
-    - "127.0.0.1:6340:6334"
-    volumes:
-    - qdrant_prod_data:/qdrant/storage
-    healthcheck:
-      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
-      interval: 30s
-      timeout: 5s
-      retries: 10
-      start_period: 1800s
-    restart: unless-stopped
-    networks:
-    - secondlayer-prod-network
-    environment:
-      TZ: Europe/Kiev
-      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-}
-      QDRANT__STORAGE__OPTIMIZERS__MEMMAP_THRESHOLD_KB: "20480"
-    deploy:
-      resources:
-        limits:
-          memory: 40G
-        reservations:
-          memory: 8G
-
   redis-prod:
     image: redis:7-alpine
     container_name: secondlayer-redis-prod
@@ -686,8 +658,6 @@ services:
     depends_on:
       pgbouncer-prod:
         condition: service_healthy
-      qdrant-prod:
-        condition: service_healthy
       redis-prod:
         condition: service_healthy
       migrate-prod:
@@ -729,8 +699,6 @@ services:
     depends_on:
       pgbouncer-prod:
         condition: service_healthy
-      qdrant-prod:
-        condition: service_started
       redis-prod:
         condition: service_healthy
     environment:
@@ -1107,8 +1075,6 @@ services:
     depends_on:
       pgbouncer-prod:
         condition: service_healthy
-      qdrant-prod:
-        condition: service_healthy
       redis-prod:
         condition: service_healthy
     volumes:
@@ -1250,8 +1216,6 @@ services:
     depends_on:
       pgbouncer-prod:
         condition: service_healthy
-      qdrant-prod:
-        condition: service_started
       redis-prod:
         condition: service_healthy
     environment:
@@ -1696,8 +1660,6 @@ volumes:
   postgres_prod_data:
     driver: local
   postgres_openreyestr_prod_data:
-    driver: local
-  qdrant_prod_data:
     driver: local
   redis_prod_data:
     driver: local
