@@ -60,13 +60,17 @@ export function createBillingServices(db: Database, embeddingService: EmbeddingS
     logger.warn('[BillingServices] Initial NBU rate fetch failed', { error: (err as Error).message });
   });
 
-  // Schedule daily NBU rate refresh at 6:00 AM Kyiv time
-  cron.schedule('0 6 * * *', () => {
-    logger.info('[BillingServices] Running scheduled NBU rate refresh');
-    currencyService.refreshRate().catch(err => {
-      logger.error('[BillingServices] Scheduled NBU rate refresh failed', { error: (err as Error).message });
-    });
-  }, { timezone: 'Europe/Kyiv' });
+  // Schedule daily NBU rate refresh at 6:00 AM Kyiv time — scheduler instance only
+  // (RUN_SCHEDULER!=false) so N web replicas don't each refresh (LEXAI-1802). The initial
+  // fetch above stays on every instance (idempotent, warms the rate locally).
+  if (process.env.RUN_SCHEDULER !== 'false') {
+    cron.schedule('0 6 * * *', () => {
+      logger.info('[BillingServices] Running scheduled NBU rate refresh');
+      currencyService.refreshRate().catch(err => {
+        logger.error('[BillingServices] Scheduled NBU rate refresh failed', { error: (err as Error).message });
+      });
+    }, { timezone: 'Europe/Kyiv' });
+  }
 
   const pricingService = new PricingService(db);
   const subscriptionService = new SubscriptionService(db);

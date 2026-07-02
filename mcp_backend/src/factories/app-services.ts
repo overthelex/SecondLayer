@@ -163,8 +163,14 @@ export function createAppServices(
     coreServices.db,
     coreServices.documentService
   );
-  uploadQueueService.startWorker();
-  logger.info('BullMQ upload queue service initialized');
+  // Consume the (Redis/BullMQ) upload queue on the scheduler instance only; web replicas
+  // still enqueue jobs but don't process them (heavy OCR/doc work stays off web) (LEXAI-1802).
+  if (process.env.RUN_SCHEDULER !== 'false') {
+    uploadQueueService.startWorker();
+    logger.info('BullMQ upload queue worker started (scheduler instance)');
+  } else {
+    logger.info('BullMQ upload queue service initialized (worker disabled: RUN_SCHEDULER=false)');
+  }
 
   // Prometheus metrics service + wiring
   const metricsService = new MetricsService();
