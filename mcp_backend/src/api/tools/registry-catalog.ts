@@ -188,7 +188,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
 
   trademarks: {
     title: 'Торговельні марки (Укрпатент)',
-    description: 'Пошук торговельних марок (UIPV — Укрпатент)\n\n182K записів. Пошук за текстом марки, власником, ЄДРПОУ, класом NICE, статусом.',
+    description: 'Пошук торговельних марок (UIPV — Укрпатент)\n\n389K записів (повний реєстр, синхронізовано 2026-07). Пошук за текстом марки, власником, ЄДРПОУ, класом NICE, статусом.',
     table: 'opendata_trademarks',
     selectColumns: 'app_number, app_date, registration_number, registration_date, expiry_date, mark_text, holder_name, holder_edrpou, holder_country, nice_classes, status',
     orderBy: 'registration_date DESC NULLS LAST',
@@ -205,7 +205,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
 
   patents: {
     title: 'Патенти (Укрпатент)',
-    description: 'Пошук патентів, корисних моделей та промислових зразків (UIPV — Укрпатент)\n\n119K записів. Пошук за назвою, власником, кодом МПК, номером заявки.',
+    description: 'Пошук патентів, корисних моделей та промислових зразків (UIPV — Укрпатент)\n\n347K записів (винаходи, корисні моделі, промзразки; синхронізовано 2026-07). Пошук за назвою, власником, кодом МПК, номером заявки.',
     table: 'opendata_patents',
     selectColumns: 'app_number, app_date, registration_number, registration_date, obj_type_name, title_ua, title_en, abstract_ua, ipc_codes, owner_name, owner_country, status',
     orderBy: 'registration_date DESC NULLS LAST',
