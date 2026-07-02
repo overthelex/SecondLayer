@@ -58,8 +58,8 @@ describe('RADA MCP Tools - Integration Tests', () => {
       const response = await client.get('/api/tools');
       expect(response.status).toBe(200);
       expect(response.data.tools).toBeDefined();
-      expect(response.data.tools.length).toBe(4);
-      expect(response.data.count).toBe(4);
+      expect(response.data.tools.length).toBe(5);
+      expect(response.data.count).toBe(5);
     });
   });
 

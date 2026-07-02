@@ -11,6 +11,7 @@ import { CrossReferenceService } from '../services/cross-reference-service';
 import { CostTracker } from '../services/cost-tracker';
 import {
   SearchParliamentBillsArgs,
+  SearchBillDocumentsArgs,
   GetDeputyInfoArgs,
   SearchLegislationTextArgs,
   AnalyzeVotingRecordArgs,
@@ -79,6 +80,54 @@ export class MCPRadaAPI {
             },
           },
           required: ['query'],
+        },
+      },
+      {
+        name: 'search_bill_documents',
+        description: `Пошук супровідних документів законопроєктів: висновки ГНЕУ (Головного науково-експертного управління), висновки комітетів, зауваження Головного юридичного управління тощо.
+
+💰 Примерная стоимость: $0.005-$0.02 USD
+Повнотекстовий пошук по вердиктах експертів (short_review/formal_review) та назві законопроєкту. Дозволяє простежити законодавчий намір і експертну критику норми: від правки закону → до законопроєкту → до висновку ГНЕУ. Кожен результат містить вердикт і посилання на PDF.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: {
+              type: 'string',
+              description: 'Пошуковий запит по тексту вердикту або назві законопроєкту (напр. "торговельні марки", "недійсність свідоцтва")',
+            },
+            bill_number: {
+              type: 'string',
+              description: 'Точний номер законопроєкту (напр. "13110", "11229-1")',
+            },
+            doc_kind: {
+              type: 'string',
+              enum: ['gneu', 'committee', 'legal', 'all'],
+              default: 'all',
+              description: 'Тип документа: gneu — висновок ГНЕУ; committee — висновок комітету; legal — зауваження Головного юридичного управління; all — усі',
+            },
+            convocation: {
+              type: 'number',
+              description: 'Скликання Верховної Ради (9, 8, ... 3)',
+            },
+            initiator: {
+              type: 'string',
+              description: 'Ініціатор законопроєкту (ПІБ депутата, орган) — пошук у списку ініціаторів',
+            },
+            date_from: {
+              type: 'string',
+              description: 'Дата початку періоду реєстрації документа (формат: YYYY-MM-DD)',
+            },
+            date_to: {
+              type: 'string',
+              description: 'Дата кінця періоду реєстрації документа (формат: YYYY-MM-DD)',
+            },
+            limit: {
+              type: 'number',
+              default: 20,
+              description: 'Максимальна кількість результатів (1-100)',
+            },
+          },
+          required: [],
         },
       },
       {
@@ -190,6 +239,8 @@ export class MCPRadaAPI {
       switch (name) {
         case 'search_parliament_bills':
           return await this.searchParliamentBills(args);
+        case 'search_bill_documents':
+          return await this.searchBillDocuments(args);
         case 'get_deputy_info':
           return await this.getDeputyInfo(args);
         case 'search_legislation_text':
@@ -258,6 +309,56 @@ export class MCPRadaAPI {
     } catch (error: any) {
       logger.error('Failed to search bills', { error: error.message });
       throw new Error(`Failed to search bills: ${error.message}`);
+    }
+  }
+
+  private async searchBillDocuments(args: SearchBillDocumentsArgs) {
+    logger.info('Searching bill documents', {
+      query: args.query,
+      doc_kind: args.doc_kind,
+      bill_number: args.bill_number,
+    });
+
+    try {
+      const { documents, total } = await this.billService.searchBillDocuments({
+        query: args.query,
+        bill_number: args.bill_number,
+        doc_kind: args.doc_kind,
+        convocation: args.convocation,
+        initiator: args.initiator,
+        date_from: args.date_from,
+        date_to: args.date_to,
+        limit: args.limit || 20,
+      });
+
+      return {
+        content: [
+          {
+            type: 'text',
+            text: JSON.stringify({
+              query: args.query || null,
+              doc_kind: args.doc_kind || 'all',
+              total_found: total,
+              documents: documents.map((d: any) => ({
+                bill_number: d.bill_number,
+                bill_title: d.bill_title,
+                bill_subject: d.bill_subject,
+                convocation: d.convocation,
+                kind: d.kind,
+                is_gneu: d.kind_id === 100 || /науково-експерт/i.test(d.kind || ''),
+                registration_date: d.registration_date,
+                verdict: d.short_review || d.formal_review || null,
+                initiators: d.bill_initiators,
+                pdf_url: d.file_url,
+                signed_archive_url: d.file_zip_url,
+              })),
+            }, null, 2),
+          },
+        ],
+      };
+    } catch (error: any) {
+      logger.error('Failed to search bill documents', { error: error.message });
+      throw new Error(`Failed to search bill documents: ${error.message}`);
     }
   }
 
