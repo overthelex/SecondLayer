@@ -6,6 +6,13 @@
  * Row 1 = machine headers, row 2 = Ukrainian descriptions (skipped), data from row 3.
  * Key columns: identifier (ЄДРПОУ), theEntityThatCommittedTheViolation, dateOfDecision.
  *
+ * NOTE: the machine-header SET varies across the 252 source files (9 variants):
+ * some files use lowercase keys (identifier), others PascalCase or spaced
+ * (Identifier, DateOfDecision, "Cour CaseNumber"), and one legacy file has purely
+ * positional headers (col1..col14). To map structural columns reliably we normalise
+ * every header via norm(k) = k.toLowerCase().replace(/\s+/g,'') and look up values by
+ * the normalised key. The full row_data is always preserved verbatim.
+ *
  * Usage:
  *   npx tsx src/scripts/import-amcu-bid-rigging.ts [dir]
  *   default dir: /data/opendata/amcu/zvedeni-vidomosti-torhy
@@ -52,10 +59,49 @@ function toDate(v: any): string | null {
   return null;
 }
 
-function looksLikeDescriptionRow(rowData: Record<string, any>): boolean {
-  const id = String(rowData['identifier'] ?? '');
-  const dn = String(rowData['decisionNumber'] ?? '');
-  return id.includes('ЄДРПОУ') || dn.includes('за порядком') || dn.includes('рішенн');
+/** Normalise a header key so PascalCase/spaced/lowercase variants collapse to one key. */
+function norm(k: string): string {
+  return k.toLowerCase().replace(/\s+/g, '');
+}
+
+/** Build a normalisedKey -> value index for a row (first non-null wins on collisions). */
+function buildNormIndex(rowData: Record<string, any>): Record<string, string | null> {
+  const idx: Record<string, string | null> = {};
+  for (const [k, v] of Object.entries(rowData)) {
+    const nk = norm(k);
+    if (idx[nk] == null) idx[nk] = v as string | null;
+  }
+  return idx;
+}
+
+/**
+ * Sanitise a ЄДРПОУ candidate: cyrillic О/о -> 0, strip leading/trailing dots and
+ * spaces, then require exactly 6-10 digits. Returns null if it does not qualify.
+ */
+function sanitizeEdrpou(v: any): string | null {
+  let s = cellText(v);
+  if (!s) return null;
+  s = s.replace(/[Оо]/g, '0');        // cyrillic O -> zero
+  s = s.replace(/^[.\s]+|[.\s]+$/g, '').trim();
+  return /^\d{6,10}$/.test(s) ? s : null;
+}
+
+/**
+ * Detect a machine/description/legend header row (present at row 2 and, in the legacy
+ * positional file, rows 3-5). Uses normalised-key lookups so it works for every header
+ * variant, preventing header text from leaking into entity_name.
+ */
+function looksLikeDescriptionRow(idx: Record<string, string | null>): boolean {
+  const id = String(idx['identifier'] ?? '');
+  const dd = String(idx['dateofdecision'] ?? '');
+  const ent = String(idx['theentitythatcommittedtheviolation'] ?? '');
+  const num = String(idx['number'] ?? '');
+  return (
+    id.includes('ЄДРПОУ') || id.includes('Ідентифікаційний') ||
+    dd.includes('Дата') || dd.includes('рішення у справі') ||
+    ent.includes('який вчинив порушення') ||
+    num.includes('за порядком') || num.includes('по порядку')
+  );
 }
 
 async function insertBatch(rows: any[]): Promise<number> {
@@ -109,14 +155,37 @@ async function importFile(file: string): Promise<number> {
       rowData[headers[c]] = t;
     }
     if (!hasContent) continue;
-    if (rn === 2 && looksLikeDescriptionRow(rowData)) continue;
+
+    // Header-agnostic field access: look up structural columns by normalised header.
+    const idx = buildNormIndex(rowData);
+
+    // Skip machine/description/legend header rows regardless of header variant so their
+    // text never lands in entity_name (row 2 in every file; rows 3-5 in the legacy file).
+    if (looksLikeDescriptionRow(idx)) continue;
+
+    let entityName: string | null = idx['theentitythatcommittedtheviolation'] ?? null;
+    let edrpouRaw: any = idx['identifier'];
+    let dateRaw: any = idx['dateofdecision'];
+
+    // Best-effort positional fallback for the legacy col1..col14 file, which has no
+    // machine keys. Column order there: col5=Дата рішення, col7=Суб'єкт, col8=ЄДРПОУ.
+    // Only treat it as a data row when a plausible ЄДРПОУ or date is present.
+    if (entityName == null && edrpouRaw == null && dateRaw == null) {
+      const posEdrpou = sanitizeEdrpou(rowData['col8']);
+      const posDate = toDate(rowData['col5']);
+      if (posEdrpou || posDate) {
+        entityName = (rowData['col7'] as string | null) ?? null;
+        edrpouRaw = rowData['col8'];
+        dateRaw = rowData['col5'];
+      }
+    }
 
     batch.push({
       source_file: base,
       row_num: rn,
-      decision_date: toDate(rowData['dateOfDecision']),
-      entity_name: rowData['theEntityThatCommittedTheViolation'] || null,
-      entity_edrpou: (rowData['identifier'] && /^\d{6,10}$/.test(String(rowData['identifier']))) ? String(rowData['identifier']) : null,
+      decision_date: toDate(dateRaw),
+      entity_name: (typeof entityName === 'string' && entityName.trim()) ? entityName.trim() : null,
+      entity_edrpou: sanitizeEdrpou(edrpouRaw),
       row_data: rowData,
     });
     if (batch.length >= BATCH_SIZE) { imported += await insertBatch(batch); batch = []; }
