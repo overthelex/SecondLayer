@@ -68,7 +68,8 @@ function numFit(n: number | null, maxInteger: number): number | null {
 }
 function toInt(v: string): number | null {
   if (!v || !/^\d+$/.test(v)) return null;
-  return parseInt(v);
+  const n = parseInt(v);
+  return n <= 2147483647 ? n : null; // int4 range (country_code); out-of-range → null
 }
 
 function mapRow(c: string[], reportDateFallback: string | null): any | null {
