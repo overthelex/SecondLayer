@@ -6,7 +6,9 @@
  * semicolon-delimited, 15 positional columns:
  *   0 report_date  1 issuer_edrpou  2 issuer_name  3 isin  4 owner_edrpou
  *   5 owner surname / entity name  6 owner first name  7 owner patronymic
- *   8 country_code  9 -  10 code  11 share_percent  12 nominal_per_share  13 nominal_value  14 -
+ *   8 depositor_type_code  9 owner_reg_id  10 security_type  11 nominal_value_per_share
+ *   12 share_percent (частка в статутному капіталі)  13 share_count (кількість акцій)
+ *   14 country_code (країна реєстрації власника)
  *
  * The full raw row is preserved in raw_data; upsert matches the existing unique index.
  *
@@ -91,10 +93,10 @@ function mapRow(c: string[], reportDateFallback: string | null): any | null {
     owner_name: ownerName,
     owner_name_alt: null,
     owner_type: ownerEdrpou ? 'legal' : 'individual',
-    share_percent: numFit(toNum(c[11]), 1e6),   // numeric(10,4) → |x| < 1e6
-    nominal_value: numFit(toNum(c[13]), 1e16),   // numeric(18,2) → |x| < 1e16
-    share_count: null as number | null,
-    country_code: toInt(c[8]),
+    share_percent: numFit(toNum(c[12]), 1e6),   // col12 частка, numeric(10,4) → |x| < 1e6
+    nominal_value: numFit(toNum(c[11]), 1e16),   // col11 номінальна вартість, numeric(18,2)
+    share_count: (v => (v == null ? null : Math.round(v)))(toNum(c[13])),  // col13 кількість акцій (bigint)
+    country_code: toInt(c[14]),                  // col14 країна реєстрації
     raw_data: c,
   };
 }
@@ -126,7 +128,8 @@ async function insertBatch(rows: any[]): Promise<number> {
     DO UPDATE SET
       issuer_name = EXCLUDED.issuer_name, isin_code = EXCLUDED.isin_code,
       owner_type = EXCLUDED.owner_type, share_percent = EXCLUDED.share_percent,
-      nominal_value = EXCLUDED.nominal_value, country_code = EXCLUDED.country_code,
+      nominal_value = EXCLUDED.nominal_value, share_count = EXCLUDED.share_count,
+      country_code = EXCLUDED.country_code,
       raw_data = EXCLUDED.raw_data, imported_at = NOW()
   `;
   const res = await pool.query(sql, values);
