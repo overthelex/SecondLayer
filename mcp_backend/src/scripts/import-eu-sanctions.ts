@@ -34,7 +34,9 @@ const at = (o: any, name: string): string | null => {
 const firstNonNull = (arr: (string | null)[]): string | null => arr.find(x => x) ?? null;
 
 function mapEntity(e: any): any[] | null {
-  const entityId = at(e, 'euReferenceNumber') || at(e, 'logicalId');
+  // Key by logicalId to match the existing rows (the original loader used logicalId,
+  // e.g. "1003"); fall back to euReferenceNumber only when logicalId is absent.
+  const entityId = at(e, 'logicalId') || at(e, 'euReferenceNumber');
   if (!entityId) return null;
 
   const subjectType = asArray(e.subjectType)[0];
