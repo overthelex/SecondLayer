@@ -256,10 +256,14 @@ def extract_citations_from_text(doc_id: int, text: str) -> list[Citation]:
             citations.append(Citation(doc_id, "constitution", "Конституція України", art, m.group(0)[:200]))
 
     # Transitional provisions (LEXAI-1817): dotted point numbers must NOT go through
-    # parse_article_numbers (it drops non-integer tokens and range-expands dashes);
-    # keep the captured point as-is, normalising '-' to the official dotted form.
+    # parse_article_numbers (it drops non-integer tokens and range-expands dashes).
+    # LEXAI-1818: keep the point EXACTLY as written — dash-numbered пункти (16-1
+    # військовий збір, 52-1 covid) are a DIFFERENT numbering space from dotted
+    # subpoints (38.6); normalising '-' to '.' collided with main-body point numbering
+    # (16.1 = ст.16 п.16.1) and bound the wrong article. Disambiguation of sloppy court
+    # renderings is the RESOLVER's job (dash→dotted fallback when no dash target exists).
     for m in PATTERNS["transitional_provision"].finditer(text):
-        point = m.group(1).rstrip(".").replace("-", ".")
+        point = m.group(1).rstrip(".")
         citations.append(Citation(
             doc_id, "transitional_provision", "Податковий кодекс України", point, m.group(0)[:200]))
 
