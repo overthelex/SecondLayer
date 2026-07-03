@@ -202,14 +202,23 @@ export class RadaLegislationAdapter {
         /<span[^>]*>\s*<span[^>]*font-size:\s*0(?:px)?[^>]*>\s*-\s*<\/span>\s*(\d+)\s*<\/span>/gi,
         '-$1',
       )
-      // Second pass (КК shape): the dash-article HEADER is split across spans — the
+      // Second pass (КК shape A): the dash-article HEADER is split across spans — the
       // number span closes BEFORE the superscript index, and the trailing dot (with or
       // without the title) sits in its own span:
-      //   <span class=rvts9>Стаття 111</span>-1<span class=rvts9>. Title?</span>
+      //   <span class=rvts9>Стаття 111</span>-2<span class=rvts9>.</span> Пособництво…
       // Merge it back into the single-span shape the article regex expects.
       .replace(
         /(Стаття\s+\d+)<\/span>(-\d+)<span[^>]*>\s*\.\s*([^<]*)<\/span>/gi,
         '$1$2. $3</span>',
+      )
+      // Shape B (КК 111-1, КУпАП 173-2, ПКУ 297-1): after the flattened index the dot
+      // and title are PLAIN TEXT — no span to merge:
+      //   <span class=rvts9>Стаття 111</span>-1. Колабораційна діяльність</p>
+      // Pull the dash index inside the header span. Safe: body references to dash
+      // articles are plain text with no </span> between the number and the index.
+      .replace(
+        /(Стаття\s+\d+)<\/span>(-\d+)\s*\./gi,
+        '$1$2.</span>',
       );
   }
 
