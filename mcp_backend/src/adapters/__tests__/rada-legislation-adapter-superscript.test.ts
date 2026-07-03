@@ -92,3 +92,56 @@ describe('RadaLegislationAdapter — superscript dash-index units (LEXAI-1821)',
     expect(art297_1.full_text).not.toContain('rvts37');
   });
 });
+
+describe('RadaLegislationAdapter — split dash-article headers (КК shape, LEXAI-1821)', () => {
+  // Verbatim from the stored HTML of КК (2341-14): the header of a dash article is
+  // SPLIT across three spans — the number span closes BEFORE the superscript index:
+  //   <span class=rvts9>Стаття 111</span><sup-markup>-2</sup-markup><span class=rvts9>.</span> Пособництво…
+  // so the article regex captured «111» and the «-2. …» tail fell into the body.
+  const supRaw = (n: string) => `<span class="rvts44"><span style="font-size:0px">-</span>${n}</span>`;
+
+  const KK_PRINT_HTML = `
+<!DOCTYPE html><html><head><title>Кримінальний кодекс України</title></head><body>
+<span class=rvts15>Розділ I </span><br><span class=rvts15>ЗЛОЧИНИ ПРОТИ ОСНОВ НАЦІОНАЛЬНОЇ БЕЗПЕКИ</span>
+<span class=rvts9>Стаття 109. Дії, спрямовані на насильницьку зміну ладу</span> Текст статті сто дев'ять достатньої довжини для фільтра.
+<span class=rvts9>Стаття 110. Посягання на територіальну цілісність</span> Текст статті сто десять достатньої довжини для фільтра.
+<span class=rvts9>Стаття 111.</span> Державна зрада
+<p class="rvps2"><a name="n722"></a> 1. Державна зрада, тобто діяння, умисно вчинене громадянином України на шкоду суверенітетові держави.</p>
+<span class=rvts9>Стаття 111</span>${supRaw('1')}<span class="rvts9">.</span> Колабораційна діяльність
+<p class="rvps2"><a name="n3900"></a> 1. Публічне заперечення громадянином України здійснення збройної агресії проти України є колабораційною діяльністю.</p>
+<span class=rvts9>Стаття 111</span>${supRaw('2')}<span class="rvts9">.</span> Пособництво державі-агресору
+<p class="rvps2"><a name="n3932"></a> 1. Умисні дії, спрямовані на допомогу державі-агресору (пособництво), вчинені з метою завдання шкоди Україні.</p>
+<span class=rvts9>Стаття 112. Посягання на життя державного діяча</span> Текст статті сто дванадцять достатньої довжини для фільтра.
+<span class=rvts9>Стаття 113. Диверсія</span> Текст статті сто тринадцять достатньої довжини для фільтра.
+</body></html>
+`;
+
+  let adapter: RadaLegislationAdapter;
+  let mockAxiosInstance: any;
+
+  beforeEach(() => {
+    mockAxiosInstance = { get: jest.fn() };
+    mockedAxios.create = jest.fn().mockReturnValue(mockAxiosInstance);
+    adapter = new RadaLegislationAdapter({} as any);
+    mockAxiosInstance.get.mockResolvedValue({ data: KK_PRINT_HTML });
+  });
+
+  test('split-header dash articles are extracted with their own numbers', async () => {
+    const { articles } = await adapter.fetchLegislation('2341-14');
+    const numbers = articles.map(a => a.article_number);
+
+    expect(numbers).toContain('111');
+    expect(numbers).toContain('111-1');
+    expect(numbers).toContain('111-2');
+
+    const zrada = articles.find(a => a.article_number === '111')!;
+    expect(zrada.full_text).toContain('Державна зрада');
+    expect(zrada.full_text).not.toContain('Колабораційна');
+
+    const collab = articles.find(a => a.article_number === '111-1')!;
+    expect(collab.full_text).toContain('колабораційною діяльністю');
+
+    const posobn = articles.find(a => a.article_number === '111-2')!;
+    expect(posobn.full_text).toContain('Пособництво');
+  });
+});
