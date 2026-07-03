@@ -32,6 +32,13 @@ services:
       NEO4J_USER: neo4j
       NEO4J_PASSWORD: ${NEO4J_PASSWORD}
       NEO4J_DATABASE: neo4j
+      # Контентные чтения (legislation, EDRSR) — прод-PG read-only через туннель
+      CONTENT_DATABASE_URL: ${CONTENT_DATABASE_URL:-}
+      # LLM: только Bedrock (IAM-юзер bedrock-dev, invoke-only), без прямых OpenAI/Anthropic
+      LLM_PROVIDER_STRATEGY: bedrock-first
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
     deploy:
       resources:
         limits:
