@@ -194,16 +194,40 @@ export class BillService {
   }
 
   /**
+   * Ukrainian inflectional endings, longest-first. Full-word prefixes break on
+   * inflection under the 'simple' FTS config («патентний:*» does not match
+   * «патентним»), so Cyrillic tokens are truncated to a stem before `:*`.
+   * One suffix is stripped only when the remaining stem keeps >= 4 chars
+   * (LEXAI-1819).
+   */
+  private static readonly UK_SUFFIXES = [
+    'ього', 'ьому', 'ами', 'ями', 'ові', 'еві', 'ого', 'ому', 'ими', 'іми',
+    'ій', 'ий', 'им', 'ім', 'их', 'іх', 'ої', 'ою', 'ею', 'ах', 'ях',
+    'ам', 'ям', 'ів', 'їв', 'ом', 'ем', 'ей',
+    'и', 'і', 'ї', 'а', 'я', 'о', 'е', 'у', 'ю', 'ь',
+  ];
+
+  private static stemPrefix(token: string): string {
+    if (!/^[а-щьюяіїєґ]+$/.test(token)) return token;
+    for (const suffix of BillService.UK_SUFFIXES) {
+      if (token.length - suffix.length >= 4 && token.endsWith(suffix)) {
+        return token.slice(0, token.length - suffix.length);
+      }
+    }
+    return token;
+  }
+
+  /**
    * Build a `simple`-config prefix tsquery from free text.
    * The bill_documents FTS indexes use the 'simple' config (no Ukrainian stemmer),
-   * so we match on word prefixes (`слов:*`) to tolerate inflected forms.
+   * so we match on stem prefixes (`патентн:*`) to tolerate inflected forms.
    * Returns '' when the input has no usable tokens.
    */
-  private toPrefixTsQuery(input: string): string {
+  static toPrefixTsQuery(input: string, op: '&' | '|' = '&'): string {
     const tokens = (input.match(/[\p{L}\p{N}]+/gu) || [])
       .map(t => t.toLowerCase())
       .filter(t => t.length > 1);
-    return tokens.map(t => `${t}:*`).join(' & ');
+    return tokens.map(t => `${BillService.stemPrefix(t)}:*`).join(` ${op} `);
   }
 
   /**
@@ -221,7 +245,7 @@ export class BillService {
     date_from?: string;
     date_to?: string;
     limit?: number;
-  }): Promise<{ documents: any[]; total: number }> {
+  }): Promise<{ documents: any[]; total: number; relaxed?: boolean }> {
     if (params.date_from && !this.validateDateFormat(params.date_from)) {
       throw new Error(
         `Invalid date_from format: "${params.date_from}". Expected YYYY-MM-DD (e.g., 2024-01-15)`
@@ -245,14 +269,17 @@ export class BillService {
     let i = 1;
 
     // Full-text over verdict summaries + bill title
+    let tsqIndex = 0;
+    let andTsq = '';
     if (params.query) {
-      const tsq = this.toPrefixTsQuery(params.query);
-      if (tsq) {
+      andTsq = BillService.toPrefixTsQuery(params.query);
+      if (andTsq) {
         sql += ` AND (
           to_tsvector('simple', coalesce(short_review,'') || ' ' || coalesce(formal_review,'') || ' ' || coalesce(full_text,'')) @@ to_tsquery('simple', $${i})
           OR to_tsvector('simple', coalesce(bill_title,'')) @@ to_tsquery('simple', $${i})
         )`;
-        queryParams.push(tsq);
+        queryParams.push(andTsq);
+        tsqIndex = i;
         i++;
       }
     }
@@ -301,15 +328,42 @@ export class BillService {
     }
 
     const limit = Math.min(Math.max(params.limit || 20, 1), 100);
-    sql += ` ORDER BY registration_date DESC NULLS LAST LIMIT ${limit}`;
 
-    const result = await this.db.query(sql, queryParams);
+    let result = await this.db.query(
+      sql + ` ORDER BY registration_date DESC NULLS LAST LIMIT ${limit}`,
+      queryParams
+    );
+
+    // Strict AND over all tokens makes multi-word natural queries brittle
+    // (one unmatched word form → 0 rows). Retry with OR semantics, ranked by
+    // relevance so the date ordering doesn't surface loosely-matching noise.
+    let relaxed = false;
+    if (result.rows.length === 0 && tsqIndex > 0 && andTsq.includes(' & ')) {
+      const orParams = [...queryParams];
+      orParams[tsqIndex - 1] = BillService.toPrefixTsQuery(params.query!, '|');
+      result = await this.db.query(
+        sql +
+          ` ORDER BY ts_rank(to_tsvector('simple', coalesce(short_review,'') || ' ' || coalesce(formal_review,'') || ' ' || coalesce(bill_title,'')), to_tsquery('simple', $${tsqIndex})) DESC, registration_date DESC NULLS LAST LIMIT ${limit}`,
+        orParams
+      );
+      relaxed = true;
+      logger.info('Bill documents search relaxed to OR semantics', {
+        query: params.query,
+        found: result.rows.length,
+      });
+    }
+
     logger.info('Bill documents search completed', {
       query: params.query,
       doc_kind: params.doc_kind,
       found: result.rows.length,
+      relaxed,
     });
-    return { documents: result.rows, total: result.rows.length };
+    return {
+      documents: result.rows,
+      total: result.rows.length,
+      ...(relaxed ? { relaxed: true } : {}),
+    };
   }
 
   /**
