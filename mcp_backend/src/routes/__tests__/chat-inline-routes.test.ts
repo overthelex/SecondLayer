@@ -7,14 +7,14 @@ describe('resolveChatTimeoutMs', () => {
   // auto-escalated to deep (plan >= 8 steps) was aborted mid-VERIFY at 240s.
 
   it('gives the deep timeout when no maxBudget caps escalation', () => {
-    expect(resolveChatTimeoutMs('standard', undefined)).toBe(300_000);
-    expect(resolveChatTimeoutMs('quick', undefined)).toBe(300_000);
-    expect(resolveChatTimeoutMs(undefined, undefined)).toBe(300_000);
-    expect(resolveChatTimeoutMs('deep', undefined)).toBe(300_000);
+    expect(resolveChatTimeoutMs('standard', undefined)).toBe(360_000);
+    expect(resolveChatTimeoutMs('quick', undefined)).toBe(360_000);
+    expect(resolveChatTimeoutMs(undefined, undefined)).toBe(360_000);
+    expect(resolveChatTimeoutMs('deep', undefined)).toBe(360_000);
   });
 
   it('gives the deep timeout when maxBudget is deep', () => {
-    expect(resolveChatTimeoutMs('standard', 'deep')).toBe(300_000);
+    expect(resolveChatTimeoutMs('standard', 'deep')).toBe(360_000);
   });
 
   it('gives the standard timeout when maxBudget caps escalation below deep', () => {
