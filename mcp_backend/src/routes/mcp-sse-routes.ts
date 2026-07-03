@@ -17,6 +17,7 @@ import { sanitizeId, maskSensitive } from '../utils/sanitize-log.js';
 import { requestContext } from '../utils/openai-client.js';
 import { MCPSSEServer } from '../api/mcp-sse-server.js';
 import { ToolRegistry, ToolDefinition } from '../api/tool-registry.js';
+import { V2_TOOL_NAMES } from '../api/curated-mcp-tools.js';
 import { ChatService } from '../services/chat-service.js';
 import { OAuthService } from '../services/oauth-service.js';
 import { ApiKeyService } from '../services/api-key-service.js';
@@ -275,25 +276,8 @@ export function createMCPSSERoutes(deps: {
   // tool selection tractable for external MCP clients (Claude Code/Desktop) while still
   // letting them call the real handlers directly. Execution, billing and cost-tracking are
   // identical to v1 (buildMcpServer); only the exposed set differs.
-  const V2_TOOL_NAMES = new Set<string>([
-    // Legislation (6)
-    'search_legislation',
-    'get_legislation_section',
-    'get_legislation_articles',
-    'get_legislation_structure',
-    'get_legislation_history',
-    'list_legislation_editions',
-    // Court decisions — ЄДРСР (9)
-    'search_court_decisions',
-    'get_court_decision',
-    'get_case_documents_chain',
-    'load_full_texts',
-    'find_similar_fact_pattern_cases',
-    'compare_practice_pro_contra',
-    'count_cases_by_party',
-    'check_precedent_status',
-    'get_citation_graph',
-  ]);
+  // The whitelist is shared with the legacy /sse transport (MCPSSEServer) — see
+  // curated-mcp-tools.ts — so both endpoints advertise the same curated set.
 
   // Build an MCP Server exposing only the curated v2 subset. Reuses the fully-wired v1
   // builder (tools/list + tools/call with billing) with the whitelist applied.
