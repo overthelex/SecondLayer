@@ -16,6 +16,7 @@ import { ToolRegistry } from './tool-registry.js';
 import { CostTracker } from '../services/cost-tracker.js';
 import { CreditService } from '../services/credit-service.js';
 import { requestContext } from '../utils/openai-client.js';
+import { V2_TOOL_NAMES } from './curated-mcp-tools.js';
 
 export interface MCPToolDefinition {
   name: string;
@@ -319,9 +320,17 @@ export class MCPSSEServer {
   private async handleToolsList(res: Response, request: MCPRequest): Promise<void> {
     const allTools = this.getAllTools();
 
-    // Limit tools for ChatGPT compatibility — large tool lists may fail to register
-    const MAX_TOOLS = 15;
-    const tools = allTools.slice(0, MAX_TOOLS);
+    // Advertise the curated v2 tool set — same whitelist as /api/v2/mcp — instead of
+    // a blind slice(0, N). The previous slice kept only the first 15 tools by registration
+    // order, which silently dropped the court-decision / ЄДРСР tools (registered later in
+    // tool-services.ts) and made this endpoint unusable for case lookups. Filtering by an
+    // explicit whitelist keeps the list small for ChatGPT while guaranteeing the right tools.
+    const tools = allTools.filter((t) => V2_TOOL_NAMES.has(t.name));
+
+    const missing = [...V2_TOOL_NAMES].filter((n) => !tools.some((t) => t.name === n));
+    if (missing.length > 0) {
+      logger.warn('[MCP SSE] Curated tools missing from local registry', { missing });
+    }
 
     logger.info('[MCP SSE] Tools list requested', {
       count: tools.length,
