@@ -53,9 +53,11 @@ function parseLine(line: string): string[] {
 }
 
 function toDate(v: string): string | null {
-  const m = v.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/); // d.m.yyyy
-  if (!m) return null;
-  return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  let m = v.match(/(\d{4})-(\d{2})-(\d{2})/); // ISO yyyy-mm-dd (2018–2021 files)
+  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  m = v.match(/(\d{1,2})\.(\d{1,2})\.(\d{4})/); // d.m.yyyy (2022+ files)
+  if (m) return `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
+  return null;
 }
 function toNum(v: string): number | null {
   if (!v) return null;
@@ -132,10 +134,12 @@ async function insertBatch(rows: any[]): Promise<number> {
 }
 
 function reportDateFromName(f: string): string | null {
-  // e.g. "1-qv-2024.csv", "data-4-qv-2025.csv" → last day of the quarter
-  const m = f.match(/(\d)-qv-(\d{4})/);
-  if (!m) return null;
-  const q = parseInt(m[1]), y = m[2];
+  // "1-qv-2024.csv", "data-4-qv-2025.csv", "owners_2020_q3.csv" → last day of the quarter
+  let m = f.match(/(\d)-qv-(\d{4})/);
+  let q: number, y: string;
+  if (m) { q = parseInt(m[1]); y = m[2]; }
+  else if ((m = f.match(/_(\d{4})_q(\d)/))) { y = m[1]; q = parseInt(m[2]); }
+  else return null;
   const ends = ['03-31', '06-30', '09-30', '12-31'];
   return q >= 1 && q <= 4 ? `${y}-${ends[q - 1]}` : null;
 }
