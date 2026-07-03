@@ -197,10 +197,20 @@ export class RadaLegislationAdapter {
    * parsing so every downstream regex sees plain «297-1» / «16-1».
    */
   static normalizeSuperscriptIndexes(html: string): string {
-    return html.replace(
-      /<span[^>]*>\s*<span[^>]*font-size:\s*0(?:px)?[^>]*>\s*-\s*<\/span>\s*(\d+)\s*<\/span>/gi,
-      '-$1',
-    );
+    return html
+      .replace(
+        /<span[^>]*>\s*<span[^>]*font-size:\s*0(?:px)?[^>]*>\s*-\s*<\/span>\s*(\d+)\s*<\/span>/gi,
+        '-$1',
+      )
+      // Second pass (КК shape): the dash-article HEADER is split across spans — the
+      // number span closes BEFORE the superscript index, and the trailing dot (with or
+      // without the title) sits in its own span:
+      //   <span class=rvts9>Стаття 111</span>-1<span class=rvts9>. Title?</span>
+      // Merge it back into the single-span shape the article regex expects.
+      .replace(
+        /(Стаття\s+\d+)<\/span>(-\d+)<span[^>]*>\s*\.\s*([^<]*)<\/span>/gi,
+        '$1$2. $3</span>',
+      );
   }
 
   private extractArticles($: cheerio.CheerioAPI, radaId: string): LegislationArticle[] {
