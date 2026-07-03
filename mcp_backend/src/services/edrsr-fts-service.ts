@@ -149,6 +149,48 @@ export interface SelectFtsTermsOpts {
   sampleDocs?: number;  // total sampled docs → relative floor = sampleDocs * ANCHOR_DF_FRACTION
 }
 
+// ── Status-vocabulary demotion + geo promotion (CORE-106) ─────────────────────
+// Repro chat-98f8472e/chat-5340fe5c (gold-eval FAILs): the LLM echoes the user's
+// party-status wording («ВПО» → «внутрішньо переміщені особи») into the search query.
+// Those tokens are corpus-RARE (переміщ df≈1095), so IDF-first ordering puts them at the
+// head of the capped AND-set — where they poison it: the query stays satisfiable (IDP
+// cases exist in droves, so term-relaxation never fires) but the target decision, which
+// exempts objects BY TERRITORY and never mentions the owner's status, can no longer match.
+// Party status describes the person, not the legal issue — it must never outrank operative
+// anchors. Conversely a locality token («Донецьк») is the single most discriminative
+// operative fact and must survive the cap even at a modest idf.
+// Prefix stems (lowercased, matched via startsWith over the sanitized token) so declined
+// forms match without morphology.
+
+/** Party-status vocabulary — demoted to the very tail (below weak junk: weak terms yield
+ *  0 results and relaxation recovers, a satisfiable-but-wrong status conjunct does not). */
+export const STATUS_VOCAB_STEMS: readonly string[] = [
+  'впо', 'переміщен', 'переселен', 'внутрішньо', 'пенсіонер', 'інвалід',
+  'ветеран', 'чорнобил', 'багатодіт', 'малозабезпечен', 'біженц', 'безробітн',
+];
+
+/** Occupied/frontline localities + oblast stems — promoted to the head of the anchor tier. */
+export const GEO_ANCHOR_STEMS: readonly string[] = [
+  'донецьк', 'донецк', 'луганськ', 'маріупол', 'крим', 'севастопол', 'херсон',
+  'запоріз', 'запоріж', 'харків', 'миколаїв', 'бахмут', 'авдіївк', 'лисичанськ',
+  'сєвєродонецьк', 'словянськ', 'краматорськ', 'горлівк', 'макіївк', 'мелітопол',
+  'бердянськ', 'енергодар', 'токмак', 'волноваха',
+];
+
+/** Minimum count of non-status anchors for status demotion to apply: with fewer, the
+ *  query is genuinely ABOUT the status (e.g. «пільги переселенців») and stays untouched. */
+const STATUS_DEMOTE_MIN_ANCHORS = 3;
+
+function matchesStemList(tokenLc: string, stems: readonly string[]): boolean {
+  const t = sanitizeFtsToken(tokenLc);
+  return t.length > 0 && stems.some(s => t.startsWith(s));
+}
+
+/** Telemetry helper (CORE-106): does the token belong to the party-status vocabulary? */
+export function isStatusVocabToken(token: string): boolean {
+  return matchesStemList((token || '').toLowerCase(), STATUS_VOCAB_STEMS);
+}
+
 /**
  * IDF-weighted ordering of FTS keyword tokens (CORE-21 P1.5a + LEXAI Cause-A).
  *
@@ -172,17 +214,36 @@ export function selectFtsTerms(
   const floor = df
     ? Math.max(ANCHOR_DF_MIN_ABS, Math.round((opts?.sampleDocs ?? 0) * ANCHOR_DF_FRACTION))
     : 0;
-  return tokens
-    .map((tok, i) => {
-      const lc = tok.toLowerCase();
-      const d = df ? (df.get(lc) ?? 0) : undefined;
-      return { tok, i, idf: idfByToken.get(lc) ?? 0, d: d ?? 0, weak: df ? (d! < floor) : false };
+  const scored = tokens.map((tok, i) => {
+    const lc = tok.toLowerCase();
+    const d = df ? (df.get(lc) ?? 0) : undefined;
+    return {
+      tok, i,
+      idf: idfByToken.get(lc) ?? 0,
+      d: d ?? 0,
+      weak: df ? (d! < floor) : false,
+      geo: matchesStemList(lc, GEO_ANCHOR_STEMS),
+      status: matchesStemList(lc, STATUS_VOCAB_STEMS),
+    };
+  });
+  // CORE-106: demote status vocabulary only while enough operative anchors remain —
+  // a status-centric query (e.g. «пільги переселенців») keeps its subject untouched.
+  const anchorCount = scored.filter(x => !x.weak && !x.status).length;
+  const demoteStatus = anchorCount >= STATUS_DEMOTE_MIN_ANCHORS;
+  // Tier order (cap takes the head, relaxation pops the tail):
+  //   0 geo anchors · 1 anchors · 2 weak junk · 3 demoted status
+  const tier = (x: typeof scored[number]): number => {
+    if (demoteStatus && x.status) return 3;
+    if (x.weak) return 2;
+    return x.geo ? 0 : 1;
+  };
+  return scored
+    .sort((a, b) => {
+      const ta = tier(a), tb = tier(b);
+      if (ta !== tb) return ta - tb;
+      return ta === 2 ? (b.d - a.d) || (a.i - b.i)     // weak tail: least-rare junk first
+                      : (b.idf - a.idf) || (a.i - b.i); // others: discriminative first
     })
-    .sort((a, b) =>
-      (a.weak === b.weak)
-        ? (a.weak ? (b.d - a.d) || (a.i - b.i)   // weak tail: least-rare junk first
-                  : (b.idf - a.idf) || (a.i - b.i)) // anchors: discriminative first
-        : (a.weak ? 1 : -1))                        // anchors before weak
     .map(x => x.tok);
 }
 

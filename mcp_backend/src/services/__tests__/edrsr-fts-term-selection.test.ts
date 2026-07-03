@@ -195,3 +195,83 @@ describe('EdsrFtsService.snapTokensToStems (LEXAI Cause-A.2)', () => {
     expect((await svc.snapTokensToStems(['окупована'], errDb)).size).toBe(0);
   });
 });
+
+describe('selectFtsTerms — status-vocabulary demotion + geo promotion (CORE-106)', () => {
+  // Repro chat-98f8472e / chat-5340fe5c: «внутрішньо переміщені» (df 1095, corpus-rare →
+  // top idf) won cap slots over «донецьк»/«площа», producing a satisfiable-but-wrong
+  // AND-query the target decision can never match. Party-status vocabulary describes the
+  // person, not the legal issue — it must not enter the capped AND-set while operative
+  // anchors exist. The semantic leg still sees the full query, so no meaning is lost.
+  const idf = new Map<string, number>([
+    ['податок', 0.2], ['нерухомість', 1.0], ['окупована', 4.0], ['територія', 2.0],
+    ['площа', 1.5], ['донецьк', 3.0],
+    ['внутрішньо', 6.0], ['переміщені', 6.5],   // rarest of all — old logic put them FIRST
+  ]);
+  const df = new Map<string, number>([
+    ['податок', 2_000_000], ['нерухомість', 400_000], ['окупована', 30_000],
+    ['територія', 900_000], ['площа', 600_000], ['донецьк', 120_000],
+    ['внутрішньо', 1_095], ['переміщені', 1_095],   // healthy df → NOT weak-tier
+  ]);
+  const opts = { df, sampleDocs: 3_000_000 };
+  const reproTokens = ['податок', 'нерухомість', 'окупована', 'територія', 'внутрішньо', 'переміщені', 'Донецьк', 'площа'];
+
+  it('demotes status terms below every operative anchor (repro: they left the top-6 cap)', () => {
+    const out = selectFtsTerms(reproTokens, idf, opts);
+    const top6 = out.slice(0, 6);
+    expect(top6).not.toContain('внутрішньо');
+    expect(top6).not.toContain('переміщені');
+    expect(top6).toEqual(expect.arrayContaining(['Донецьк', 'окупована', 'площа', 'податок']));
+  });
+
+  it('demotes status terms below the weak tier (relaxation drops status FIRST)', () => {
+    // Weak junk produces 0 results → relaxation recovers; a satisfiable-but-wrong status
+    // conjunct never triggers relaxation — so status must sit further in the tail.
+    const withJunk = [...reproTokens, 'сумування'];
+    const dfJunk = new Map(df); dfJunk.set('сумування', 3);   // sub-floor → weak
+    const idfJunk = new Map(idf); idfJunk.set('сумування', 9.0);
+    const out = selectFtsTerms(withJunk, idfJunk, { df: dfJunk, sampleDocs: 3_000_000 });
+    expect(out.indexOf('переміщені')).toBeGreaterThan(out.indexOf('сумування'));
+  });
+
+  it('keeps status terms in place when the query is genuinely status-centric (<3 anchors)', () => {
+    const tokens = ['переселенців', 'пільги'];
+    const idf2 = new Map([['переселенців', 5.0], ['пільги', 1.0]]);
+    const out = selectFtsTerms(tokens, idf2, opts);
+    expect(out[0]).toBe('переселенців');   // no demotion — status IS the subject
+  });
+
+  it('promotes a geo anchor into the head even when rarer legal terms outrank it by idf', () => {
+    const tokens = ['стягнення', 'апеляційний', 'провадження', 'касаційний', 'зобов’язання', 'оскарження', 'Донецьк'];
+    const idf3 = new Map<string, number>([
+      ['стягнення', 7.0], ['апеляційний', 6.8], ['провадження', 6.5], ['касаційний', 6.2],
+      ['зобов’язання', 6.0], ['оскарження', 5.8], ['донецьк', 3.0],
+    ]);
+    const df3 = new Map<string, number>([
+      ['стягнення', 5_000], ['апеляційний', 6_000], ['провадження', 7_000], ['касаційний', 8_000],
+      ['зобов’язання', 9_000], ['оскарження', 10_000], ['донецьк', 120_000],
+    ]);
+    const out = selectFtsTerms(tokens, idf3, { df: df3, sampleDocs: 3_000_000 });
+    expect(out.slice(0, 6)).toContain('Донецьк');   // survives the 6-cap despite lowest idf
+  });
+
+  it('handles declined forms via prefix matching (Донецьку, переміщених)', () => {
+    const tokens = ['податок', 'нерухомість', 'окупована', 'переміщених', 'Донецьку'];
+    const idf4 = new Map<string, number>([
+      ['податок', 0.2], ['нерухомість', 1.0], ['окупована', 4.0],
+      ['переміщених', 6.5], ['донецьку', 3.0],
+    ]);
+    const df4 = new Map<string, number>([
+      ['податок', 2_000_000], ['нерухомість', 400_000], ['окупована', 30_000],
+      ['переміщених', 1_095], ['донецьку', 120_000],
+    ]);
+    const out = selectFtsTerms(tokens, idf4, { df: df4, sampleDocs: 3_000_000 });
+    expect(out[0]).toBe('Донецьку');
+    expect(out[out.length - 1]).toBe('переміщених');
+  });
+
+  it('does not change behaviour for queries without status/geo vocabulary', () => {
+    const tokens = ['податок', 'нерухомість', 'окупована', 'територія'];
+    const out = selectFtsTerms(tokens, idf, opts);
+    expect(out).toEqual(['окупована', 'територія', 'нерухомість', 'податок']);
+  });
+});

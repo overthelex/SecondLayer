@@ -19,7 +19,7 @@ import type { SearchResultFilter } from '../../services/search-result-filter.js'
 import { STRICT_MIN_SCORE } from '../../services/search-result-filter.js';
 import type { QueryReformulator } from '../../services/query-reformulator.js';
 import type { EdsrFtsService, EdsrFtsFilters, EdsrFtsSearchResponse } from '../../services/edrsr-fts-service.js';
-import { selectFtsTerms, sanitizeFtsToken, buildPrefixTsquery } from '../../services/edrsr-fts-service.js';
+import { selectFtsTerms, sanitizeFtsToken, buildPrefixTsquery, isStatusVocabToken } from '../../services/edrsr-fts-service.js';
 import type { EdsrVectorizerService, EdrsrSearchFilters, EdrsrSearchResult } from '../../services/edrsr-vectorizer-service.js';
 
 const DEFAULT_RRF_K = 60;
@@ -418,6 +418,17 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       : { idf: new Map<string, number>(), df: new Map<string, number>(), sampleDocs: 0 };
     const tokens = selectFtsTerms(rawTokens, stats.idf, { df: stats.df, sampleDocs: stats.sampleDocs });
     const idfRanked = stats.idf.size > 0;
+
+    // CORE-106 telemetry: party-status vocabulary in the search query is the marker of
+    // query drift (repro chat-98f8472e/chat-5340fe5c — «ВПО/внутрішньо переміщені» stole
+    // cap slots from operative anchors). selectFtsTerms now demotes it to the tail; log
+    // the occurrence so drift stays visible in metrics, not only in gold-eval runs.
+    const statusTokens = rawTokens.filter(isStatusVocabToken);
+    if (statusTokens.length > 0 && idfRanked) {
+      logger.info('[EdsrUnifiedSearch] status vocabulary in query — demoted from FTS anchors (CORE-106)', {
+        status_tokens: statusTokens, query: String(topicalQuery).slice(0, 160),
+      });
+    }
 
     // LEXAI Cause-A.2: snap ranked tokens to corpus STEMS (edrsr_lexeme_df) and probe with a
     // declension-tolerant prefix tsquery (окупован:* …). Fixes the stemless-'simple' recall
