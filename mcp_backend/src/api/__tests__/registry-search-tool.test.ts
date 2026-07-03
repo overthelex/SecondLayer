@@ -104,9 +104,11 @@ describe('RegistrySearchTool', () => {
         filters: { last_name: 'Іваненко' },
       });
 
-      expect(calls).toHaveLength(1);
+      // Data query + parallel COUNT(*) query share the same WHERE
+      expect(calls).toHaveLength(2);
       expect(calls[0].sql).toContain('ILIKE');
       expect(calls[0].params).toContain('%Іваненко%');
+      expect(calls[1].sql).toContain('COUNT(*)');
     });
 
     it('exact: uses = operator without wrapping', async () => {
@@ -264,9 +266,12 @@ describe('RegistrySearchTool', () => {
     });
 
     it('strips _total_count from results', async () => {
-      db = makeDb(() => ({
-        rows: [{ name: 'Test Corp', schema: 'Company', _total_count: 42 }],
-      }));
+      // The COUNT(*) companion query supplies the total; data rows carry it as _total_count
+      db = makeDb((sql: string) =>
+        sql.includes('COUNT(*)')
+          ? { rows: [{ total: '42' }] }
+          : { rows: [{ name: 'Test Corp', schema: 'Company', _total_count: 42 }] }
+      );
       tool = new RegistrySearchTool(db);
 
       const result = await tool.executeTool('search_registry', {
@@ -295,5 +300,108 @@ describe('RegistrySearchTool', () => {
       expect(result?.isError).toBe(true);
       expect(result?.content[0].text).toContain('connection refused');
     });
+  });
+});
+
+// LEXAI-1820: aggregate mode — GROUP BY a catalog field with optional distinct-count,
+// so the chat can answer "which identical marks are held by multiple owners" without
+// pulling 26K rows through the LLM context.
+describe('aggregate mode (LEXAI-1820)', () => {
+  let db: any;
+  let calls: QueryCall[];
+  let tool: RegistrySearchTool;
+
+  const makeDb = (responder: (sql: string, params?: any[]) => any) => ({
+    query: jest.fn((sql: string, params?: any[]) => {
+      calls.push({ sql, params });
+      return Promise.resolve(responder(sql, params));
+    }),
+  });
+
+  beforeEach(() => {
+    calls = [];
+  });
+
+  it('builds GROUP BY + HAVING count(DISTINCT …) query for the TM-collision case', async () => {
+    db = makeDb(() => ({
+      rows: [{ group_value: 'marengo', distinct_count: '5', row_count: '9', samples: ['ТОВ А', 'ТОВ Б'] }],
+    }));
+    tool = new RegistrySearchTool(db);
+
+    const result = await tool.executeTool('search_registry', {
+      registry: 'trademarks',
+      filters: { nice_class: 33 },
+      aggregate: { group_by: 'mark_text', count_distinct: 'holder_name', min_count: 2, min_length: 4 },
+      limit: 10,
+    });
+
+    expect(calls).toHaveLength(1);
+    const sql = calls[0].sql;
+    expect(sql).toContain('GROUP BY');
+    expect(sql).toContain('COUNT(DISTINCT holder_name)');
+    expect(sql).toContain('HAVING');
+    expect(sql).toContain('length(mark_text) >= 4');
+    expect(sql).toContain('= ANY(nice_classes)');
+    const text = (result as any).content[0].text;
+    expect(text).toContain('marengo');
+  });
+
+  it('aggregates without count_distinct as plain frequency count', async () => {
+    db = makeDb(() => ({ rows: [{ group_value: 'нфіл', distinct_count: null, row_count: '12' }] }));
+    tool = new RegistrySearchTool(db);
+
+    await tool.executeTool('search_registry', {
+      registry: 'trademarks',
+      filters: { nice_class: 33 },
+      aggregate: { group_by: 'holder_name' },
+    });
+
+    const sql = calls[0].sql;
+    expect(sql).toContain('GROUP BY');
+    expect(sql).not.toContain('HAVING');
+  });
+
+  it('rejects group_by field not present in the catalog', async () => {
+    db = makeDb(() => ({ rows: [] }));
+    tool = new RegistrySearchTool(db);
+
+    const result = await tool.executeTool('search_registry', {
+      registry: 'trademarks',
+      filters: { nice_class: 33 },
+      aggregate: { group_by: 'drop_table' },
+    });
+
+    const text = (result as any).content[0].text;
+    expect(text).toContain('group_by');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('rejects aggregation on array fields (nice_class)', async () => {
+    db = makeDb(() => ({ rows: [] }));
+    tool = new RegistrySearchTool(db);
+
+    const result = await tool.executeTool('search_registry', {
+      registry: 'trademarks',
+      filters: { mark_text: 'nemiroff' },
+      aggregate: { group_by: 'nice_class' },
+    });
+
+    const text = (result as any).content[0].text;
+    expect(text).toContain('group_by');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('still requires at least one filter in aggregate mode', async () => {
+    db = makeDb(() => ({ rows: [] }));
+    tool = new RegistrySearchTool(db);
+
+    const result = await tool.executeTool('search_registry', {
+      registry: 'trademarks',
+      aggregate: { group_by: 'mark_text', count_distinct: 'holder_name' },
+    });
+
+    const text = (result as any).content[0].text;
+    expect(text).toContain('фільтр');
+    expect(calls).toHaveLength(0);
   });
 });
