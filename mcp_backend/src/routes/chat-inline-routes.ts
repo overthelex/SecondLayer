@@ -24,7 +24,10 @@ import { runWithABUser } from '../infrastructure/adapters/llm-adapter.js';
  */
 export function resolveChatTimeoutMs(budget?: string, maxBudget?: string): number {
   const escalationCeiling = maxBudget || 'deep';
-  return escalationCeiling === 'deep' ? 300_000 : 240_000;
+  // 360s: heavy composite runs vary — chat-a79fffe7 spent 260s in EXECUTE alone
+  // (22 tool calls), leaving VERIFY + LLM repair no room inside 300s. This is a
+  // runaway backstop, not QoS: SSE heartbeats keep proxies alive either way.
+  return escalationCeiling === 'deep' ? 360_000 : 240_000;
 }
 
 export function createChatInlineRoutes(deps: {
