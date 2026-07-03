@@ -195,3 +195,21 @@ describe('EdsrFtsService.countByParty', () => {
     expect(res.sample![0].doc_id).toBe(5);
   });
 });
+
+describe('EdsrFtsService dedicated EDRSR pool', () => {
+  it('routes queries to the dedicated pool instead of the caller-passed one', async () => {
+    const dedicated = makeDb();
+    const passed = makeDb();
+    const svc = new EdsrFtsService(dedicated as any);
+    await svc.searchFulltext('оренда землі', passed);
+    expect(dedicated.query).toHaveBeenCalled();
+    expect(passed.query).not.toHaveBeenCalled();
+  });
+
+  it('uses the caller-passed pool when no dedicated pool is configured', async () => {
+    const passed = makeDb();
+    const svc = new EdsrFtsService();
+    await svc.searchFulltext('оренда землі', passed);
+    expect(passed.query).toHaveBeenCalled();
+  });
+});
