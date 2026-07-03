@@ -11,8 +11,13 @@
  *
  * Data is sharded across 4 databases; this service operates on whichever pool it receives.
  * edrsr_documents (metadata) lives only in the main DB.
+ *
+ * EDRSR_DATABASE_URL (optional): when set, the service opens its own pool to that database
+ * and uses it for ALL its queries, ignoring caller-passed pools — so a dev deployment can
+ * read EDRSR data from prod (readonly user) while the rest of the app stays on its own DB.
  */
 
+import { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
 import type { PartyRole } from '@secondlayer/shared';
 import type { EdsrCacheService } from './edrsr-cache-service.js';
@@ -221,6 +226,36 @@ const FTS_STATEMENT_TIMEOUT_MS = 8000;
 export class EdsrFtsService {
   private edsrCache: EdsrCacheService | null = null;
 
+  // EDRSR data can live in a different database than the app's main one (e.g. a dev instance
+  // reading EDRSR from prod under a readonly user while writing sessions/costs to its own DB).
+  // When EDRSR_DATABASE_URL is set, this dedicated pool overrides whatever pool callers pass;
+  // unset → the caller-passed pool is used unchanged (prod behaviour).
+  private readonly dedicatedPool: Pool | null;
+
+  constructor(dedicatedPool?: Pool) {
+    if (dedicatedPool) {
+      this.dedicatedPool = dedicatedPool;
+    } else {
+      const url = (process.env.EDRSR_DATABASE_URL || '').trim();
+      this.dedicatedPool = url
+        ? new Pool({
+            connectionString: url,
+            max: parseInt(process.env.EDRSR_POOL_MAX || '20', 10),
+          })
+        : null;
+      if (this.dedicatedPool) {
+        let host = 'unparseable-url';
+        try { host = new URL(url).host; } catch { /* keep placeholder, never log creds */ }
+        logger.info('[EdsrFtsService] EDRSR_DATABASE_URL set — using dedicated EDRSR pool', { host });
+      }
+    }
+  }
+
+  /** Dedicated EDRSR pool when configured, otherwise the pool the caller passed. */
+  private resolvePool(dbPool: any): any {
+    return this.dedicatedPool ?? dbPool;
+  }
+
   // LEXAI-1760: years whose plaintiff/defendant spans have been extracted into edrsr_parties
   // (read from edrsr_parties_coverage). When a count's date range falls entirely inside these
   // years, countByParty serves it from the indexed parties table instead of the full-text
@@ -373,6 +408,7 @@ export class EdsrFtsService {
     tokens: string[],
     dbPool: any,
   ): Promise<{ idf: Map<string, number>; df: Map<string, number>; sampleDocs: number }> {
+    dbPool = this.resolvePool(dbPool);
     const idf = new Map<string, number>();
     const df = new Map<string, number>();
     const lexemes = [...new Set(tokens.map(t => t.toLowerCase()).filter(Boolean))];
@@ -419,6 +455,7 @@ export class EdsrFtsService {
    * Fail-safe: any error → empty map (caller keeps the plainto_tsquery path).
    */
   async snapTokensToStems(tokens: string[], dbPool: any): Promise<Map<string, string>> {
+    dbPool = this.resolvePool(dbPool);
     const out = new Map<string, string>();
     const clean = [...new Set(tokens.map(sanitizeFtsToken).filter(t => t.length >= MIN_STEM_LEN))];
     if (clean.length === 0) return out;
@@ -479,6 +516,7 @@ export class EdsrFtsService {
     headlineQuery?: string,
     topicalTsquery?: string,
   ): Promise<EdsrFtsSearchResponse> {
+    dbPool = this.resolvePool(dbPool);
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     const safeOffset = Math.max(offset, 0);
 
@@ -779,6 +817,7 @@ export class EdsrFtsService {
     filters: { date_from?: string; date_to?: string; justice_kind?: number } = {},
     sampleLimit: number = 0,
   ): Promise<PartyCaseCount> {
+    dbPool = this.resolvePool(dbPool);
     // LEXAI-1760: when the requested year span is fully covered by the structured parties
     // table, answer from its indexes (fast, exact) instead of regex-scanning 125M full texts.
     // Returns null when not applicable / on error → fall through to the legacy FTS path below.
@@ -868,6 +907,7 @@ export class EdsrFtsService {
     constraints: { party_name?: string; party_role?: PartyRole; instance_code?: number },
     dbPool: any,
   ): Promise<Set<number>> {
+    dbPool = this.resolvePool(dbPool);
     const matched = new Set<number>();
     if (docIds.length === 0) return matched;
 
@@ -944,6 +984,7 @@ export class EdsrFtsService {
    * @returns Number of rows indexed in this batch
    */
   async indexBatch(batchSize: number = 1000, dbPool: any): Promise<number> {
+    dbPool = this.resolvePool(dbPool);
     const safeBatch = Math.min(Math.max(batchSize, 1), 10000);
 
     try {
@@ -979,6 +1020,7 @@ export class EdsrFtsService {
    * Report indexing progress for the given database pool.
    */
   async getIndexProgress(dbPool: any): Promise<EdsrIndexProgress> {
+    dbPool = this.resolvePool(dbPool);
     try {
       const result = await dbPool.query(`
         SELECT
