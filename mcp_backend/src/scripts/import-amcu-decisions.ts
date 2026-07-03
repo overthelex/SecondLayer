@@ -5,8 +5,10 @@
  * loose doc/docx, and annual index XLSX. One row per document file.
  *   - .docx  → text extracted via mammoth
  *   - .doc   → legacy binary; metadata only (extracted=false)
- *   - .7z    → skipped (adm-zip cannot read 7z); logged
+ *   - .7z    → extracted via the system `7z` binary, then doc/docx processed
  *   - .xlsx  → annual list; recorded as doc_kind='list', no text
+ *
+ * Requires the `7z` CLI on PATH (p7zip) for .7z archives; if absent, they are skipped.
  *
  * Usage:
  *   npx tsx src/scripts/import-amcu-decisions.ts [dir]
@@ -15,7 +17,9 @@
 
 import { Pool } from 'pg';
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
+import { execFileSync } from 'child_process';
 import AdmZip from 'adm-zip';
 import mammoth from 'mammoth';
 
@@ -54,6 +58,24 @@ function decisionNoOf(name: string): string | null {
   m = name.match(/(\d+)[-_](rk|р[кп])/i);
   if (m) return m[1];
   return null;
+}
+
+function walkDocs(dir: string): string[] {
+  const out: string[] = [];
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...walkDocs(p));
+    else if (/\.docx?$/i.test(e.name)) out.push(p);
+  }
+  return out;
+}
+
+let sevenZipAvailable: boolean | null = null;
+function has7z(): boolean {
+  if (sevenZipAvailable !== null) return sevenZipAvailable;
+  try { execFileSync('7z', ['i'], { stdio: 'ignore' }); sevenZipAvailable = true; }
+  catch { sevenZipAvailable = false; }
+  return sevenZipAvailable;
 }
 
 async function extractDocx(buf: Buffer): Promise<string | null> {
@@ -111,7 +133,30 @@ async function main(): Promise<void> {
     const full = path.join(dir, f);
     const ext = path.extname(f).toLowerCase();
 
-    if (ext === '.7z') { sevenZip++; continue; }
+    if (ext === '.7z') {
+      if (!has7z()) { sevenZip++; continue; }
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'amcu7z-'));
+      try {
+        execFileSync('7z', ['x', '-y', '-bd', `-o${tmp}`, full], { stdio: 'ignore' });
+        for (const docPath of walkDocs(tmp)) {
+          const rel = path.relative(tmp, docPath);
+          const e2 = path.extname(rel).toLowerCase();
+          let body: string | null = null, extracted = false;
+          if (e2 === '.docx') { body = await extractDocx(fs.readFileSync(docPath)); extracted = body != null; if (extracted) docxOk++; else docLegacy++; }
+          else docLegacy++;
+          await push({
+            archive_file: f, doc_file: `${f}!${rel}`, doc_kind: kindOf(rel),
+            decision_no: decisionNoOf(rel), decision_date: dateOf(rel), body_text: body, extracted,
+          });
+        }
+        sevenZip++;
+      } catch (e: any) {
+        console.warn(`   ⚠️ 7z ${f}: ${e.message}`);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+      continue;
+    }
 
     if (ext === '.zip') {
       let entries: any[];
@@ -149,7 +194,8 @@ async function main(): Promise<void> {
   }
   if (batch.length) total += await insertBatch(batch);
 
-  console.log(`✅ АМКУ decisions: ${total} rows (docx text ${docxOk}, legacy/no-text ${docLegacy}); ${sevenZip} .7z archives skipped (need 7z extraction)`);
+  const zMsg = has7z() ? `${sevenZip} .7z archives extracted` : `${sevenZip} .7z archives skipped (7z binary not found)`;
+  console.log(`✅ АМКУ decisions: ${total} rows (docx text ${docxOk}, legacy/no-text ${docLegacy}); ${zMsg}`);
   await pool.end();
 }
 
