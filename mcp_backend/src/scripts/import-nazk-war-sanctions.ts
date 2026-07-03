@@ -32,10 +32,42 @@ const pool = new Pool({
   max: 5,
 });
 
+/**
+ * Extract a display name from a record's `fields`. The key differs by category:
+ *  - persons (7 cats)      → `Name` (array [uk, ru, en] or string)
+ *  - legal entities        → `Full name of legal entity`, else `Abbreviated name of the legal entity`
+ *  - vessels               → `Vessel name`
+ *  - stolen objects        → `Name:` (trailing colon)
+ * Values may be arrays or strings; we take the first non-empty entry.
+ */
+function pickString(v: any): string | null {
+  if (Array.isArray(v)) {
+    for (const item of v) {
+      const s = pickString(item);
+      if (s) return s;
+    }
+    return null;
+  }
+  if (typeof v === 'string') {
+    const t = v.trim();
+    return t.length ? t : null;
+  }
+  return null;
+}
+
 function firstName(fields: any): string | null {
-  const n = fields?.Name;
-  if (Array.isArray(n)) return n[0] || null;
-  if (typeof n === 'string') return n;
+  if (!fields) return null;
+  const keys = [
+    'Name',
+    'Full name of legal entity',
+    'Vessel name',
+    'Name:',
+    'Abbreviated name of the legal entity',
+  ];
+  for (const k of keys) {
+    const s = pickString(fields[k]);
+    if (s) return s;
+  }
   return null;
 }
 
