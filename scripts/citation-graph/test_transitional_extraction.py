@@ -96,3 +96,28 @@ class TransitionalProvisionExtraction(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestDashPointPreservation(unittest.TestCase):
+    """LEXAI-1818 — dash-numbered пункти підрозділів (16-1 військовий збір, 52-1 covid)
+    are a DIFFERENT numbering space from dotted subpoints (38.6): normalising '-' to '.'
+    made «п. 16-1 підрозділу 10» collide with ст.16 п.16.1 of the main body and bind the
+    wrong article. The extractor must preserve the form as written; disambiguation of
+    sloppy court renderings belongs to the resolver (dash→dotted fallback when the dash
+    target does not exist)."""
+
+    def test_dash_point_military_levy_preserved(self):
+        text = "відповідно до пункту 16-1 підрозділу 10 розділу XX Податкового кодексу України"
+        self.assertIn(("Податковий кодекс України", "16-1"), transitional(text))
+
+    def test_dash_point_covid_moratorium_preserved(self):
+        text = "згідно з п. 52-1 підрозд. 10 розд. ХХ ПК України мораторій на проведення перевірок"
+        self.assertIn(("Податковий кодекс України", "52-1"), transitional(text))
+
+    def test_dotted_subpoint_still_dotted(self):
+        text = "підпункту 38.6 пункту 38 підрозділу 10 розділу XX Податкового кодексу України"
+        self.assertIn(("Податковий кодекс України", "38.6"), transitional(text))
+
+    def test_trailing_dot_still_stripped(self):
+        text = "пункту 69.22 підрозділу 10 розділу XX. Податкового кодексу України"
+        self.assertIn(("Податковий кодекс України", "69.22"), transitional(text))
