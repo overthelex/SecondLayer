@@ -117,15 +117,18 @@ async function main(): Promise<void> {
   await pool.query('SELECT 1');
 
   const xml = fs.readFileSync(path, 'utf8');
+  // Parse each <sanctionEntity> block on its own: the full 25MB document trips
+  // fast-xml-parser's entity-expansion guard, but a single entity is tiny.
   const parser = new XMLParser({ ignoreAttributes: false, attributeNamePrefix: '@_', parseAttributeValue: false, parseTagValue: false });
-  const doc = parser.parse(xml);
-  const entities = asArray(doc.export?.sanctionEntity);
-  console.log(`   entities: ${entities.length}`);
+  const blocks = xml.match(/<sanctionEntity\b[\s\S]*?<\/sanctionEntity>/g) || [];
+  console.log(`   entities: ${blocks.length}`);
 
   let imported = 0, skipped = 0;
   let batch: any[][] = [];
-  for (const e of entities) {
-    const row = mapEntity(e);
+  for (const block of blocks) {
+    let e: any;
+    try { e = parser.parse(block).sanctionEntity; } catch { skipped++; continue; }
+    const row = e ? mapEntity(e) : null;
     if (!row) { skipped++; continue; }
     batch.push(row);
     if (batch.length >= BATCH_SIZE) { imported += await insertBatch(batch); batch = []; }
