@@ -78,11 +78,17 @@ export class RadaLegislationAdapter {
    * must stop here — the block is extracted separately by extractTransitionalProvisions,
    * and letting the last article run past it produces the ст. 346 mega-record.
    */
+  // The transitional-section heading must be the document's OWN structural header
+  // (an rvts15/rvts23 span), never an in-text REFERENCE to another act's section
+  // (LEXAI-1821: «…розділу XX "Перехідні положення" ПКУ» cited inside КУпАП ст.163
+  // cut the main scan at 53%, and a «Про споживче кредитування» reference cut ПКУ
+  // at 2% — nearly the whole main body went through the transitional extractor,
+  // producing thousands of bogus 'п.*' rows).
   private static readonly TRANSITIONAL_HEADER_PATTERNS = [
-    /ПРИКІНЦЕВІ\s+ТА\s+ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
-    /ПЕРЕХІДНІ\s+ТА\s+ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
-    /ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
-    /ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
+    /<span\s+class=["']?rvts(?:15|23)["']?>[^<]{0,120}?ПРИКІНЦЕВІ\s+ТА\s+ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
+    /<span\s+class=["']?rvts(?:15|23)["']?>[^<]{0,120}?ПЕРЕХІДНІ\s+ТА\s+ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
+    /<span\s+class=["']?rvts(?:15|23)["']?>[^<]{0,120}?ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
+    /<span\s+class=["']?rvts(?:15|23)["']?>[^<]{0,120}?ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
   ];
   private externalApiMetrics: ((service: string, status: string, durationSec: number) => void) | null = null;
 
@@ -516,7 +522,7 @@ export class RadaLegislationAdapter {
       const m = pat.exec(bodyHtml);
       if (m) {
         sectionStart = m.index;
-        sectionTitle = m[0];
+        sectionTitle = m[0].replace(/<[^>]*>/g, '').trim();
         break;
       }
     }
