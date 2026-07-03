@@ -320,7 +320,7 @@ export class MCPRadaAPI {
     });
 
     try {
-      const { documents, total } = await this.billService.searchBillDocuments({
+      const { documents, total, relaxed } = await this.billService.searchBillDocuments({
         query: args.query,
         bill_number: args.bill_number,
         doc_kind: args.doc_kind,
@@ -339,6 +339,7 @@ export class MCPRadaAPI {
               query: args.query || null,
               doc_kind: args.doc_kind || 'all',
               total_found: total,
+              ...(relaxed ? { relaxed: true, note: 'Точний збіг усіх слів не знайдено — результати за частковим збігом, відсортовані за релевантністю' } : {}),
               documents: documents.map((d: any) => ({
                 bill_number: d.bill_number,
                 bill_title: d.bill_title,
