@@ -62,6 +62,10 @@ function toNum(v: string): number | null {
   const n = parseFloat(v.replace(/\s/g, '').replace(',', '.'));
   return Number.isFinite(n) ? n : null;
 }
+/** Clamp to a NUMERIC(precision, scale) column; out-of-range → null (raw kept in raw_data). */
+function numFit(n: number | null, maxInteger: number): number | null {
+  return n != null && Math.abs(n) < maxInteger ? n : null;
+}
 function toInt(v: string): number | null {
   if (!v || !/^\d+$/.test(v)) return null;
   return parseInt(v);
@@ -84,8 +88,8 @@ function mapRow(c: string[], reportDateFallback: string | null): any | null {
     owner_name: ownerName,
     owner_name_alt: null,
     owner_type: ownerEdrpou ? 'legal' : 'individual',
-    share_percent: toNum(c[11]),
-    nominal_value: toNum(c[13]),
+    share_percent: numFit(toNum(c[11]), 1e6),   // numeric(10,4) → |x| < 1e6
+    nominal_value: numFit(toNum(c[13]), 1e16),   // numeric(18,2) → |x| < 1e16
     share_count: null as number | null,
     country_code: toInt(c[8]),
     raw_data: c,
