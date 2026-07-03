@@ -60,7 +60,7 @@ function parseFiling(buf: Buffer): any | null {
     c_doc_sub: cDocSub,
     c_doc_ver: tag(head, 'C_DOC_VER'),
     period_year: periodYear,
-    period_month: toInt(tag(head, 'PERIOD_MONTH')),
+    period_month: toInt(tag(head, 'PERIOD_MONTH')) ?? 0, // 0 = unknown; keeps the unique key non-null
     period_type: toInt(tag(head, 'PERIOD_TYPE')),
     c_reg: tag(head, 'C_REG'),
     c_raj: tag(head, 'C_RAJ'),
@@ -69,11 +69,31 @@ function parseFiling(buf: Buffer): any | null {
   };
 }
 
+/**
+ * Yield every XML payload inside a zip, recursing into nested `.zip` entries.
+ * The ДПС dumps come in two shapes: flat (outer zip → XML) and nested
+ * (outer zip → per-form inner zip → XML). The nested archives hold the main
+ * annual річні звіти, so both must be walked.
+ */
+function* collectXmls(zip: AdmZip): Generator<Buffer> {
+  for (const en of zip.getEntries()) {
+    if (en.isDirectory) continue;
+    const name = en.entryName.toLowerCase();
+    if (name.endsWith('.xml')) {
+      yield en.getData();
+    } else if (name.endsWith('.zip')) {
+      let inner: AdmZip;
+      try { inner = new AdmZip(en.getData()); } catch { continue; }
+      yield* collectXmls(inner);
+    }
+  }
+}
+
 async function insertBatch(rows: any[]): Promise<number> {
   if (rows.length === 0) return 0;
   const seen = new Set<string>();
   const deduped = rows.filter(r => {
-    const k = `${r.tin}|${r.period_year}|${r.form_type}|${r.c_doc_sub}`;
+    const k = `${r.tin}|${r.period_year}|${r.period_month}|${r.form_type}|${r.c_doc_sub}`;
     if (seen.has(k)) return false; seen.add(k); return true;
   });
   const values: any[] = [];
@@ -90,7 +110,7 @@ async function insertBatch(rows: any[]): Promise<number> {
       (tin, c_doc, c_doc_sub, c_doc_ver, period_year, period_month, period_type,
        c_reg, c_raj, form_type, raw_xml)
     VALUES ${ph.join(',')}
-    ON CONFLICT (tin, period_year, form_type, c_doc_sub) DO UPDATE SET
+    ON CONFLICT (tin, period_year, period_month, form_type, c_doc_sub) DO UPDATE SET
       c_doc = EXCLUDED.c_doc, c_doc_ver = EXCLUDED.c_doc_ver, period_month = EXCLUDED.period_month,
       period_type = EXCLUDED.period_type, c_reg = EXCLUDED.c_reg, c_raj = EXCLUDED.c_raj,
       raw_xml = EXCLUDED.raw_xml, imported_at = NOW()
@@ -115,12 +135,11 @@ async function main(): Promise<void> {
   let total = 0, parsed = 0, skipped = 0;
   let batch: any[] = [];
   for (const zp of zips) {
-    let entries: any[];
-    try { entries = new AdmZip(zp).getEntries(); } catch (e: any) { console.warn(`   ⚠️ ${path.basename(zp)}: ${e.message}`); continue; }
-    for (const en of entries) {
-      if (en.isDirectory || !/\.xml$/i.test(en.entryName)) continue;
+    let zip: AdmZip;
+    try { zip = new AdmZip(zp); } catch (e: any) { console.warn(`   ⚠️ ${path.basename(zp)}: ${e.message}`); continue; }
+    for (const xmlBuf of collectXmls(zip)) {
       let row: any = null;
-      try { row = parseFiling(en.getData()); } catch { /* skip corrupt */ }
+      try { row = parseFiling(xmlBuf); } catch { /* skip corrupt */ }
       if (!row) { skipped++; continue; }
       parsed++;
       batch.push(row);
