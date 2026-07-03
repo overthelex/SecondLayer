@@ -131,7 +131,7 @@ export class RadaLegislationAdapter {
       const callDuration = (Date.now() - callStart) / 1000;
       this.externalApiMetrics?.('zakon_rada', 'success', callDuration);
 
-      const html = response.data;
+      const html = RadaLegislationAdapter.normalizeSuperscriptIndexes(String(response.data));
       const $ = cheerio.load(html);
 
       const metadata = this.extractMetadata($, radaId, url);
@@ -181,6 +181,26 @@ export class RadaLegislationAdapter {
       effective_date: this.parseDate(effectiveDateText),
       status: 'active',
     };
+  }
+
+  /**
+   * LEXAI-1821: RADA renders the надрядковий індекс of dash-numbered units
+   * (ст. 297-1, транзитний п. 16-1) as a superscript span whose dash is hidden with
+   * font-size:0 (visually «297¹», copy-paste «297-1»):
+   *
+   *   297<span class="rvts37"><span style="font-size:0px">-</span>1</span>.
+   *
+   * The HTML-level parsers stop `[^<]*` capture at the inner span, so «Стаття 297-1»
+   * was captured as «297» (and ON CONFLICT overwrote the REAL ст.297 with 297-1's
+   * text), while transitional «16-1.» matched nothing — its sub-points were stored as
+   * bare 'п.1.11' orphans. Flatten the markup to the literal dash form BEFORE any
+   * parsing so every downstream regex sees plain «297-1» / «16-1».
+   */
+  static normalizeSuperscriptIndexes(html: string): string {
+    return html.replace(
+      /<span[^>]*>\s*<span[^>]*font-size:\s*0(?:px)?[^>]*>\s*-\s*<\/span>\s*(\d+)\s*<\/span>/gi,
+      '-$1',
+    );
   }
 
   private extractArticles($: cheerio.CheerioAPI, radaId: string): LegislationArticle[] {
@@ -505,8 +525,10 @@ export class RadaLegislationAdapter {
     }
 
     // Extract numbered points: <a name="nNNNN"></a>\s*N. or N.N. or N.N.N. text...
-    // Matches: "38.6.", "69.14.", "1.", "41.2.5." etc.
-    const pointRegex = /<a\s+name="n(\d+)">\s*<\/a>\s*(\d+(?:\.\d+)*)\.\s*/g;
+    // Matches: "38.6.", "69.14.", "1.", "41.2.5." — and dash-indexed points «16-1.»,
+    // «52-1.» (LEXAI-1821; the superscript markup is flattened to a literal dash
+    // by normalizeSuperscriptIndexes before parsing).
+    const pointRegex = /<a\s+name="n(\d+)">\s*<\/a>\s*(\d+(?:-\d+)?(?:\.\d+)*)\.\s*/g;
     const points: Array<{ anchor: string; num: string; startPos: number }> = [];
     let pMatch;
     while ((pMatch = pointRegex.exec(sectionHtml)) !== null) {
@@ -1034,7 +1056,7 @@ export class RadaLegislationAdapter {
       const callDuration = (Date.now() - callStart) / 1000;
       this.externalApiMetrics?.('zakon_rada', 'success', callDuration);
 
-      const html = response.data as string;
+      const html = RadaLegislationAdapter.normalizeSuperscriptIndexes(String(response.data));
       const $ = cheerio.load(html);
       const metadata = this.extractMetadata($, radaId, url);
 
