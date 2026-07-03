@@ -1,7 +1,7 @@
 /**
  * Court Decision Tools - Handlers for court decision retrieval and analysis
  *
- * 7 tools:
+ * 8 tools:
  * - get_court_decision
  * - get_case_documents_chain
  * - extract_document_sections
@@ -9,6 +9,7 @@
  * - bulk_ingest_court_decisions
  * - analyze_case_pattern
  * - count_cases_by_party
+ * - get_decision_cited_norms
  */
 
 import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
@@ -267,6 +268,22 @@ export class CourtDecisionTools extends BaseToolHandler {
           required: ['party_name'],
         },
       },
+      {
+        name: 'get_decision_cited_norms',
+        annotations: { title: 'Норми, цитовані рішенням', readOnlyHint: true, idempotentHint: true },
+        description: `Перелік норм законодавства, на які фактично посилається судове рішення (граф цитувань legislation_citation_links)
+
+Повертає розв'язані посилання рішення на статті законодавства: rada_id закону/кодексу та базовий номер статті, згруповані з кількістю згадок, плюс загальну кількість таких посилань.
+total_resolved_links=0 означає відсутність даних графа для цього рішення, а НЕ відсутність цитувань у тексті.
+Використовуйте для детермінованої перевірки, чи посилається рішення на конкретну норму («суд застосував ст. X у справі Y»).`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            doc_id: { type: ['string', 'number'], description: 'doc_id рішення в ЄДРСР' },
+          },
+          required: ['doc_id'],
+        },
+      },
     ];
   }
 
@@ -287,8 +304,61 @@ export class CourtDecisionTools extends BaseToolHandler {
         return await this.analyzeCasePattern(args);
       case 'count_cases_by_party':
         return await this.countCasesByParty(args);
+      case 'get_decision_cited_norms':
+        return await this.getDecisionCitedNorms(args);
       default:
         return null;
+    }
+  }
+
+  /**
+   * Deterministic norm-attribution lookup (CORE-103): which legislation articles a
+   * decision actually cites, per the citation graph (legislation_citation_links,
+   * resolved rows only, grouped to base article numbers). The chat verify phase uses
+   * this to catch «суд застосував ст. X у справі Y» claims the decision's own
+   * citation edges do not support. Fail-soft: any failure (missing table on local,
+   * no DB) → total_resolved_links=0, which callers must read as "no graph data",
+   * never as "the decision cites nothing".
+   */
+  private async getDecisionCitedNorms(args: any): Promise<ToolResult> {
+    const docId = Number(args.doc_id);
+    if (!Number.isFinite(docId) || docId <= 0) {
+      return this.wrapResponse({
+        error: `doc_id має бути додатним числом, отримано "${args.doc_id}"`,
+        provided_value: args.doc_id,
+      });
+    }
+    if (!this.db) {
+      return this.wrapResponse({ doc_id: docId, total_resolved_links: 0, norms: [], note: 'database unavailable' });
+    }
+    try {
+      const res = await this.db.query(
+        `SELECT l.rada_id,
+                lcl.legislation_id,
+                split_part(lcl.article_number, '.', 1) AS article_base,
+                count(*)::int AS links
+           FROM legislation_citation_links lcl
+           JOIN legislation l ON l.id = lcl.legislation_id
+          WHERE lcl.doc_id = $1 AND lcl.resolved = true AND lcl.article_number IS NOT NULL
+          GROUP BY l.rada_id, lcl.legislation_id, split_part(lcl.article_number, '.', 1)
+          ORDER BY count(*) DESC
+          LIMIT 300`,
+        [docId]
+      );
+      const norms = res.rows.map((r: any) => ({
+        rada_id: r.rada_id,
+        legislation_id: r.legislation_id,
+        article_base: r.article_base,
+        links: r.links,
+      }));
+      return this.wrapResponse({
+        doc_id: docId,
+        total_resolved_links: norms.reduce((s: number, n: any) => s + n.links, 0),
+        norms,
+      });
+    } catch (error: any) {
+      logger.warn('[get_decision_cited_norms] lookup failed (fail-soft)', { docId, error: error?.message });
+      return this.wrapResponse({ doc_id: docId, total_resolved_links: 0, norms: [], note: error?.message });
     }
   }
 
