@@ -528,4 +528,85 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
       { name: 'state', description: 'State (2-letter code)', match: 'exact', columns: ['state'], transform: 'uppercase' },
     ],
   },
+
+  // ── M&A / antitrust / sanctions demo sources (migration 169) ──────
+
+  drs_sanctions: {
+    title: 'Держреєстр санкцій (РНБО)',
+    description: "Пошук у Державному реєстрі санкцій України (РНБО). 24K суб'єктів: фізособи, юрособи, судна. Пошук за іменем/назвою, ідентифікатором (ЄДРПОУ/ІПН/паспорт), типом, статусом, громадянством.",
+    table: 'opendata_drs_sanctions',
+    selectColumns: 'subject_id, subject_type, subject_status, name, birth_date, identifiers, citizenships',
+    orderBy: 'name ASC NULLS LAST',
+    emptyMessage: "Суб'єктів санкцій не знайдено",
+    fields: [
+      { name: 'name', description: "Ім'я / назва суб'єкта (укр)", match: 'ilike', columns: ['name'] },
+      { name: 'identifier', description: 'Ідентифікатор: ЄДРПОУ / ІПН / номер паспорта', match: 'ilike_cast', columns: ['identifiers'] },
+      { name: 'alias', description: 'Псевдонім / транслітерація / рос. написання', match: 'ilike_cast', columns: ['aliases'] },
+      { name: 'subject_type', description: 'Тип: individual (фізособа), legal (юрособа), vessel (судно)', match: 'exact', columns: ['subject_type'] },
+      { name: 'subject_status', description: 'Статус: active, expired, excluded', match: 'exact', columns: ['subject_status'] },
+      { name: 'citizenship', description: 'Громадянство / країна', match: 'ilike_cast', columns: ['citizenships'] },
+    ],
+  },
+
+  nazk_war_sanctions: {
+    title: 'Війна і санкції (ГУР)',
+    description: "Пошук на порталі «Війна і санкції» (war-sanctions.gur.gov.ua). 18K записів у 14 категоріях: санкційні фізособи/юрособи, судна, тіньовий флот, rostec, виробники БПЛА, пропагандисти тощо. Пошук за іменем, категорією, ІПН, юрисдикцією санкцій.",
+    table: 'opendata_nazk_war_sanctions',
+    selectColumns: 'category, source_id, url, page_title, name_uk, tin, sanction_jurisdictions',
+    orderBy: 'category ASC, source_id ASC',
+    emptyMessage: 'Записів не знайдено',
+    fields: [
+      { name: 'name', description: "Ім'я / назва (укр або англ)", match: 'ilike_multi', columns: ['name_uk', 'page_title'] },
+      { name: 'category', description: 'Категорія: sanctions_persons, sanctions_companies, transport_ships, transport_shadow-fleet, rostec, uav_companies, propaganda_persons тощо', match: 'exact', columns: ['category'] },
+      { name: 'tin', description: 'ІПН / податковий номер', match: 'exact', columns: ['tin'] },
+      { name: 'jurisdiction', description: 'Юрисдикція санкцій (USA, EU, UK, Canada, Switzerland, Australia, Japan, NZ)', match: 'ilike_cast', columns: ['sanction_jurisdictions'] },
+    ],
+  },
+
+  amcu_bid_rigging: {
+    title: 'АМКУ — спотворення торгів (антиконкурентні узгоджені дії)',
+    description: 'Пошук у зведених відомостях АМКУ про спотворення результатів торгів (тендерів). 458K рядків. Пошук за назвою порушника, ЄДРПОУ, датою рішення.',
+    table: 'opendata_amcu_bid_rigging',
+    selectColumns: 'source_file, decision_date, entity_name, entity_edrpou, row_data',
+    orderBy: 'decision_date DESC NULLS LAST',
+    emptyMessage: 'Порушень не знайдено',
+    fields: [
+      { name: 'entity_name', description: 'Назва суб’єкта господарювання, який вчинив порушення', match: 'fts_simple', columns: ['entity_name'] },
+      { name: 'edrpou', description: 'ЄДРПОУ / РНОКПП порушника', match: 'exact', columns: ['entity_edrpou'] },
+      { name: 'date_from', description: 'Дата рішення від (YYYY-MM-DD)', match: 'gte', columns: ['decision_date'] },
+      { name: 'date_to', description: 'Дата рішення до (YYYY-MM-DD)', match: 'lte', columns: ['decision_date'] },
+    ],
+  },
+
+  amcu_decisions: {
+    title: 'АМКУ — рішення та рекомендації',
+    description: 'Пошук у рішеннях і рекомендаціях АМКУ (антимонопольна практика, концентрації, узгоджені дії). 6K документів; повнотекстовий пошук доступний для витягнутих текстів (docx). Пошук за текстом, номером рішення, типом, датою.',
+    table: 'opendata_amcu_decisions',
+    selectColumns: 'archive_file, doc_file, doc_kind, decision_no, decision_date, extracted, left(body_text, 600) AS snippet',
+    orderBy: 'decision_date DESC NULLS LAST',
+    emptyMessage: 'Рішень АМКУ не знайдено',
+    fields: [
+      { name: 'text', description: 'Ключові слова у тексті рішення', match: 'fts_simple', columns: ['body_text'] },
+      { name: 'doc_kind', description: 'Тип: rishennia (рішення), rekomendatsii (рекомендації), list (списки)', match: 'exact', columns: ['doc_kind'] },
+      { name: 'decision_no', description: 'Номер рішення', match: 'ilike', columns: ['decision_no'] },
+      { name: 'date_from', description: 'Дата від (YYYY-MM-DD)', match: 'gte', columns: ['decision_date'] },
+      { name: 'date_to', description: 'Дата до (YYYY-MM-DD)', match: 'lte', columns: ['decision_date'] },
+    ],
+  },
+
+  rada_stenograms: {
+    title: 'ВРУ — стенограми пленарних засідань',
+    description: 'Повнотекстовий пошук у стенограмах пленарних засідань Верховної Ради (намір законодавця). 6.8K документів усіх скликань. Пошук за текстом, скликанням, датою засідання, типом.',
+    table: 'opendata_rada_stenograms',
+    selectColumns: 'convocation, sitting_date, doc_kind, source_file, left(body_text, 600) AS snippet',
+    orderBy: 'sitting_date DESC NULLS LAST',
+    emptyMessage: 'Стенограм не знайдено',
+    fields: [
+      { name: 'text', description: 'Ключові слова у тексті стенограми', match: 'fts_simple', columns: ['body_text'] },
+      { name: 'convocation', description: 'Номер скликання (1-9)', match: 'exact', columns: ['convocation'], type: 'number' },
+      { name: 'doc_kind', description: 'Тип: stenogram (стенограма), agenda (порядок денний), stenpog (погоджувальна рада)', match: 'exact', columns: ['doc_kind'] },
+      { name: 'date_from', description: 'Дата засідання від (YYYY-MM-DD)', match: 'gte', columns: ['sitting_date'] },
+      { name: 'date_to', description: 'Дата засідання до (YYYY-MM-DD)', match: 'lte', columns: ['sitting_date'] },
+    ],
+  },
 };
