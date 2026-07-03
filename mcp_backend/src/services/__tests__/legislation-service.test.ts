@@ -323,6 +323,28 @@ describe('LegislationService', () => {
       expect(result).toBeNull();
     });
 
+    it('falls back to the п.-prefixed row for dash-indexed transitional points (LEXAI-1821)', async () => {
+      // «16-1» (військовий збір, п. 16-1 підрозд. 10 ПКУ) is stored as 'п.16-1';
+      // the old fallback predicate required a dot, so dash forms returned null.
+      mockDb.query.mockResolvedValueOnce({
+        rows: [{ id: 641, rada_id: '2755-17' }],
+        rowCount: 1,
+      });
+      mockAdapter.getArticleByNumber
+        .mockResolvedValueOnce(null)                       // bare '16-1' → no row
+        .mockResolvedValueOnce({
+          article_number: 'п.16-1',
+          title: 'Тимчасово, до набрання чинності... військовий збір',
+          full_text: '16-1. Тимчасово... встановлюється військовий збір.',
+        });
+
+      const result = await service.getArticle('2755-17', '16-1');
+
+      expect(mockAdapter.getArticleByNumber).toHaveBeenCalledWith('2755-17', 'п.16-1', undefined);
+      expect(result?.article_number).toBe('п.16-1');
+      expect(result?.full_text).toContain('військовий збір');
+    });
+
     it('should return actual article_number from DB row (LEXAI-823)', async () => {
       // Simulates the data bug where the adapter returns a row whose article_number
       // differs from the input (e.g. "33-5" stored under article_number "33-5" but

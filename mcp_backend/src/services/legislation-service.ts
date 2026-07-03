@@ -544,8 +544,9 @@ export class LegislationService {
     await this.ensureLegislationExists(radaId);
 
     let article = await this.adapter.getArticleByNumber(radaId, articleNumber, asOfDate);
-    // Fallback: transitional provisions stored as "п.38.6" but LLM may request "38.6"
-    if (!article && /^\d+\.\d/.test(articleNumber)) {
+    // Fallback: transitional provisions stored as "п.38.6" / "п.16-1" but the caller may
+    // request the bare point number ("38.6", "16-1" — dash-indexed units, LEXAI-1821).
+    if (!article && /^\d+[.-]\d/.test(articleNumber)) {
       article = await this.adapter.getArticleByNumber(radaId, `п.${articleNumber}`, asOfDate);
     }
     if (!article) {
