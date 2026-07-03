@@ -93,7 +93,7 @@ function mapRow(c: string[], reportDateFallback: string | null): any | null {
     owner_name: ownerName,
     owner_name_alt: null,
     owner_type: ownerEdrpou ? 'legal' : 'individual',
-    share_percent: numFit(toNum(c[12]), 1e6),   // col12 частка, numeric(10,4) → |x| < 1e6
+    share_percent: (v => (v != null && v >= 0 && v <= 100 ? v : null))(toNum(c[12])),  // col12 частка; a share % >100 signals a malformed/column-shifted source row → null
     nominal_value: numFit(toNum(c[11]), 1e16),   // col11 номінальна вартість, numeric(18,2)
     share_count: (v => (v == null ? null : Math.round(v)))(toNum(c[13])),  // col13 кількість акцій (bigint)
     country_code: toInt(c[14]),                  // col14 країна реєстрації
