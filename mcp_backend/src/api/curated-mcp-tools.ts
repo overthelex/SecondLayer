@@ -33,4 +33,20 @@ export const V2_TOOL_NAMES = new Set<string>([
   'count_cases_by_party',
   'check_precedent_status',
   'get_citation_graph',
+  // Реєстри відкритих даних — local handler (ТМ/патенти, санкції, АМКУ, стенограми, фінзвітність)
+  'search_registry',
+  // Державні реєстри OpenReyestr — remote (proxied via getAllToolDefinitions on /api/v2/mcp).
+  // company/EDRPOU, beneficiaries, debtors, enforcement, bankruptcy, Prozorro, sanctions, ARMA, NAZK, notaries.
+  'openreyestr_get_by_edrpou',
+  'openreyestr_get_entity_details',
+  'openreyestr_search_entities',
+  'openreyestr_search_beneficiaries',
+  'openreyestr_search_debtors',
+  'openreyestr_search_enforcement_proceedings',
+  'openreyestr_search_bankruptcy_cases',
+  'openreyestr_search_prozorro',
+  'openreyestr_search_rnbo_sanctions',
+  'openreyestr_search_arma_seized_assets',
+  'openreyestr_search_nazk_declarations',
+  'openreyestr_search_notaries',
 ]);
