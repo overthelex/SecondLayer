@@ -78,6 +78,25 @@ scrape_configs:
           service: qdrant
           environment: production
 
+  # Qdrant EDRSR — dedicated bigbox instance (r6i.8xlarge, WG 10.88.0.6:6333).
+  # Serves the edrsr_serving collection (~296M vectors). Its /metrics endpoint
+  # requires auth; Qdrant accepts "Authorization: Bearer <api-key>". The key lives
+  # in an untracked file mounted via the rules dir (deployment/prometheus/rules/
+  # qdrant_edrsr.key, ignored by *.key in .gitignore; the rules loader only reads
+  # *.yml so a .key file there is harmless).
+  - job_name: qdrant_edrsr
+    scrape_interval: 30s
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/rules/qdrant_edrsr.key
+    static_configs:
+      - targets: ['10.88.0.6:6333']
+        labels:
+          service: qdrant_edrsr
+          environment: production
+          host: bigbox
+
   # cAdvisor container metrics
   - job_name: cadvisor
     scrape_interval: 15s
