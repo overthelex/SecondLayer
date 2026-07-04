@@ -83,6 +83,15 @@ ${registryDescriptions}
       return this.wrapResponse(this.describeRegistry(registry, def));
     }
 
+    // Reject unknown filter keys with a helpful field list, instead of silently
+    // ignoring them (which returns misleadingly unfiltered results). The model then
+    // self-corrects — e.g. it guessed `company_name` where the field is `entity_name`.
+    const validNames = new Set(def.fields.map(f => f.name));
+    const unknown = Object.keys(filters).filter(k => !validNames.has(k));
+    if (unknown.length > 0) {
+      return this.wrapResponse(`Невідомі поля фільтра: ${unknown.join(', ')}. ${this.describeRegistry(registry, def)}`);
+    }
+
     for (const req of (def.requiredFields ?? [])) {
       if (!filters[req]) {
         return this.wrapResponse(`Обов'язковий параметр: ${req}. ${this.describeRegistry(registry, def)}`);

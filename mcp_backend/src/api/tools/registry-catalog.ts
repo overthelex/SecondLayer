@@ -530,23 +530,10 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
   },
 
   // ── M&A / antitrust / sanctions demo sources (migration 169) ──────
-
-  drs_sanctions: {
-    title: 'Держреєстр санкцій (РНБО)',
-    description: "Пошук у Державному реєстрі санкцій України (РНБО). 24K суб'єктів: фізособи, юрособи, судна. Пошук за іменем/назвою, ідентифікатором (ЄДРПОУ/ІПН/паспорт), типом, статусом, громадянством.",
-    table: 'opendata_drs_sanctions',
-    selectColumns: 'subject_id, subject_type, subject_status, name, birth_date, identifiers, citizenships',
-    orderBy: 'name ASC NULLS LAST',
-    emptyMessage: "Суб'єктів санкцій не знайдено",
-    fields: [
-      { name: 'name', description: "Ім'я / назва суб'єкта (укр)", match: 'ilike', columns: ['name'] },
-      { name: 'identifier', description: 'Ідентифікатор: ЄДРПОУ / ІПН / номер паспорта', match: 'ilike_cast', columns: ['identifiers'] },
-      { name: 'alias', description: 'Псевдонім / транслітерація / рос. написання', match: 'ilike_cast', columns: ['aliases'] },
-      { name: 'subject_type', description: 'Тип: individual (фізособа), legal (юрособа), vessel (судно)', match: 'exact', columns: ['subject_type'] },
-      { name: 'subject_status', description: 'Статус: active, expired, excluded', match: 'exact', columns: ['subject_status'] },
-      { name: 'citizenship', description: 'Громадянство / країна', match: 'ilike_cast', columns: ['citizenships'] },
-    ],
-  },
+  // NOTE: РНБО sanctions are intentionally NOT here — that registry (opendata_drs_sanctions,
+  // same official ДРС source) is served by the openreyestr_search_rnbo_sanctions tool, which
+  // is refreshed from the same dump. Exposing a "Держреєстр санкцій (РНБО)" registry here too
+  // made the chat pick search_registry over the intended openreyestr path (duplicate entry).
 
   nazk_war_sanctions: {
     title: 'Війна і санкції (ГУР)',
