@@ -899,7 +899,10 @@ jobs:
             # Restart monitoring if needed
             if [ "${MONITORING_CHANGED}" = "true" ]; then
               echo "=== Restarting monitoring services ==="
-              \$DC restart grafana-prod prometheus-prod 2>/dev/null || true
+              # Create the EDRSR metrics-cache sidecar if missing, and restart it
+              # so it re-reads the bind-mounted script on config changes.
+              \$DC up -d qdrant-edrsr-metrics-cache 2>/dev/null || true
+              \$DC restart qdrant-edrsr-metrics-cache grafana-prod prometheus-prod 2>/dev/null || true
             fi
 
             docker image prune -f

@@ -1448,6 +1448,41 @@ services:
           cpus: '0.1'
           memory: 64M
 
+  # Caching /metrics sidecar for the bigbox EDRSR Qdrant (WG 10.88.0.6:6333).
+  # Qdrant's /metrics for the ~296M-vector edrsr_serving collection takes far
+  # longer than any safe scrape timeout to generate (observed >240s), so
+  # Prometheus timed out and the dashboard flapped DOWN / "No data" despite a
+  # healthy Qdrant. This sidecar refreshes /metrics on a slow background loop and
+  # serves the last-good body to Prometheus instantly. Dependency-free Node
+  # stdlib script, bind-mounted — no image build. Holds the bearer key so
+  # Prometheus scrapes it without auth.
+  qdrant-edrsr-metrics-cache:
+    image: node:20-alpine
+    container_name: qdrant-edrsr-metrics-cache-prod
+    command: ['node', '/app/qdrant-edrsr-metrics-cache.js']
+    working_dir: /app
+    volumes:
+      - ./prometheus/qdrant-edrsr-metrics-cache.js:/app/qdrant-edrsr-metrics-cache.js:ro
+    environment:
+      UPSTREAM_URL: "http://10.88.0.6:6333/metrics"
+      QDRANT_EDRSR_API_KEY: "${QDRANT_EDRSR_API_KEY}"
+      REFRESH_INTERVAL_MS: "120000"
+      UPSTREAM_TIMEOUT_MS: "300000"
+      LISTEN_PORT: "9109"
+    networks:
+      - secondlayer-prod-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:9109/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 96M
+
   node-exporter:
     image: prom/node-exporter:v1.7.0
     container_name: node-exporter-prod
