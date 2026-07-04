@@ -5,10 +5,18 @@
  * loose doc/docx, and annual index XLSX. One row per document file.
  *   - .docx  → text extracted via mammoth
  *   - .doc   → legacy binary; metadata only (extracted=false)
- *   - .7z    → extracted via the system `7z` binary, then doc/docx processed
+ *   - .odt   → OpenDocument (zip); text extracted from content.xml
+ *   - .7z    → extracted via the system `7z` binary, then doc/docx/odt processed
  *   - .xlsx  → annual list; recorded as doc_kind='list', no text
  *
- * Requires the `7z` CLI on PATH (p7zip) for .7z archives; if absent, they are skipped.
+ * Nested archives (a .zip/.7z/.rar *inside* another archive) are extracted
+ * recursively — 7z handles .zip/.7z and, with p7zip-full, .rar. Partial
+ * extraction (e.g. RAR5 entries p7zip cannot decompress) still yields metadata
+ * rows for the affected documents. doc_file for a nested doc is the chain
+ * `<outer>!<inner>!…!<doc>` so it stays unique.
+ *
+ * Requires the `7z` CLI on PATH (p7zip) for .7z/.rar archives and nested
+ * archives; if absent, those are skipped.
  *
  * Usage:
  *   npx tsx src/scripts/import-amcu-decisions.ts [dir]
@@ -26,6 +34,12 @@ import mammoth from 'mammoth';
 const DEFAULT_DIR = '/data/opendata/amcu/rishennia-ta-rekomendatsii';
 const BATCH_SIZE = 100;
 
+const ARCHIVE_EXT = new Set(['.zip', '.7z', '.rar']);
+const DOC_EXT = new Set(['.doc', '.docx', '.odt']);
+
+interface Stats { docxOk: number; docLegacy: number; }
+type PushFn = (row: any) => Promise<void>;
+
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   host: process.env.POSTGRES_HOST || 'localhost',
@@ -38,9 +52,14 @@ const pool = new Pool({
 
 function kindOf(name: string): string {
   const n = name.toLowerCase();
-  if (n.includes('rekomend') || n.includes('recomend')) return 'rekomendatsii';
-  if (n.includes('spisok') || n.includes('list')) return 'list';
-  if (n.includes('rish') || n.includes('rise')) return 'rishennia';
+  // recommendations (latin translit + cyrillic)
+  if (/rekomend|recomend|рекоменд/.test(n)) return 'rekomendatsii';
+  // explicit index/list tokens
+  if (/спис|перел|spisok|perelik/.test(n)) return 'list';
+  // decisions / orders (latin translit + cyrillic; рішення / розпорядження)
+  if (/рішен|ріше|рiше|розпорядж|розпоряд|rish|rise|rozpor/.test(n)) return 'rishennia';
+  // bare latin "list" as a whole token only (avoid "listopad" = November)
+  if (/(?:^|[_\-. (])list(?:[_\-. )]|$)/.test(n)) return 'list';
   return 'other';
 }
 
@@ -53,19 +72,24 @@ function dateOf(name: string): string | null {
 }
 
 function decisionNoOf(name: string): string | null {
-  let m = name.match(/no[-_ ]?(\d+[-_ ]?[a-zа-я]*)/i);
+  // Cyrillic form: «№ 470-р», «№728-р», «№ 561-р Витяг», «№ 552-563»
+  let m = name.match(/№\s*(\d+)\s*[-–—]?\s*([а-яіїєґ]{0,3})/i);
+  if (m) return m[2] ? `${m[1]}-${m[2].toLowerCase()}` : m[1];
+  // Latin translit: «no-8-rk», «no_525»
+  m = name.match(/no[-_ ]?(\d+[-_ ]?[a-zа-я]*)/i);
   if (m) return m[1];
-  m = name.match(/(\d+)[-_](rk|р[кп])/i);
+  // trailing decision markers: «728-р», «6_rp», «29-rk»
+  m = name.match(/(\d+)[-_](rk|rp|р[кп])/i);
   if (m) return m[1];
   return null;
 }
 
-function walkDocs(dir: string): string[] {
+function walkAllFiles(dir: string): string[] {
   const out: string[] = [];
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
-    if (e.isDirectory()) out.push(...walkDocs(p));
-    else if (/\.docx?$/i.test(e.name)) out.push(p);
+    if (e.isDirectory()) out.push(...walkAllFiles(p));
+    else out.push(p);
   }
   return out;
 }
@@ -84,6 +108,89 @@ async function extractDocx(buf: Buffer): Promise<string | null> {
     return (res.value || '').trim() || null;
   } catch {
     return null;
+  }
+}
+
+/** ODT is a zip container; readable text lives in content.xml. Strip the XML. */
+async function extractOdt(buf: Buffer): Promise<string | null> {
+  try {
+    const entry = new AdmZip(buf).getEntry('content.xml');
+    if (!entry) return null;
+    const xml = entry.getData().toString('utf8');
+    const text = xml
+      .replace(/<\/text:(?:p|h)>/g, '\n')     // paragraph/heading breaks
+      .replace(/<text:tab\/?>/g, '\t')
+      .replace(/<text:line-break\/?>/g, '\n')
+      .replace(/<[^>]+>/g, '')                 // drop remaining tags
+      .replace(/&apos;/g, "'").replace(/&quot;/g, '"')
+      .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
+    return text || null;
+  } catch {
+    return null;
+  }
+}
+
+async function extractBody(ext: string, buf: Buffer): Promise<string | null> {
+  if (ext === '.docx') return extractDocx(buf);
+  if (ext === '.odt') return extractOdt(buf);
+  return null; // .doc legacy binary: metadata only
+}
+
+/**
+ * Recursively process an extracted directory tree: doc/docx/odt files become
+ * rows; nested archives are extracted (partial extraction tolerated) and
+ * recursed into. `docPrefix` is the accumulated `outer!inner!…` chain and
+ * `archiveFile` is the original top-level archive name recorded on each row.
+ */
+async function processDir(
+  rootDir: string,
+  docPrefix: string,
+  archiveFile: string,
+  push: PushFn,
+  stats: Stats,
+): Promise<void> {
+  for (const fp of walkAllFiles(rootDir)) {
+    const rel = path.relative(rootDir, fp);
+    const ext = path.extname(fp).toLowerCase();
+
+    if (ARCHIVE_EXT.has(ext)) {
+      if (!has7z()) continue;
+      const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'amcunest-'));
+      try {
+        try {
+          execFileSync('7z', ['x', '-y', '-bd', `-o${tmp}`, fp], { stdio: 'ignore' });
+        } catch (e: any) {
+          // Partial extraction (e.g. RAR5 methods p7zip can't decode) still
+          // leaves usable files/metadata on disk; process whatever came out.
+          console.warn(`   ⚠️ nested ${rel}: ${e.message}`);
+        }
+        await processDir(tmp, `${docPrefix}!${rel}`, archiveFile, push, stats);
+      } finally {
+        fs.rmSync(tmp, { recursive: true, force: true });
+      }
+    } else if (DOC_EXT.has(ext)) {
+      const body = await extractBody(ext, fs.readFileSync(fp));
+      const extracted = body != null;
+      if (extracted) stats.docxOk++; else stats.docLegacy++;
+      const df = `${docPrefix}!${rel}`;
+      await push({
+        archive_file: archiveFile,
+        doc_file: df,
+        // classify on the full chain — the top-level archive name (e.g.
+        // "rishennia-117-132", "recommendations_...") is the strongest signal,
+        // and docs nested deep in sub-archives lose their folder context.
+        doc_kind: kindOf(df),
+        // decision number lives in the leaf filename; the full path may carry
+        // stray numbers from folder names (e.g. "…№724-731/…№724-р.doc").
+        decision_no: decisionNoOf(path.basename(rel)),
+        decision_date: dateOf(df),
+        body_text: body,
+        extracted,
+      });
+    }
   }
 }
 
@@ -121,10 +228,11 @@ async function main(): Promise<void> {
   await pool.query('SELECT 1');
 
   const files = fs.readdirSync(dir);
-  let total = 0, sevenZip = 0, docxOk = 0, docLegacy = 0;
+  let total = 0, sevenZip = 0;
+  const stats: Stats = { docxOk: 0, docLegacy: 0 };
   let batch: any[] = [];
 
-  const push = async (row: any) => {
+  const push: PushFn = async (row) => {
     batch.push(row);
     if (batch.length >= BATCH_SIZE) { total += await insertBatch(batch); batch = []; }
   };
@@ -137,21 +245,13 @@ async function main(): Promise<void> {
       if (!has7z()) { sevenZip++; continue; }
       const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'amcu7z-'));
       try {
-        execFileSync('7z', ['x', '-y', '-bd', `-o${tmp}`, full], { stdio: 'ignore' });
-        for (const docPath of walkDocs(tmp)) {
-          const rel = path.relative(tmp, docPath);
-          const e2 = path.extname(rel).toLowerCase();
-          let body: string | null = null, extracted = false;
-          if (e2 === '.docx') { body = await extractDocx(fs.readFileSync(docPath)); extracted = body != null; if (extracted) docxOk++; else docLegacy++; }
-          else docLegacy++;
-          await push({
-            archive_file: f, doc_file: `${f}!${rel}`, doc_kind: kindOf(rel),
-            decision_no: decisionNoOf(rel), decision_date: dateOf(rel), body_text: body, extracted,
-          });
+        try {
+          execFileSync('7z', ['x', '-y', '-bd', `-o${tmp}`, full], { stdio: 'ignore' });
+        } catch (e: any) {
+          console.warn(`   ⚠️ 7z ${f}: ${e.message}`);
         }
+        await processDir(tmp, f, f, push, stats);
         sevenZip++;
-      } catch (e: any) {
-        console.warn(`   ⚠️ 7z ${f}: ${e.message}`);
       } finally {
         fs.rmSync(tmp, { recursive: true, force: true });
       }
@@ -165,25 +265,47 @@ async function main(): Promise<void> {
         if (en.isDirectory) continue;
         const en2 = en.entryName;
         const e2 = path.extname(en2).toLowerCase();
-        if (e2 !== '.doc' && e2 !== '.docx') continue;
-        let body: string | null = null, extracted = false;
-        if (e2 === '.docx') {
-          body = await extractDocx(en.getData());
-          extracted = body != null;
-          if (extracted) docxOk++; else docLegacy++;
-        } else { docLegacy++; }
-        await push({
-          archive_file: f, doc_file: `${f}!${en2}`, doc_kind: kindOf(en2),
-          decision_no: decisionNoOf(en2), decision_date: dateOf(en2), body_text: body, extracted,
-        });
+
+        if (ARCHIVE_EXT.has(e2)) {
+          // Nested archive inside a top-level zip: dump bytes to a temp file,
+          // extract with 7z and recurse (handles .zip/.7z/.rar, any depth).
+          if (!has7z()) continue;
+          const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'amcuzn-'));
+          try {
+            const arcPath = path.join(tmp, path.basename(en2));
+            fs.writeFileSync(arcPath, en.getData());
+            const outDir = path.join(tmp, '_out');
+            fs.mkdirSync(outDir);
+            try {
+              execFileSync('7z', ['x', '-y', '-bd', `-o${outDir}`, arcPath], { stdio: 'ignore' });
+            } catch (e: any) {
+              console.warn(`   ⚠️ nested ${f}!${en2}: ${e.message}`);
+            }
+            await processDir(outDir, `${f}!${en2}`, f, push, stats);
+          } finally {
+            fs.rmSync(tmp, { recursive: true, force: true });
+          }
+          continue;
+        }
+
+        if (DOC_EXT.has(e2)) {
+          const body = await extractBody(e2, en.getData());
+          const extracted = body != null;
+          if (extracted) stats.docxOk++; else stats.docLegacy++;
+          const df = `${f}!${en2}`;
+          await push({
+            archive_file: f, doc_file: df, doc_kind: kindOf(df),
+            decision_no: decisionNoOf(path.basename(en2)), decision_date: dateOf(df), body_text: body, extracted,
+          });
+        }
       }
       continue;
     }
 
-    if (ext === '.docx' || ext === '.doc') {
-      let body: string | null = null, extracted = false;
-      if (ext === '.docx') { body = await extractDocx(fs.readFileSync(full)); extracted = body != null; if (extracted) docxOk++; else docLegacy++; }
-      else docLegacy++;
+    if (DOC_EXT.has(ext)) {
+      const body = await extractBody(ext, fs.readFileSync(full));
+      const extracted = body != null;
+      if (extracted) stats.docxOk++; else stats.docLegacy++;
       await push({ archive_file: null, doc_file: f, doc_kind: kindOf(f), decision_no: decisionNoOf(f), decision_date: dateOf(f), body_text: body, extracted });
       continue;
     }
@@ -195,7 +317,7 @@ async function main(): Promise<void> {
   if (batch.length) total += await insertBatch(batch);
 
   const zMsg = has7z() ? `${sevenZip} .7z archives extracted` : `${sevenZip} .7z archives skipped (7z binary not found)`;
-  console.log(`✅ АМКУ decisions: ${total} rows (docx text ${docxOk}, legacy/no-text ${docLegacy}); ${zMsg}`);
+  console.log(`✅ АМКУ decisions: ${total} rows (docx/odt text ${stats.docxOk}, legacy/no-text ${stats.docLegacy}); ${zMsg}`);
   await pool.end();
 }
 
