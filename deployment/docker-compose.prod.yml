@@ -1673,7 +1673,7 @@ services:
       NODE_ENV: production
       BACKEND_URL: http://app-prod:3000
       BACKEND_API_KEY: ${SECONDARY_LAYER_KEYS:-}
-      OPENREYESTR_URL: http://openreyestr-app-prod:3005
+      OPENREYESTR_URL: http://app-openreyestr-prod:3005
       OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEYS:-}
       HEALTH_PORT: "3010"
       TZ: Europe/Kiev
