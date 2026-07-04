@@ -50,14 +50,32 @@ const pool = new Pool({
   max: 5,
 });
 
+// adm-zip decodes zip entry names as UTF-8, but legacy Ukrainian archives store
+// them in DOS cp866 when the UTF-8 general-purpose flag (bit 11) is unset, so
+// entryName comes out as mojibake. Re-decode the raw bytes from cp866 in that
+// case — used for CLASSIFICATION ONLY; doc_file keeps the raw entryName so the
+// upsert key stays stable. cp866 drops the Ukrainian і/ї/є/ґ (renders them as a
+// filler char), which is why kindOf matches on the lossy stem (р.?шен) below.
+const cp866 = new TextDecoder('ibm866');
+function displayName(en: any): string {
+  const flags = (en.header && typeof en.header.flags === 'number') ? en.header.flags : 0;
+  if (flags & 0x800) return en.entryName;
+  const raw: Buffer | undefined = en.rawEntryName;
+  if (raw && raw.some((b: number) => b >= 0x80)) {
+    try { return cp866.decode(raw); } catch { /* fall through to entryName */ }
+  }
+  return en.entryName;
+}
+
 function kindOf(name: string): string {
   const n = name.toLowerCase();
   // recommendations (latin translit + cyrillic)
   if (/rekomend|recomend|рекоменд/.test(n)) return 'rekomendatsii';
   // explicit index/list tokens
   if (/спис|перел|spisok|perelik/.test(n)) return 'list';
-  // decisions / orders (latin translit + cyrillic; рішення / розпорядження)
-  if (/рішен|ріше|рiше|розпорядж|розпоряд|rish|rise|rozpor/.test(n)) return 'rishennia';
+  // decisions / orders (latin translit + cyrillic). `р.?шен` tolerates the lossy
+  // і in cp866-decoded «рішення» (comes out as «р_шення»).
+  if (/р.?шен|розпор|rish|rise|rozpor/.test(n)) return 'rishennia';
   // bare latin "list" as a whole token only (avoid "listopad" = November)
   if (/(?:^|[_\-. (])list(?:[_\-. )]|$)/.test(n)) return 'list';
   return 'other';
@@ -293,9 +311,10 @@ async function main(): Promise<void> {
           const extracted = body != null;
           if (extracted) stats.docxOk++; else stats.docLegacy++;
           const df = `${f}!${en2}`;
+          const disp = displayName(en); // cp866-decoded name for classification (doc_file stays raw)
           await push({
-            archive_file: f, doc_file: df, doc_kind: kindOf(df),
-            decision_no: decisionNoOf(path.basename(en2)), decision_date: dateOf(df), body_text: body, extracted,
+            archive_file: f, doc_file: df, doc_kind: kindOf(disp),
+            decision_no: decisionNoOf(path.basename(disp)), decision_date: dateOf(disp), body_text: body, extracted,
           });
         }
       }
