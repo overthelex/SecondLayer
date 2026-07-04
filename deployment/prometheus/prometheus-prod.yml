@@ -102,7 +102,11 @@ scrape_configs:
   # AWS costs (Cost Explorer) + API activity (CloudTrail) via aws-cost-exporter
   # sidecar. The exporter refreshes AWS APIs on slow background loops (CE hourly -
   # paid API, CloudTrail 15m) and serves last-good data, so scraping is cheap.
+  # honor_labels: the exporter's own service="<AWS service name>" label must win
+  # over the target's service label, otherwise per-service costs all collapse to
+  # service="aws_cost" (real names shoved into exported_service).
   - job_name: aws_cost
+    honor_labels: true
     scrape_interval: 60s
     scrape_timeout: 10s
     static_configs:
