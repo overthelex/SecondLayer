@@ -48,14 +48,28 @@ function cellText(v: any): string | null {
   return String(v).trim() || null;
 }
 
+/**
+ * Return YYYY-MM-DD only if (y, m, d) is a real calendar date, else null. This guards
+ * the DB insert: some source files carry malformed dates (e.g. "2020-29-05") that would
+ * otherwise fail the whole batch and drop an entire file.
+ */
+function isoIfValid(y: number, m: number, d: number): string | null {
+  if (y < 1900 || y > 2100) return null;
+  const leap = y % 4 === 0 && (y % 100 !== 0 || y % 400 === 0);
+  const dim = [31, leap ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+  if (m < 1 || m > 12 || d < 1 || d > dim[m - 1]) return null;
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${y}-${pad(m)}-${pad(d)}`;
+}
+
 function toDate(v: any): string | null {
   if (v instanceof Date) return v.toISOString().slice(0, 10);
   const s = cellText(v);
   if (!s) return null;
-  let m = s.match(/(\d{2})[.\/](\d{2})[.\/](\d{4})/); // dd.mm.yyyy
-  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
-  m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m) return `${m[1]}-${m[2]}-${m[3]}`;
+  let m = s.match(/(\d{1,2})[.\/](\d{1,2})[.\/](\d{4})/); // d.m.yyyy
+  if (m) return isoIfValid(+m[3], +m[2], +m[1]);
+  m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/); // yyyy-m-d (some files store yyyy-d-m)
+  if (m) return isoIfValid(+m[1], +m[2], +m[3]) ?? isoIfValid(+m[1], +m[3], +m[2]);
   return null;
 }
 
