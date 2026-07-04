@@ -548,12 +548,12 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "sum by (endpoint) (rate(rest_responses_total{job=\"qdrant_edrsr\"}[5m]))",
-          "legendFormat": "{{endpoint}}",
+          "expr": "label_replace(sum by (endpoint) (rate(rest_responses_total{job=\"qdrant_edrsr\"}[5m])), \"op\", \"$1\", \"endpoint\", \".*/(.+)\")",
+          "legendFormat": "{{op}}",
           "refId": "A"
         }
       ],
-      "description": "REST request rate broken down by endpoint"
+      "description": "REST request rate by operation (search/query/upsert/...)"
     },
     {
       "id": 11,
@@ -642,8 +642,8 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "sum by (endpoint) (rate(rest_responses_total{job=\"qdrant_edrsr\",endpoint=~\".*points/(search|query)\"}[5m]))",
-          "legendFormat": "{{endpoint}}",
+          "expr": "label_replace(sum by (endpoint) (rate(rest_responses_total{job=\"qdrant_edrsr\",endpoint=~\".*points/(search|query)\"}[5m])), \"op\", \"$1\", \"endpoint\", \".*/(.+)\")",
+          "legendFormat": "{{op}}",
           "refId": "A"
         },
         {
@@ -1040,12 +1040,12 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "sum by (endpoint,status) (rate(rest_responses_total{job=\"qdrant_edrsr\",status!~\"2..\"}[5m]))",
-          "legendFormat": "{{endpoint}} {{status}}",
+          "expr": "label_replace(sum by (endpoint,status) (rate(rest_responses_total{job=\"qdrant_edrsr\",status!~\"2..\"}[5m])), \"op\", \"$1\", \"endpoint\", \".*/(.+)\")",
+          "legendFormat": "{{op}} {{status}}",
           "refId": "A"
         }
       ],
-      "description": "Errors per second by endpoint and status"
+      "description": "Errors per second by operation and status"
     },
     {
       "id": 17,
@@ -1467,8 +1467,8 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "rest_responses_avg_duration_seconds{job=\"qdrant_edrsr\"}",
-          "legendFormat": "avg {{endpoint}}",
+          "expr": "label_replace(rest_responses_avg_duration_seconds{job=\"qdrant_edrsr\"}, \"op\", \"$1\", \"endpoint\", \".*/(.+)\")",
+          "legendFormat": "avg {{op}}",
           "refId": "A"
         },
         {
@@ -1476,12 +1476,12 @@
             "type": "prometheus",
             "uid": "Prometheus"
           },
-          "expr": "rest_responses_max_duration_seconds{job=\"qdrant_edrsr\",endpoint=~\".*points/(search|query)\"}",
-          "legendFormat": "max {{endpoint}}",
+          "expr": "label_replace(rest_responses_max_duration_seconds{job=\"qdrant_edrsr\",endpoint=~\".*points/(search|query)\"}, \"op\", \"$1\", \"endpoint\", \".*/(.+)\")",
+          "legendFormat": "max {{op}}",
           "refId": "B"
         }
       ],
-      "description": "Average duration per endpoint plus max read-path duration (spikes)"
+      "description": "Average duration per operation plus max read-path duration (spikes)"
     },
     {
       "id": 22,
