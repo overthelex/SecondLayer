@@ -1483,6 +1483,37 @@ services:
           cpus: '0.2'
           memory: 96M
 
+  # AWS cost & usage exporter: polls Cost Explorer (hourly, paid API - $0.01/call)
+  # and CloudTrail LookupEvents (15m window) on a background loop, serves cached
+  # Prometheus metrics. Auth via EC2 instance role (secondlayer-prod-ec2-role,
+  # inline policy cost-explorer-read) - no static keys.
+  aws-cost-exporter:
+    image: node:20-alpine
+    container_name: aws-cost-exporter-prod
+    command: ['node', '/app/aws-cost-exporter.js']
+    working_dir: /app
+    volumes:
+      - ./prometheus/aws-cost-exporter.js:/app/aws-cost-exporter.js:ro
+    environment:
+      AWS_REGION: "eu-central-1"
+      CREDITS_TOTAL_USD: "25000"
+      CE_INTERVAL_SECONDS: "3600"
+      CT_INTERVAL_SECONDS: "900"
+      EXPORTER_PORT: "9199"
+    networks:
+      - secondlayer-prod-network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'node', '-e', "require('http').get('http://localhost:9199/healthz',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '0.2'
+          memory: 96M
+
   node-exporter:
     image: prom/node-exporter:v1.7.0
     container_name: node-exporter-prod

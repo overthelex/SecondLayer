@@ -99,6 +99,18 @@ scrape_configs:
           environment: production
           host: bigbox
 
+  # AWS costs (Cost Explorer) + API activity (CloudTrail) via aws-cost-exporter
+  # sidecar. The exporter refreshes AWS APIs on slow background loops (CE hourly -
+  # paid API, CloudTrail 15m) and serves last-good data, so scraping is cheap.
+  - job_name: aws_cost
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ['aws-cost-exporter:9199']
+        labels:
+          service: aws_cost
+          environment: production
+
   # cAdvisor container metrics
   - job_name: cadvisor
     scrape_interval: 15s
