@@ -85,7 +85,10 @@ scrape_configs:
   # qdrant_edrsr.key, ignored by *.key in .gitignore; the rules loader only reads
   # *.yml so a .key file there is harmless).
   - job_name: qdrant_edrsr
-    scrape_interval: 30s
+    # /metrics generation for the ~296M-vector edrsr_serving collection takes
+    # ~8-12s, so give it a long timeout and a slower interval to avoid flapping.
+    scrape_interval: 60s
+    scrape_timeout: 30s
     metrics_path: /metrics
     authorization:
       type: Bearer
