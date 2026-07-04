@@ -470,6 +470,11 @@ jobs:
           # Pull latest code and tags
           $SSH_CMD "git -C ${REMOTE_REPO} fetch origin main --tags && git -C ${REMOTE_REPO} reset --hard origin/main"
 
+          # Materialize the (gitignored) Prometheus bearer-token file for the
+          # bigbox EDRSR Qdrant scrape from .env.prod, so prometheus-prod always
+          # starts cleanly — a missing credentials_file aborts its startup.
+          $SSH_CMD "chmod +x ${REMOTE_REPO}/deployment/prometheus/ensure-qdrant-edrsr-key.sh && ${REMOTE_REPO}/deployment/prometheus/ensure-qdrant-edrsr-key.sh"
+
           # Write VERSION file with both versions
           $SSH_CMD "printf 'BACKEND_VERSION=%s\nFRONTEND_VERSION=%s\n' '${BACKEND_VERSION}' '${FRONTEND_VERSION}' > ${REMOTE_REPO}/VERSION"
 
