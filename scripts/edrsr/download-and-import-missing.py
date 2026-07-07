@@ -88,6 +88,81 @@ def remove_nested_group(text, keyword):
     return text
 
 
+# --- HTML decisions (older years / .html urls are Word-exported HTML in windows-1251) ---
+# Cyrillic markers that identify the registry's captcha / "access restricted" / stale-link
+# shell pages (served with HTTP 200) — never a real decision.
+BLOCK_MARKERS = (
+    'Перегляд сторінки недоступний', 'Невірне або застаріле посилання',
+    'обмеженому) режим', 'Введіть суму цифр', 'Ласкаво просимо',
+)
+
+
+def looks_like_html(data: bytes) -> bool:
+    head = data[:512].lstrip()[:200].lower()
+    return b'<html' in head or head[:9] == b'<!doctype' or head[:5] == b'<?xml'
+
+
+def _decode_html(raw: bytes) -> str:
+    # decode with the DECLARED charset (court HTML is win1251) — decoding as UTF-8
+    # turns every Cyrillic byte into U+FFFD.
+    enc = 'utf-8'
+    mm = re.search(rb'charset=["\']?\s*([\w-]+)', raw[:2048], re.I)
+    if mm:
+        enc = mm.group(1).decode('ascii', 'replace').strip().lower()
+    try:
+        return raw.decode(enc, 'strict')
+    except (LookupError, UnicodeDecodeError):
+        try:
+            return raw.decode('windows-1251', 'replace')
+        except Exception:
+            return raw.decode('utf-8', 'replace')
+
+
+def looks_like_block_page(raw: bytes) -> bool:
+    return any(mk in _decode_html(raw) for mk in BLOCK_MARKERS)
+
+
+def _html_unescape(s: str) -> str:
+    s = (s.replace('&nbsp;', ' ').replace('&amp;', '&').replace('&lt;', '<')
+          .replace('&gt;', '>').replace('&quot;', '"').replace('&#39;', "'")
+          .replace('&laquo;', '«').replace('&raquo;', '»').replace('&mdash;', '—'))
+    return re.sub(r'&#(\d+);', lambda m: chr(int(m.group(1))) if int(m.group(1)) <= 0x10FFFF else '', s)
+
+
+def html_to_text(raw: bytes) -> str | None:
+    """win1251/utf-8 Word-HTML decision -> plain text. None for block/captcha pages."""
+    t = _decode_html(raw)
+    if any(mk in t for mk in BLOCK_MARKERS):
+        return None
+    t = re.sub(r'(?is)<head[^>]*>.*?</head>', ' ', t)          # Word metadata / style / title
+    t = re.sub(r'(?is)<xml[^>]*>.*?</xml>', ' ', t)            # Word conditional XML islands
+    t = re.sub(r'(?is)<(script|style)[^>]*>.*?</\1>', ' ', t)
+    t = re.sub(r'(?i)<br\s*/?>', '\n', t)
+    t = re.sub(r'(?i)</(p|div|tr|h[1-6]|li)>', '\n', t)
+    t = re.sub(r'<[^>]+>', ' ', t)
+    t = _html_unescape(t)
+    t = t.replace('\x00', '').replace('\r\n', '\n')
+    t = re.sub(r'[ \t]+', ' ', t)
+    t = re.sub(r'\n{3,}', '\n\n', t).strip()
+    t = t.encode('utf-8', errors='surrogatepass').decode('utf-8', errors='replace')
+    return t if len(t) >= 200 else None
+
+
+def looks_like_document(data: bytes) -> bool:
+    """A real decision payload: RTF, or a non-block HTML page."""
+    if looks_like_rtf(data):
+        return True
+    return looks_like_html(data) and not looks_like_block_page(data) and len(data) > 2000
+
+
+def file_is_valid_document(path: Path) -> bool:
+    try:
+        with open(path, 'rb') as fh:
+            return looks_like_document(fh.read())
+    except (IOError, OSError):
+        return False
+
+
 def convert_one_file(filepath_str: str) -> tuple[int, str] | None:
     filepath = Path(filepath_str)
     try:
@@ -100,6 +175,10 @@ def convert_one_file(filepath_str: str) -> tuple[int, str] | None:
 
     doc_id = int(filepath.stem)
     if not raw[:20].startswith(b'{\\rtf'):
+        # Non-RTF payload: decisions are also served as win1251 Word-HTML.
+        if looks_like_html(raw):
+            txt = html_to_text(raw)
+            return (doc_id, txt) if txt else None
         return None
 
     text = raw.decode('latin1')
@@ -194,10 +273,10 @@ class Stats:
 async def download_one(session, doc_id, url, rtf_dir, stats, semaphore):
     outpath = rtf_dir / f"{doc_id}.rtf"
     if outpath.exists() and outpath.stat().st_size > 0:
-        # Only trust an on-disk file if it is a real RTF. A previously cached
-        # HTML error/block page must be discarded and re-downloaded, otherwise
-        # the decision is stuck missing forever.
-        if file_is_valid_rtf(outpath):
+        # Only trust an on-disk file if it is a real decision (RTF or non-block HTML).
+        # A previously cached captcha/block page must be discarded and re-downloaded,
+        # otherwise the decision is stuck missing forever.
+        if file_is_valid_document(outpath):
             await stats.inc('skipped')
             return
         try:
@@ -211,14 +290,14 @@ async def download_one(session, doc_id, url, rtf_dir, stats, semaphore):
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                     if resp.status == 200:
                         data = await resp.read()
-                        if data and looks_like_rtf(data):
+                        if data and looks_like_document(data):
                             outpath.write_bytes(data)
                             await stats.inc('downloaded')
                             return
                         if data:
-                            # 200 but not RTF (HTML block/captcha/error). Do NOT
-                            # write it — leaving no file means future runs retry
-                            # instead of caching garbage.
+                            # 200 but a captcha/block/error page (not a real RTF/HTML
+                            # decision). Do NOT write it — leaving no file means future
+                            # runs retry instead of caching garbage.
                             await stats.inc('poisoned')
                             return
                     elif resp.status == 429:
