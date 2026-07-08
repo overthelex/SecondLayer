@@ -175,9 +175,12 @@ jobs:
             SERVICES=""
             [ "$BACKEND_CHANGED" = "true" ] && SERVICES="backend"
             [ "$RADA_CHANGED" = "true" ] && SERVICES="${SERVICES:+$SERVICES,}rada"
-            [ "$OPENREYESTR_CHANGED" = "true" ] && SERVICES="${SERVICES:+$SERVICES,}openreyestr"
+            # NOTE: openreyestr is NOT auto-deployed on the Brev stage — its
+            # pre-loaded openreyestr-db image + named-volume/password semantics
+            # need manual handling. Deploy it explicitly via
+            # `workflow_dispatch` with services=openreyestr when needed.
             [ "$FRONTEND_CHANGED" = "true" ] && SERVICES="${SERVICES:+$SERVICES,}frontend"
-            [ "$SHARED_CHANGED" = "true" ] && [ -z "$SERVICES" ] && SERVICES="backend,rada,openreyestr,frontend"
+            [ "$SHARED_CHANGED" = "true" ] && [ -z "$SERVICES" ] && SERVICES="backend,rada,frontend"
             echo "list=${SERVICES:-backend,frontend}" >> "$GITHUB_OUTPUT"
           fi
 
