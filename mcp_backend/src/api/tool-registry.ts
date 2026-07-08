@@ -295,6 +295,8 @@ export class ToolRegistry {
       { clientName: 'openreyestr_search_arma_seized_assets', serviceName: 'search_arma_seized_assets' },
       { clientName: 'openreyestr_search_nazk_declarations', serviceName: 'search_nazk_declarations' },
       { clientName: 'openreyestr_search_exchange_data', serviceName: 'search_exchange_data' },
+      { clientName: 'openreyestr_search_me_datasets', serviceName: 'search_me_datasets' },
+      { clientName: 'openreyestr_search_me_records', serviceName: 'search_me_records' },
     ];
 
     for (const tool of openreyestrTools) {
