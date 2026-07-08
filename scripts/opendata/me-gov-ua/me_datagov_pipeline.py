@@ -450,12 +450,15 @@ def _rows_from_csv(path: Path) -> list[dict]:
     import csv
 
     text = _read_text(path)
-    sample = text[:8192]
-    try:
-        dialect = csv.Sniffer().sniff(sample, delimiters=",;\t|")
-    except csv.Error:
-        dialect = csv.excel
-    reader = csv.DictReader(text.splitlines(), dialect=dialect)
+    lines = text.splitlines()
+    header = lines[0] if lines else ""
+    # UA gov CSVs are overwhelmingly ';'-delimited (',' is the decimal
+    # separator), which fools csv.Sniffer. Pick the delimiter that occurs most
+    # in the header row; break ties in favour of ';'.
+    delim = max((";", "\t", "|", ","), key=lambda d: (header.count(d), d == ";"))
+    if header.count(delim) == 0:
+        delim = ","
+    reader = csv.DictReader(lines, delimiter=delim)
     return [dict(row) for row in reader]
 
 
