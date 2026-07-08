@@ -1382,10 +1382,26 @@ export class OpenReyestrTools {
     const { query, limit = 30 } = params;
     const values: any[] = [];
     let where = '';
-    if (query && query.trim()) {
-      where = `WHERE to_tsvector('simple', coalesce(d.title, '') || ' ' || coalesce(d.notes, '')) @@ plainto_tsquery('simple', $1)
-               OR d.title ILIKE $2 OR d.slug ILIKE $2`;
-      values.push(query.trim(), `%${query.trim()}%`);
+    const q = (query || '').trim();
+    if (q) {
+      // 'simple' FTS has no Ukrainian stemming, so a phrase/lexeme match misses
+      // morphological variants ("авто" vs "автомобілів", "ліцензіати" vs
+      // "ліцензіатів"). Require each query word to appear as a substring in
+      // title+notes (far more forgiving); also OR the full FTS match for exact
+      // lexeme hits. Only 69 datasets, so a seq scan is trivial.
+      const words = q.split(/\s+/).filter(Boolean);
+      const wordConds = words.map((w) => {
+        values.push(`%${w}%`);
+        return `(d.title ILIKE $${values.length} OR d.notes ILIKE $${values.length})`;
+      });
+      values.push(q);
+      const ftsIdx = values.length;
+      const parts: string[] = [];
+      if (wordConds.length) parts.push(`(${wordConds.join(' AND ')})`);
+      parts.push(
+        `to_tsvector('simple', coalesce(d.title, '') || ' ' || coalesce(d.notes, '')) @@ plainto_tsquery('simple', $${ftsIdx})`
+      );
+      where = `WHERE ${parts.join(' OR ')}`;
     }
     values.push(limit);
 
