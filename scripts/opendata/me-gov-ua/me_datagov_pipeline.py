@@ -155,6 +155,22 @@ def connect():
     return conn
 
 
+def ensure_conn(conn):
+    """Return a live connection. The download stage holds a connection idle for
+    minutes while files stream, and Postgres/a gateway can drop it before the
+    final status commit — ping and reconnect if it died."""
+    try:
+        with conn.cursor() as c:
+            c.execute("SELECT 1")
+        return conn
+    except Exception:
+        try:
+            conn.close()
+        except Exception:
+            pass
+        return connect()
+
+
 def _ts(value):
     """Parse a CKAN ISO timestamp to a tz-aware datetime, or None."""
     if not value:
@@ -406,6 +422,7 @@ def download(conn, limit: int | None):
     asyncio.run(run())
 
     ok = err = 0
+    conn = ensure_conn(conn)  # the long download may have dropped the connection
     with conn.cursor() as cur:
         for rid, r in results.items():
             if r["status"] == "downloaded":
@@ -576,6 +593,7 @@ def import_records(conn, reimport: bool):
             continue
 
         rows = rows[:MAX_ROWS_PER_RESOURCE]
+        conn = ensure_conn(conn)  # a large parse may have idled the connection
         with conn.cursor() as cur:
             cur.execute("DELETE FROM me_records WHERE resource_id=%s", (res["id"],))
             if rows:
