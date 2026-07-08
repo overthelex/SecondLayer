@@ -595,6 +595,15 @@ services:
 
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: Europe/Kiev
+      # EDRSR full-text search: when set, EdsrFtsService opens a dedicated pool
+      # to the Brev host edrsr_local DB, reached via a host-network socat relay
+      # (:6432 -> 127.0.0.1:5432). Empty = fall back to the main stage DB.
+      EDRSR_DATABASE_URL: ${EDRSR_DATABASE_URL:-}
+      EDRSR_POOL_MAX: ${EDRSR_POOL_MAX:-10}
+    # host.docker.internal -> host gateway, so the container can reach the
+    # edrsr-pg-relay socat listener bound on the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
     - "127.0.0.1:3004:3000"
     depends_on:
