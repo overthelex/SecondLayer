@@ -1382,26 +1382,31 @@ export class OpenReyestrTools {
     const { query, limit = 30 } = params;
     const values: any[] = [];
     let where = '';
+    let orderBy = 'total_rows DESC';
     const q = (query || '').trim();
     if (q) {
       // 'simple' FTS has no Ukrainian stemming, so a phrase/lexeme match misses
-      // morphological variants ("авто" vs "автомобілів", "ліцензіати" vs
-      // "ліцензіатів"). Require each query word to appear as a substring in
-      // title+notes (far more forgiving); also OR the full FTS match for exact
-      // lexeme hits. Only 69 datasets, so a seq scan is trivial.
+      // morphological variants. Combine three forgiving signals:
+      //  1. per-word substring ILIKE  ("авто" ⊂ "автомобілів")
+      //  2. full FTS lexeme match
+      //  3. pg_trgm word_similarity   ("квоти" ~ "квот", "ліцензія" ~ "ліцензії")
+      // and rank by trigram similarity. Only 69 datasets → cheap.
       const words = q.split(/\s+/).filter(Boolean);
       const wordConds = words.map((w) => {
         values.push(`%${w}%`);
         return `(d.title ILIKE $${values.length} OR d.notes ILIKE $${values.length})`;
       });
       values.push(q);
-      const ftsIdx = values.length;
+      const qi = values.length;
+      const sim = `word_similarity($${qi}, coalesce(d.title, '') || ' ' || coalesce(d.notes, ''))`;
       const parts: string[] = [];
       if (wordConds.length) parts.push(`(${wordConds.join(' AND ')})`);
       parts.push(
-        `to_tsvector('simple', coalesce(d.title, '') || ' ' || coalesce(d.notes, '')) @@ plainto_tsquery('simple', $${ftsIdx})`
+        `to_tsvector('simple', coalesce(d.title, '') || ' ' || coalesce(d.notes, '')) @@ plainto_tsquery('simple', $${qi})`
       );
+      parts.push(`${sim} >= 0.3`);
       where = `WHERE ${parts.join(' OR ')}`;
+      orderBy = `${sim} DESC, total_rows DESC`;
     }
     values.push(limit);
 
@@ -1413,7 +1418,7 @@ export class OpenReyestrTools {
        LEFT JOIN me_resources r ON r.dataset_id = d.id
        ${where}
        GROUP BY d.id, d.slug, d.title, d.notes, d.num_resources
-       ORDER BY total_rows DESC
+       ORDER BY ${orderBy}
        LIMIT $${values.length}`,
       values
     );
