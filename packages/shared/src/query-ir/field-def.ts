@@ -10,6 +10,7 @@
 export type MatchType =
   | 'ilike'          // col ILIKE $N  (%val%)
   | 'exact'          // col = $N
+  | 'exact_ci'       // col ILIKE $N  (val verbatim, no wildcards) — case-insensitive exact match for categorical enums
   | 'ilike_multi'    // (col1 ILIKE $N OR col2 ILIKE $N ...)  (%val%)
   | 'exact_multi'    // (col1 = $N OR col2 = $N ...)
   | 'gte'            // col >= $N

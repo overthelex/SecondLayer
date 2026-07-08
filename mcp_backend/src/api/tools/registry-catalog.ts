@@ -198,7 +198,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
       { name: 'holder_name', description: "Назва або ім'я власника", match: 'ilike_multi', columns: ['holder_name', 'applicant_name'] },
       { name: 'holder_edrpou', description: 'ЄДРПОУ власника', match: 'exact_multi', columns: ['holder_edrpou', 'applicant_edrpou'] },
       { name: 'nice_class', description: 'Клас NICE (1-45)', match: 'array_contains', columns: ['nice_classes'], type: 'number' },
-      { name: 'status', description: 'Статус марки: "active" (чинна/діюча) або "inactive" (нечинна: сплив строк або достроково припинена)', match: 'ilike', columns: ['status'] },
+      { name: 'status', description: 'Статус марки — вкажіть точне значення "active" (чинна/діюча) або "inactive" (нечинна: сплив строк або достроково припинена)', match: 'exact_ci', columns: ['status'] },
       { name: 'registration_number', description: 'Номер реєстрації', match: 'exact', columns: ['registration_number'] },
     ],
   },
@@ -217,7 +217,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
       { name: 'app_number', description: 'Номер заявки', match: 'exact', columns: ['app_number'] },
       { name: 'registration_number', description: 'Номер патенту', match: 'exact', columns: ['registration_number'] },
       { name: 'obj_type', description: 'Тип: 1=винахід, 2=корисна модель, 6=промисл. зразок', match: 'exact', columns: ['obj_type'], type: 'number' },
-      { name: 'status', description: 'Статус патенту: "active" (чинний), "inactive" (нечинний) або "pending" (зареєстрований, очікує дії — напр. сплати збору)', match: 'ilike', columns: ['status'] },
+      { name: 'status', description: 'Статус патенту — вкажіть точне значення "active" (чинний), "inactive" (нечинний) або "pending" (зареєстрований, очікує дії — напр. сплати збору)', match: 'exact_ci', columns: ['status'] },
     ],
   },
 
