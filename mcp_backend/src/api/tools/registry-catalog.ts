@@ -198,14 +198,14 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
       { name: 'holder_name', description: "Назва або ім'я власника", match: 'ilike_multi', columns: ['holder_name', 'applicant_name'] },
       { name: 'holder_edrpou', description: 'ЄДРПОУ власника', match: 'exact_multi', columns: ['holder_edrpou', 'applicant_edrpou'] },
       { name: 'nice_class', description: 'Клас NICE (1-45)', match: 'array_contains', columns: ['nice_classes'], type: 'number' },
-      { name: 'status', description: 'Статус (зареєстровано, припинено тощо)', match: 'ilike', columns: ['status'] },
+      { name: 'status', description: 'Статус марки: "active" (чинна/діюча) або "inactive" (нечинна: сплив строк або достроково припинена)', match: 'ilike', columns: ['status'] },
       { name: 'registration_number', description: 'Номер реєстрації', match: 'exact', columns: ['registration_number'] },
     ],
   },
 
   patents: {
     title: 'Патенти (Укрпатент)',
-    description: 'Пошук патентів, корисних моделей та промислових зразків (UIPV — Укрпатент)\n\n347K записів (винаходи, корисні моделі, промзразки; синхронізовано 2026-07). Пошук за назвою, власником, кодом МПК, номером заявки.',
+    description: 'Пошук патентів, корисних моделей та промислових зразків (UIPV — Укрпатент)\n\n347K записів (винаходи, корисні моделі, промзразки; синхронізовано 2026-07). Пошук за назвою, власником, кодом МПК, номером заявки, статусом.',
     table: 'opendata_patents',
     selectColumns: 'app_number, app_date, registration_number, registration_date, obj_type_name, title_ua, title_en, abstract_ua, ipc_codes, owner_name, owner_country, status',
     orderBy: 'registration_date DESC NULLS LAST',
@@ -217,6 +217,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
       { name: 'app_number', description: 'Номер заявки', match: 'exact', columns: ['app_number'] },
       { name: 'registration_number', description: 'Номер патенту', match: 'exact', columns: ['registration_number'] },
       { name: 'obj_type', description: 'Тип: 1=винахід, 2=корисна модель, 6=промисл. зразок', match: 'exact', columns: ['obj_type'], type: 'number' },
+      { name: 'status', description: 'Статус патенту: "active" (чинний), "inactive" (нечинний) або "pending" (зареєстрований, очікує дії — напр. сплати збору)', match: 'ilike', columns: ['status'] },
     ],
   },
 
