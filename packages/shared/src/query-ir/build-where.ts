@@ -60,6 +60,15 @@ export function buildWhere(
         pi++;
         break;
 
+      // Case-insensitive exact match for categorical enums. ILIKE with a value
+      // that has no % / _ is a plain case-insensitive equality — avoids the
+      // substring trap of 'ilike' (e.g. status "active" matching "inactive").
+      case 'exact_ci':
+        conditions.push(`${field.columns[0]} ILIKE $${pi}`);
+        values.push(val);
+        pi++;
+        break;
+
       case 'ilike_multi':
         conditions.push(`(${field.columns.map(c => `${c} ILIKE $${pi}`).join(' OR ')})`);
         values.push(`%${val}%`);
