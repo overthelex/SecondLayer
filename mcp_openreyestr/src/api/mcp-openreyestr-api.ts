@@ -530,6 +530,37 @@ export class MCPOpenReyestrAPI {
           required: ['query'],
         },
       },
+      {
+        name: 'search_me_datasets',
+        description: `Пошук датасетів Міністерства економіки України (Мінекономіки) з відкритих даних
+
+💰 Примерная стоимость: $0.001 USD
+Знайти релевантний набір серед 69 датасетів Мінекономіки (реєстри інтелектуальної власності, ліцензіати, експортно-імпортні квоти, реекспорт, вартість авто, довідник підприємств, фінзвітність держсектору, індустріальні парки тощо). Повертає slug датасету — використайте його у search_me_records для пошуку рядків.`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            query: { type: 'string', description: 'Ключові слова (напр. "ліцензіати", "сорти рослин", "вартість авто", "квоти")' },
+            limit: { type: 'number', default: 30, maximum: 69, minimum: 1, description: 'Максимальна кількість датасетів' },
+          },
+        },
+      },
+      {
+        name: 'search_me_records',
+        description: `Пошук рядків усередині датасету Мінекономіки
+
+💰 Примерная стоимость: $0.001 USD
+Пошук у конкретному датасеті (за slug з search_me_datasets або за resource_id). Дані різнорідні (JSONB), тому датасет вказувати обовʼязково. Приклад: dataset="reiestr-industrialnikh-parkiv" query="Львів".`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            dataset: { type: 'string', description: 'Slug датасету (з search_me_datasets)' },
+            resource_id: { type: 'number', description: 'ID конкретного ресурсу (альтернатива dataset)' },
+            query: { type: 'string', description: 'Пошуковий рядок (шукається по всіх полях рядка)' },
+            limit: { type: 'number', default: 50, maximum: 100, minimum: 1, description: 'Максимальна кількість рядків' },
+            offset: { type: 'number', default: 0, description: 'Зміщення для пагінації' },
+          },
+        },
+      },
     ];
   }
 
@@ -620,6 +651,12 @@ export class MCPOpenReyestrAPI {
           break;
         case 'search_rnbo_sanctions':
           result = await this.tools.searchRnboSanctions(args);
+          break;
+        case 'search_me_datasets':
+          result = await this.tools.searchMeDatasets(args);
+          break;
+        case 'search_me_records':
+          result = await this.tools.searchMeRecords(args);
           break;
         default:
           throw new Error(`Unknown tool: ${name}`);
