@@ -91,7 +91,8 @@ STAGING_DIR = Path(
 # Formats we parse into me_records. Everything else is mirrored as a file only.
 TABULAR_FORMATS = {"CSV", "TSV", "XLSX", "XLS", "JSON", "XML"}
 ARCHIVE_FORMATS = {"7Z", "ZIP"}  # mirrored as file; extraction is a later pass
-MAX_ROWS_PER_RESOURCE = int(os.environ.get("ME_MAX_ROWS", "500000"))  # safety cap
+MAX_ROWS_PER_RESOURCE = int(os.environ.get("ME_MAX_ROWS", "2000000"))  # safety cap
+_EMPTY_ROW_STOP = 500  # stop a sheet after this many consecutive blank rows
 
 # data.gov.ua format labels are hand-entered and frequently use Cyrillic
 # homoglyphs (Х/Р/С/… instead of X/P/C/…), e.g. "ХLSX", "РDF", "СSV". Normalize
@@ -491,11 +492,44 @@ def _rows_from_xlsx(path: Path) -> list[dict]:
         except StopIteration:
             continue
         cols = [str(h) if h is not None else f"col{i}" for i, h in enumerate(header)]
+        # Many .xlsx files declare an inflated sheet dimension (max_row up to
+        # 1048576) padded with blank rows; iter_rows yields all of them. Skip
+        # empty rows and stop after a long run of them so we don't mint 500k
+        # phantom rows from a 67 KB file.
+        empty_run = 0
         for r in it:
+            if all(v is None or v == "" for v in r):
+                empty_run += 1
+                if empty_run >= _EMPTY_ROW_STOP:
+                    break
+                continue
+            empty_run = 0
             rows.append(
                 {cols[i]: (v.isoformat() if hasattr(v, "isoformat") else v)
                  for i, v in enumerate(r) if i < len(cols)}
             )
+            if len(rows) >= MAX_ROWS_PER_RESOURCE:
+                return rows
+    return rows
+
+
+def _rows_from_xls(path: Path) -> list[dict]:
+    """Legacy .xls (OLE2) — openpyxl can't read these; use xlrd."""
+    import xlrd
+
+    book = xlrd.open_workbook(str(path))
+    rows: list[dict] = []
+    for sh in book.sheets():
+        if sh.nrows == 0:
+            continue
+        header = [
+            str(sh.cell_value(0, c)).strip() or f"col{c}" for c in range(sh.ncols)
+        ]
+        for ri in range(1, sh.nrows):
+            vals = [sh.cell_value(ri, c) for c in range(sh.ncols)]
+            if all(v == "" or v is None for v in vals):
+                continue
+            rows.append({header[c]: vals[c] for c in range(sh.ncols)})
             if len(rows) >= MAX_ROWS_PER_RESOURCE:
                 return rows
     return rows
@@ -550,7 +584,7 @@ PARSERS = {
     "CSV": _rows_from_csv,
     "TSV": _rows_from_csv,
     "XLSX": _rows_from_xlsx,
-    "XLS": _rows_from_xlsx,
+    "XLS": _rows_from_xls,
     "JSON": _rows_from_json,
     "XML": _rows_from_xml,
 }
