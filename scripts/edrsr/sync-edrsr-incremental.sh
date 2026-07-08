@@ -1,6 +1,7 @@
 #!/bin/bash
 # Incremental EDRSR sync from data.gov.ua → prod PostgreSQL
-# Downloads current year ZIP, extracts documents.csv, imports new records via NOT EXISTS (partitioned table)
+# Downloads current year ZIP, extracts documents.csv, imports new records via
+# INSERT ... ON CONFLICT DO NOTHING (idempotent; per-partition unique doc_id skips existing)
 #
 # Usage:
 #   ./sync-edrsr-incremental.sh              # Sync current year (2026)
@@ -19,19 +20,6 @@ YEAR="${1:-$(date +%Y)}"
 WORK_DIR="/tmp/edrsr_sync_$$"
 LOG_FILE="/tmp/edrsr_sync_${YEAR}.log"
 DRY_RUN="${DRY_RUN:-false}"
-
-# Optionally force a nested-loop anti-join for the dedup INSERT. Nested loop enables
-# runtime partition pruning (probe only the target adjudication-year partition per row);
-# without it the planner may pick a hash/merge anti-join that scans all ~100M rows and
-# spills to disk. Enable per year via FORCE_NESTED_YEARS (comma-separated),
-# e.g. FORCE_NESTED_YEARS=2013 ./sync-edrsr-incremental.sh 2013
-FORCE_NL_SQL=""
-case ",${FORCE_NESTED_YEARS:-}," in
-  *",${YEAR},"*)
-    FORCE_NL_SQL="ANALYZE edrsr_import;
-SET enable_hashjoin = off;
-SET enable_mergejoin = off;" ;;
-esac
 
 # ── Dataset URL mapping ──────────────────────────────────────────────
 declare -A DATASET_URLS=(
@@ -86,26 +74,24 @@ count_sql() {
 
 copy_to_db() {
   local file="$1"
-  # Use NOT EXISTS instead of ON CONFLICT — edrsr_documents is a partitioned table
-  # and PostgreSQL requires the partition key in any parent-level unique constraint.
-  # Per-partition unique indexes on doc_id exist, so NOT EXISTS uses them efficiently.
+  # Dedup is delegated to the database: INSERT ... ON CONFLICT DO NOTHING silently skips
+  # any row whose doc_id already exists in the target adjudication-year partition (each
+  # partition has a unique index on doc_id). This is idempotent and, unlike the old
+  # NOT EXISTS anti-join keyed on (doc_id, adjudication_date), it also handles the case
+  # where data.gov.ua republishes an existing doc_id with a changed adjudication_date
+  # (the anti-join treated that as new and hit the per-partition unique index).
   if [ -n "${PG_DOCKER_CONTAINER:-}" ]; then
     # Runner is on the DB host: copy the CSV straight into the container and import
-    # locally (no SSH round-trip). $FORCE_NL_SQL is expanded into the heredoc.
+    # locally (no SSH round-trip).
     docker cp "$file" "${PG_DOCKER_CONTAINER}:/tmp/import.csv"
     docker exec -i "$PG_DOCKER_CONTAINER" psql -U "${PGUSER:-secondlayer}" -d "${PGDATABASE:-secondlayer_prod}" -v ON_ERROR_STOP=1 <<SQLEOF
 CREATE TEMP TABLE edrsr_import (LIKE edrsr_documents INCLUDING DEFAULTS);
 COPY edrsr_import(doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
   FROM '/tmp/import.csv' WITH (FORMAT csv, DELIMITER E'\t', QUOTE '"', NULL '');
-$FORCE_NL_SQL
 INSERT INTO edrsr_documents (doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
   SELECT doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ
   FROM edrsr_import ei
-  WHERE NOT EXISTS (
-    SELECT 1 FROM edrsr_documents ed
-    WHERE ed.doc_id = ei.doc_id
-      AND ed.adjudication_date = ei.adjudication_date  -- prune anti-join to the single target partition
-  );
+  ON CONFLICT DO NOTHING;
 DROP TABLE edrsr_import;
 SQLEOF
     docker exec "$PG_DOCKER_CONTAINER" rm -f /tmp/import.csv
@@ -138,11 +124,7 @@ COPY edrsr_import(doc_id, court_code, judgment_code, justice_kind, category_code
 INSERT INTO edrsr_documents (doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
   SELECT doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ
   FROM edrsr_import ei
-  WHERE NOT EXISTS (
-    SELECT 1 FROM edrsr_documents ed
-    WHERE ed.doc_id = ei.doc_id
-      AND ed.adjudication_date = ei.adjudication_date  -- prune anti-join to the single target partition
-  );
+  ON CONFLICT DO NOTHING;
 DROP TABLE edrsr_import;
 SQLEOF
     ssh -T "$SSH_HOST" "docker cp ${sql_file} secondlayer-postgres-prod:/tmp/import.sql && rm -f ${sql_file}"
@@ -153,15 +135,10 @@ SQLEOF
     psql -h "${PGHOST:-localhost}" -p "${PGPORT:-5432}" -U "${PGUSER:-secondlayer}" -d "${PGDATABASE:-secondlayer_prod}" -v ON_ERROR_STOP=1 <<SQLEOF
 CREATE TEMP TABLE edrsr_import (LIKE edrsr_documents INCLUDING DEFAULTS);
 \COPY edrsr_import(doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ) FROM '$file' WITH (FORMAT csv, DELIMITER E'$TAB', QUOTE '"', NULL '');
-$FORCE_NL_SQL
 INSERT INTO edrsr_documents (doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
   SELECT doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ
   FROM edrsr_import ei
-  WHERE NOT EXISTS (
-    SELECT 1 FROM edrsr_documents ed
-    WHERE ed.doc_id = ei.doc_id
-      AND ed.adjudication_date = ei.adjudication_date  -- prune anti-join to the single target partition
-  );
+  ON CONFLICT DO NOTHING;
 DROP TABLE edrsr_import;
 SQLEOF
   fi
