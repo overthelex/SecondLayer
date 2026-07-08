@@ -86,6 +86,19 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// NIPO exposes the authoritative live/dead flag as a colour: green = in force,
+// red = not in force, yellow = registered but pending (e.g. awaiting an annual fee).
+// Map it to a human-readable status shared by both trademarks and patents so the
+// registry-catalog text filters work and the two tables stay consistent.
+function statusFromColor(color: any, fallback: string | null = null): string | null {
+  switch (color) {
+    case 'green': return 'active';
+    case 'red': return 'inactive';
+    case 'yellow': return 'pending';
+    default: return fallback;
+  }
+}
+
 // ── Extract trademark fields ────────────────────────────────────────────────
 function extractTrademark(record: any): any[] {
   const data = record.data || {};
@@ -138,15 +151,12 @@ function extractTrademark(record: any): any[] {
   // 2016 while it was actually renewed to 2026).
   const expiryDate = data.ProlonagationExpiryDate || data.ExpiryDate || null;
 
-  // Status — `registration_status_color` (green=in force, red=not) is the authoritative
-  // live/dead flag, same source patents use. `application_status` is unreliable: ~127K
-  // marks are stamped "active" while their color is red (expired/terminated), so the raw
-  // `TerminationDate` never surfaced. Map color → human-readable status the registry
-  // catalog filters on by text ("зареєстровано, припинено тощо").
-  const color = data.registration_status_color;
-  const status = color === 'green' ? 'active'
-    : color === 'red' ? 'inactive'
-    : (data.application_status || null);
+  // Status — `registration_status_color` is the authoritative live/dead flag, same
+  // source patents use. `application_status` is unreliable: ~127K marks are stamped
+  // "active" while their color is red (expired/terminated), so the raw `TerminationDate`
+  // never surfaced. Map color → human-readable status the registry catalog filters on
+  // by text ("зареєстровано, припинено тощо"), falling back to application_status.
+  const status = statusFromColor(data.registration_status_color, data.application_status || null);
 
   return [
     record.app_number,
@@ -206,7 +216,9 @@ function extractPatent(record: any, objType: number): any[] {
     inventorNames = inventors.map((i: any) => i['I_72.N.U'] || i['I_72.N.R'] || '').filter(Boolean);
   }
 
-  const status = data.registration_status_color || null;
+  // Human-readable status from the NIPO colour flag (green→active, red→inactive,
+  // yellow→pending), consistent with trademarks. Previously stored the raw colour.
+  const status = statusFromColor(data.registration_status_color);
 
   return [
     objType,
