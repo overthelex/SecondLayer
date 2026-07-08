@@ -600,6 +600,17 @@ services:
       # (:6432 -> 127.0.0.1:5432). Empty = fall back to the main stage DB.
       EDRSR_DATABASE_URL: ${EDRSR_DATABASE_URL:-}
       EDRSR_POOL_MAX: ${EDRSR_POOL_MAX:-10}
+      # EDRSR semantic/hybrid search: bge-m3 query embedder (Brev tei-bge-leg,
+      # attached to this network) + read-only queries against the Brev
+      # qdrant-revec edrsr_decisions collection. SKIP_INIT=true so stage never
+      # (re)configures that live, actively-indexed collection.
+      BGE_M3_URL: ${BGE_M3_URL:-}
+      QDRANT_EDRSR_URL: ${QDRANT_EDRSR_URL:-}
+      QDRANT_EDRSR_COLLECTION: ${QDRANT_EDRSR_COLLECTION:-}
+      QDRANT_EDRSR_API_KEY: ${QDRANT_EDRSR_API_KEY:-}
+      QDRANT_EDRSR_SKIP_INIT: ${QDRANT_EDRSR_SKIP_INIT:-true}
+      QDRANT_EDRSR_MAX_CONCURRENCY: ${QDRANT_EDRSR_MAX_CONCURRENCY:-6}
+      QDRANT_EDRSR_TIMEOUT_MS: ${QDRANT_EDRSR_TIMEOUT_MS:-20000}
     # host.docker.internal -> host gateway, so the container can reach the
     # edrsr-pg-relay socat listener bound on the host.
     extra_hosts:
