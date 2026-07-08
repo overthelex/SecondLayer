@@ -131,12 +131,29 @@ function extractTrademark(record: any): any[] {
     }).join(' | ');
   }
 
+  // Expiry — prefer the prolongation expiry when the mark was renewed. NIPO keeps
+  // the original 10-year `ExpiryDate` even after a prolongation; the effective term
+  // end lives in `ProlonagationExpiryDate` (note NIPO's misspelling). Reading only
+  // `ExpiryDate` reported ~90K renewed marks as long expired (e.g. TM 67482 showed
+  // 2016 while it was actually renewed to 2026).
+  const expiryDate = data.ProlonagationExpiryDate || data.ExpiryDate || null;
+
+  // Status — `registration_status_color` (green=in force, red=not) is the authoritative
+  // live/dead flag, same source patents use. `application_status` is unreliable: ~127K
+  // marks are stamped "active" while their color is red (expired/terminated), so the raw
+  // `TerminationDate` never surfaced. Map color → human-readable status the registry
+  // catalog filters on by text ("зареєстровано, припинено тощо").
+  const color = data.registration_status_color;
+  const status = color === 'green' ? 'active'
+    : color === 'red' ? 'inactive'
+    : (data.application_status || null);
+
   return [
     record.app_number,
     record.app_date ? record.app_date.split('T')[0] : null,
     record.registration_number || null,
     record.registration_date ? record.registration_date.split('T')[0] : null,
-    data.ExpiryDate || null,
+    expiryDate,
     markText || null,
     holderName || null,
     holderEdrpou || null,
@@ -145,7 +162,7 @@ function extractTrademark(record: any): any[] {
     applicantEdrpou || null,
     niceClasses.length > 0 ? niceClasses : null,
     niceDescriptions || null,
-    data.application_status || data.registration_status_color || null,
+    status,
     record.last_update || null,
     JSON.stringify(data),
   ];
