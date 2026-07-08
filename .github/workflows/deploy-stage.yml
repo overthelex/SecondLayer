@@ -1,7 +1,8 @@
 ##############################################################################
-# Pipeline: Deploy to Stage (GCP)
+# Pipeline: Deploy to Stage (Brev)
 # - Builds and tests changed services
-# - Deploys to GCP stage VM (stage.legal.org.ua) via SSH
+# - Deploys to the Brev host (stage.legal.org.ua) on a self-hosted runner
+#   labelled [self-hosted, stage]; ingress is a Cloudflare Tunnel.
 # - Triggered on push/merge to stage branch or manually
 ##############################################################################
 name: 'Deploy to Stage'
@@ -24,11 +25,6 @@ permissions:
 concurrency:
   group: deploy-stage
   cancel-in-progress: false
-
-env:
-  STAGE_HOST: 34.159.151.177
-  STAGE_USER: vovkes
-  DEPLOY_DIR: /home/vovkes/SecondLayer
 
 jobs:
   # ─── Step 1: Detect what changed ─────────────────────────────────────
@@ -143,10 +139,10 @@ jobs:
           VITE_API_URL: https://stage.legal.org.ua
           NODE_OPTIONS: --max-old-space-size=8192
 
-  # ─── Step 3: Deploy to stage VM ──────────────────────────────────────
+  # ─── Step 3: Deploy to Brev (self-hosted runner) ────────────────────
   deploy-stage:
-    name: Deploy to Stage
-    runs-on: ubuntu-latest
+    name: Deploy to Stage (Brev)
+    runs-on: [self-hosted, stage]
     needs: [detect-changes, build-and-test]
     if: |
       always() &&
@@ -157,17 +153,18 @@ jobs:
       OPENREYESTR_CHANGED: ${{ needs.detect-changes.outputs.openreyestr }}
       FRONTEND_CHANGED: ${{ needs.detect-changes.outputs.frontend }}
       SHARED_CHANGED: ${{ needs.detect-changes.outputs.shared }}
+      SECRETS_DIR: /home/nvidia/stage-secrets
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup SSH
-        env:
-          STAGE_SSH_KEY: ${{ secrets.STAGE_SSH_KEY }}
+      # Restore gitignored secrets/certs from the persistent host dir into the
+      # runner workspace (a fresh checkout empties them each run).
+      - name: Restore stage secrets & certs
         run: |
-          mkdir -p ~/.ssh
-          echo "$STAGE_SSH_KEY" > ~/.ssh/stage_key
-          chmod 600 ~/.ssh/stage_key
-          ssh-keyscan -H ${{ env.STAGE_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+          cp "$SECRETS_DIR/.env.stage" deployment/.env.stage
+          cp "$SECRETS_DIR/vision-ocr-credentials.json" vision-ocr-credentials.json
+          cp "$SECRETS_DIR/nginx/cf-origin-cert.pem" deployment/nginx/cf-origin-cert.pem
+          cp "$SECRETS_DIR/nginx/cf-origin-key.pem" deployment/nginx/cf-origin-key.pem
 
       - name: Resolve services to deploy
         id: services
@@ -184,153 +181,125 @@ jobs:
             echo "list=${SERVICES:-backend,frontend}" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Deploy via SSH
+      # Overlay proprietary source into mcp_backend/src before building
+      - name: Overlay proprietary source
+        if: contains(steps.services.outputs.list, 'backend')
         env:
-          SERVICES: ${{ steps.services.outputs.list }}
           CORE_REPO_SSH_KEY: ${{ secrets.CORE_REPO_SSH_KEY }}
         run: |
-          SSH_CMD="ssh -i ~/.ssh/stage_key -o StrictHostKeyChecking=accept-new ${{ env.STAGE_USER }}@${{ env.STAGE_HOST }}"
+          CORE_TMP=$(mktemp -d)
+          KEY_FILE=$(mktemp)
+          trap 'shred -u "$KEY_FILE" 2>/dev/null || rm -f "$KEY_FILE"; rm -rf "$CORE_TMP"' EXIT
+          printf '%s\n' "$CORE_REPO_SSH_KEY" > "$KEY_FILE"
+          chmod 600 "$KEY_FILE"
+          GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
+            git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
+          test -s "$CORE_TMP/src/services/chat-execution-loop.ts" && test -s "$CORE_TMP/src/prompts/chat-system-prompt.ts" \
+            || { echo "::error::core clone incomplete"; exit 1; }
+          find "$CORE_TMP"/src/services -maxdepth 1 -name '*.ts' -exec cp -f {} mcp_backend/src/services/ \;
+          cp -rf "$CORE_TMP"/src/prompts/* mcp_backend/src/prompts/
+          test -s mcp_backend/src/services/chat-execution-loop.ts && test -s mcp_backend/src/prompts/chat-system-prompt.ts \
+            || { echo "::error::core overlay failed"; exit 1; }
 
-          # Sync code to stage
-          $SSH_CMD "cd ${{ env.DEPLOY_DIR }} && git fetch origin stage && git checkout ${GITHUB_SHA} --force"
-
-          # Build TypeScript on stage VM (Dockerfiles require pre-built dist/)
-          $SSH_CMD bash -s -- "$SERVICES" <<'BUILD_EOF'
-            set -euo pipefail
-            SERVICES="$1"
-            cd /home/vovkes/SecondLayer
-            npm --prefix packages/shared install --legacy-peer-deps && npm --prefix packages/shared run build
-            if echo "$SERVICES" | grep -q "backend"; then
-              npm --prefix mcp_backend install && npm --prefix mcp_backend run build
-            fi
-            if echo "$SERVICES" | grep -q "rada"; then
-              npm --prefix mcp_rada install && npm --prefix mcp_rada run build
-            fi
-            if echo "$SERVICES" | grep -q "openreyestr"; then
-              npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build
-            fi
-          BUILD_EOF
-
-          # Overlay proprietary source if backend is being deployed
-          if echo "$SERVICES" | grep -q "backend"; then
-            KEY_FILE=$(mktemp)
-            trap 'shred -u "$KEY_FILE" 2>/dev/null || rm -f "$KEY_FILE"' EXIT
-            printf '%s\n' "$CORE_REPO_SSH_KEY" > "$KEY_FILE"
-            chmod 600 "$KEY_FILE"
-            scp -i ~/.ssh/stage_key -o StrictHostKeyChecking=accept-new "$KEY_FILE" ${{ env.STAGE_USER }}@${{ env.STAGE_HOST }}:/tmp/core_key
-            $SSH_CMD bash -s <<'OVERLAY_EOF'
-              set -euo pipefail
-              KEY_FILE=/tmp/core_key
-              chmod 600 "$KEY_FILE"
-              CORE_TMP=$(mktemp -d)
-              trap 'shred -u "$KEY_FILE" 2>/dev/null; rm -rf "$CORE_TMP"' EXIT
-              GIT_SSH_COMMAND="ssh -i $KEY_FILE -o StrictHostKeyChecking=accept-new -o IdentitiesOnly=yes" \
-                git clone --depth 1 git@github.com:overthelex/secondlayer-core.git "$CORE_TMP"
-              test -s "$CORE_TMP/src/services/chat-execution-loop.ts" && test -s "$CORE_TMP/src/prompts/chat-system-prompt.ts" \
-                || { echo "core clone incomplete — key files missing"; exit 1; }
-              find "$CORE_TMP"/src/services -maxdepth 1 -name '*.ts' -exec cp -f {} /home/vovkes/SecondLayer/mcp_backend/src/services/ \;
-              cp -rf "$CORE_TMP"/src/prompts/* /home/vovkes/SecondLayer/mcp_backend/src/prompts/
-              test -s /home/vovkes/SecondLayer/mcp_backend/src/services/chat-execution-loop.ts \
-                && test -s /home/vovkes/SecondLayer/mcp_backend/src/prompts/chat-system-prompt.ts \
-                || { echo "core overlay failed — key files missing after copy"; exit 1; }
-              cd /home/vovkes/SecondLayer && npm --prefix mcp_backend run build
-          OVERLAY_EOF
+      # Dockerfiles for document-service require a host-prebuilt dist/, so build
+      # TypeScript on the runner (Node 20 via nvm) before docker build.
+      - name: Build TypeScript (host dist)
+        env:
+          SERVICES: ${{ steps.services.outputs.list }}
+        run: |
+          set -euo pipefail
+          export NVM_DIR="$HOME/.nvm"; . "$NVM_DIR/nvm.sh"; nvm use 20
+          npm --prefix packages/shared install --legacy-peer-deps && npm --prefix packages/shared run build
+          if echo "$SERVICES" | grep -q backend; then
+            npm --prefix mcp_backend install && npm --prefix mcp_backend run build
+          fi
+          if echo "$SERVICES" | grep -q rada; then
+            npm --prefix mcp_rada install && npm --prefix mcp_rada run build
+          fi
+          if echo "$SERVICES" | grep -q openreyestr; then
+            npm --prefix mcp_openreyestr install && npm --prefix mcp_openreyestr run build
           fi
 
-          # Build and deploy Docker services
-          $SSH_CMD bash -s -- "$SERVICES" <<'DEPLOY_EOF'
-            set -uo pipefail
-            SERVICES="$1"
-            cd /home/vovkes/SecondLayer/deployment
-            DC="docker compose -f docker-compose.stage.yml --env-file .env.stage"
+      - name: Build & deploy Docker services
+        env:
+          SERVICES: ${{ steps.services.outputs.list }}
+        run: |
+          set -uo pipefail
+          cd deployment
+          DC="docker compose -f docker-compose.stage.yml --env-file .env.stage -p secondlayer-stage"
 
-            STOP="" BUILD="" START=""
+          STOP="" BUILD="" START=""
+          if echo "$SERVICES" | grep -q backend; then
+            STOP="$STOP app-stage document-service-stage"
+            BUILD="$BUILD app-stage document-service-stage migrate-stage"
+            START="$START app-stage document-service-stage"
+          fi
+          if echo "$SERVICES" | grep -q rada; then
+            STOP="$STOP rada-mcp-app-stage"
+            BUILD="$BUILD rada-mcp-app-stage rada-db-init-stage rada-migrate-stage"
+            START="$START rada-mcp-app-stage"
+          fi
+          if echo "$SERVICES" | grep -q openreyestr; then
+            STOP="$STOP app-openreyestr-stage"
+            BUILD="$BUILD app-openreyestr-stage migrate-openreyestr-stage"
+            START="$START app-openreyestr-stage"
+          fi
+          if echo "$SERVICES" | grep -q frontend; then
+            STOP="$STOP lexwebapp-stage"
+            BUILD="$BUILD lexwebapp-stage"
+            START="$START lexwebapp-stage"
+          fi
 
-            if echo "$SERVICES" | grep -q "backend"; then
-              STOP="$STOP app-stage document-service-stage"
-              BUILD="$BUILD app-stage document-service-stage migrate-stage"
-              START="$START app-stage document-service-stage"
-            fi
-            if echo "$SERVICES" | grep -q "rada"; then
-              STOP="$STOP rada-mcp-app-stage"
-              BUILD="$BUILD rada-mcp-app-stage rada-db-init-stage rada-migrate-stage"
-              START="$START rada-mcp-app-stage"
-            fi
-            if echo "$SERVICES" | grep -q "openreyestr"; then
-              STOP="$STOP app-openreyestr-stage"
-              BUILD="$BUILD app-openreyestr-stage migrate-openreyestr-stage"
-              START="$START app-openreyestr-stage"
-            fi
-            if echo "$SERVICES" | grep -q "frontend"; then
-              STOP="$STOP lexwebapp-stage"
-              BUILD="$BUILD lexwebapp-stage"
-              START="$START lexwebapp-stage"
-            fi
+          [ -n "$STOP" ] && $DC stop $STOP 2>/dev/null || true
+          [ -n "$STOP" ] && $DC rm -f $STOP 2>/dev/null || true
+          [ -n "$BUILD" ] && $DC build $BUILD
 
-            [ -n "$STOP" ] && $DC stop $STOP 2>/dev/null || true
-            [ -n "$STOP" ] && $DC rm -f $STOP 2>/dev/null || true
-            [ -n "$BUILD" ] && $DC build --no-cache $BUILD
+          if echo "$SERVICES" | grep -q backend; then
+            timeout 120 $DC up --abort-on-container-exit migrate-stage || true
+          fi
+          if echo "$SERVICES" | grep -q rada; then
+            timeout 120 $DC up --abort-on-container-exit rada-db-init-stage || true
+            timeout 120 $DC up --abort-on-container-exit rada-migrate-stage || true
+          fi
+          if echo "$SERVICES" | grep -q openreyestr; then
+            timeout 120 $DC up --abort-on-container-exit migrate-openreyestr-stage || true
+          fi
 
-            # Run migrations
-            if echo "$SERVICES" | grep -q "backend"; then
-              timeout 120 $DC up --abort-on-container-exit migrate-stage || true
-            fi
-            if echo "$SERVICES" | grep -q "rada"; then
-              timeout 120 $DC up --abort-on-container-exit rada-db-init-stage || true
-              timeout 120 $DC up --abort-on-container-exit rada-migrate-stage || true
-            fi
-            if echo "$SERVICES" | grep -q "openreyestr"; then
-              timeout 120 $DC up --abort-on-container-exit migrate-openreyestr-stage || true
-            fi
+          [ -n "$START" ] && $DC up -d $START
 
-            [ -n "$START" ] && $DC up -d $START
-
-            # Always recreate nginx after any deploy
-            $DC up -d --force-recreate nginx-stage
-
-            docker image prune -f || true
-          DEPLOY_EOF
+          # Always recreate nginx after any deploy (bind-mount staleness)
+          $DC up -d --force-recreate nginx-stage
+          docker image prune -f || true
 
       - name: Health check
         run: |
-          SSH_CMD="ssh -i ~/.ssh/stage_key -o StrictHostKeyChecking=accept-new ${{ env.STAGE_USER }}@${{ env.STAGE_HOST }}"
-
+          cd deployment
+          DC="docker compose -f docker-compose.stage.yml --env-file .env.stage -p secondlayer-stage"
           FAILED=false
-
           wait_healthy() {
-            local name=$1 container=$2 max_wait=${3:-120}
-            local elapsed=0
+            local name=$1 container=$2 max_wait=${3:-120} elapsed=0
             echo "Waiting for $name ($container)..."
             while [ $elapsed -lt $max_wait ]; do
-              status=$($SSH_CMD "docker inspect --format='{{.State.Health.Status}}' $container 2>/dev/null || echo not_found")
+              status=$(docker inspect --format='{{.State.Health.Status}}' "$container" 2>/dev/null || echo not_found)
               case "$status" in
                 healthy) echo "✓ $name: healthy (${elapsed}s)"; return 0 ;;
                 unhealthy) echo "✗ $name: unhealthy"; FAILED=true; return 1 ;;
                 *) sleep 10; elapsed=$((elapsed + 10)) ;;
               esac
             done
-            echo "✗ $name: timed out"
-            FAILED=true
+            echo "✗ $name: timed out"; FAILED=true
           }
-
-          if [ "${{ env.BACKEND_CHANGED }}" = "true" ]; then
-            wait_healthy "Backend" "secondlayer-app-stage" 180
+          if [ "$BACKEND_CHANGED" = "true" ]; then
+            wait_healthy "Backend" "secondlayer-app-stage" 240
             wait_healthy "Document Service" "document-service-stage" 120
           fi
-          [ "${{ env.RADA_CHANGED }}" = "true" ] && wait_healthy "RADA" "rada-mcp-app-stage" 120
-          [ "${{ env.OPENREYESTR_CHANGED }}" = "true" ] && wait_healthy "OpenReyestr" "openreyestr-app-stage" 120
-          [ "${{ env.FRONTEND_CHANGED }}" = "true" ] && wait_healthy "Frontend" "lexwebapp-stage" 60
+          [ "$RADA_CHANGED" = "true" ] && wait_healthy "RADA" "rada-mcp-app-stage" 120
+          [ "$FRONTEND_CHANGED" = "true" ] && wait_healthy "Frontend" "lexwebapp-stage" 60
 
-          # Verify stage is reachable via HTTPS
           for i in 1 2 3 4 5; do
-            curl -sf --max-time 10 "https://stage.legal.org.ua/health" > /dev/null 2>&1 && {
-              echo "✓ stage.legal.org.ua reachable"
-              break
-            }
-            echo "Attempt $i: stage not reachable yet, retrying..."
-            sleep 10
+            curl -sf --max-time 10 "https://stage.legal.org.ua/health" > /dev/null 2>&1 && { echo "✓ stage.legal.org.ua reachable"; break; }
+            echo "Attempt $i: stage not reachable yet, retrying..."; sleep 10
           done
-
           if [ "$FAILED" = "true" ]; then exit 1; fi
 
       - name: Tag successful stage deploy
