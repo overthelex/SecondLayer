@@ -12,6 +12,11 @@ import { logger } from '../../utils/logger.js';
 
 const REGISTRY_KEYS = Object.keys(REGISTRY_CATALOG);
 
+// Array-column match types (val tested against ANY(col)). Such columns cannot
+// be used as a GROUP BY / COUNT(DISTINCT) target in aggregate mode.
+const isArrayMatch = (m: FieldDef['match']): boolean =>
+  m === 'array_contains' || m === 'array_contains_text';
+
 export class RegistrySearchTool extends BaseToolHandler {
   constructor(private db: any) {
     super();
@@ -107,8 +112,12 @@ ${registryDescriptions}
     const defaultLimit = def.defaultLimit ?? 50;
     const lim = Math.max(1, Math.min(Number(limit) || defaultLimit, maxLimit));
 
+    // A constant registry-level predicate (no bind params) ANDed in when one
+    // physical table backs several logical registries (e.g. ip_objects).
+    const fullWhere = def.baseWhere ? `(${def.baseWhere}) AND (${whereClause})` : whereClause;
+
     if (aggregate) {
-      return this.executeAggregate(registry, def, aggregate, whereClause, values, paramIndex, lim);
+      return this.executeAggregate(registry, def, aggregate, fullWhere, values, paramIndex, lim);
     }
 
     const countValues = [...values];
@@ -116,11 +125,11 @@ ${registryDescriptions}
 
     const dataSql = `SELECT ${def.selectColumns}
       FROM ${def.table}
-      WHERE ${whereClause}
+      WHERE ${fullWhere}
       ORDER BY ${def.orderBy}
       LIMIT $${paramIndex}`;
 
-    const countSql = `SELECT COUNT(*) AS total FROM ${def.table} WHERE ${whereClause}`;
+    const countSql = `SELECT COUNT(*) AS total FROM ${def.table} WHERE ${fullWhere}`;
 
     try {
       const [dataResult, countResult] = await Promise.all([
@@ -156,14 +165,15 @@ ${registryDescriptions}
     const resolveColumn = (fieldName: string, role: string): string | null => {
       const field = def.fields.find(f => f.name === fieldName);
       if (!field) return null;
-      // Array-typed columns (match: array_contains) cannot be grouped/counted directly.
-      if (field.match === 'array_contains') return null;
+      // Array-typed columns (array_contains / array_contains_text) cannot be
+      // grouped/counted directly.
+      if (isArrayMatch(field.match)) return null;
       return field.columns[0];
     };
 
     const groupCol = aggregate.group_by ? resolveColumn(String(aggregate.group_by), 'group_by') : null;
     if (!groupCol) {
-      const usable = def.fields.filter(f => f.match !== 'array_contains').map(f => f.name).join(', ');
+      const usable = def.fields.filter(f => !isArrayMatch(f.match)).map(f => f.name).join(', ');
       return this.wrapResponse(`Невірне поле group_by. Доступні для агрегації: ${usable}`);
     }
 
@@ -171,7 +181,7 @@ ${registryDescriptions}
     if (aggregate.count_distinct) {
       distinctCol = resolveColumn(String(aggregate.count_distinct), 'count_distinct');
       if (!distinctCol) {
-        const usable = def.fields.filter(f => f.match !== 'array_contains').map(f => f.name).join(', ');
+        const usable = def.fields.filter(f => !isArrayMatch(f.match)).map(f => f.name).join(', ');
         return this.wrapResponse(`Невірне поле count_distinct. Доступні для агрегації: ${usable}`);
       }
     }

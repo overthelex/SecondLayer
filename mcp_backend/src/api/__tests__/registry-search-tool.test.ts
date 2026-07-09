@@ -165,7 +165,7 @@ describe('RegistrySearchTool', () => {
       expect(calls[0].sql).toContain('<= $');
     });
 
-    it('array_contains: uses ANY() syntax', async () => {
+    it('array_contains_text: uses ::text = ANY() and casts value', async () => {
       db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
       tool = new RegistrySearchTool(db);
 
@@ -174,8 +174,10 @@ describe('RegistrySearchTool', () => {
         filters: { nice_class: 25 },
       });
 
-      expect(calls[0].sql).toContain('ANY(nice_classes)');
-      expect(calls[0].params).toContain(25);
+      // trademarks is backed by the unified ip_objects table (classes text[])
+      expect(calls[0].sql).toContain('::text = ANY(classes)');
+      expect(calls[0].sql).toContain('obj_type = 4'); // baseWhere applied
+      expect(calls[0].params).toContain('25'); // numeric slot cast to text
     });
 
     it('ilike_cast: casts column to text', async () => {
@@ -190,19 +192,20 @@ describe('RegistrySearchTool', () => {
       expect(calls[0].sql).toContain('founders::text ILIKE');
     });
 
-    it('exact_multi: uses = with OR across columns', async () => {
+    it('ilike_multi: uses ILIKE with OR across columns', async () => {
       db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
       tool = new RegistrySearchTool(db);
 
       await tool.executeTool('search_registry', {
-        registry: 'trademarks',
-        filters: { holder_edrpou: '12345678' },
+        registry: 'patents',
+        filters: { title: 'двигун' },
       });
 
       const sql = calls[0].sql;
-      expect(sql).toContain('holder_edrpou = $');
-      expect(sql).toContain('applicant_edrpou = $');
+      expect(sql).toContain('title_ua ILIKE $');
+      expect(sql).toContain('title_en ILIKE $');
       expect(sql).toContain(' OR ');
+      expect(sql).toContain('obj_type IN (1, 2, 6)'); // baseWhere applied
     });
   });
 
@@ -337,11 +340,14 @@ describe('aggregate mode (LEXAI-1820)', () => {
 
     expect(calls).toHaveLength(1);
     const sql = calls[0].sql;
+    // trademarks is backed by ip_objects: catalog fields resolve to its columns
+    // (mark_text→title_ua, holder_name→owner_name, nice_class→classes).
     expect(sql).toContain('GROUP BY');
-    expect(sql).toContain('COUNT(DISTINCT holder_name)');
+    expect(sql).toContain('COUNT(DISTINCT owner_name)');
     expect(sql).toContain('HAVING');
-    expect(sql).toContain('length(mark_text) >= 4');
-    expect(sql).toContain('= ANY(nice_classes)');
+    expect(sql).toContain('length(title_ua) >= 4');
+    expect(sql).toContain('::text = ANY(classes)');
+    expect(sql).toContain('obj_type = 4'); // baseWhere applied in aggregate mode
     const text = (result as any).content[0].text;
     expect(text).toContain('marengo');
   });
