@@ -129,7 +129,10 @@ export class CourtDecisionTools extends BaseToolHandler {
         description: `Завантаження повних текстів судових рішень у базу даних
 
 Завантажує тексти рішень за масивом doc_id, перевіряє наявність у PostgreSQL/Redis кеші перед завантаженням.
-Використовуйте для попереднього завантаження текстів перед масовим аналізом.`,
+Використовуйте для попереднього завантаження текстів перед масовим аналізом.
+
+ВАЖЛИВО: за замовчуванням інструмент лише завантажує тексти в кеш і НЕ повертає їх — для читання кожного документа потрібен окремий get_court_decision, що витрачає бюджет викликів.
+Встановіть return_texts=true, щоб одразу отримати ключові секції (мотивувальна + резолютивна частини + застосовані норми) усіх документів ОДНИМ викликом — це економить бюджет викликів і одразу дає позицію суду та застосовані норми. Саме початок рішення (шапка, історія розгляду) не повертається як малоінформативний.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -147,6 +150,16 @@ export class CourtDecisionTools extends BaseToolHandler {
               type: 'number',
               default: 100,
               description: 'Розмір батчу для обробки'
+            },
+            return_texts: {
+              type: 'boolean',
+              default: false,
+              description: 'Повернути ключові секції (мотивувальна + резолютивна + застосовані норми) кожного документа одразу, замість окремих get_court_decision. Економить бюджет викликів.'
+            },
+            snippet_chars: {
+              type: 'number',
+              default: 4000,
+              description: 'Макс. символів витягу на документ (лише коли return_texts=true). За замовчуванням 4000.'
             }
           },
           required: ['doc_ids'],
@@ -620,6 +633,8 @@ export class CourtDecisionTools extends BaseToolHandler {
   private async loadFullTexts(args: any): Promise<ToolResult> {
     const docIds: number[] = args.doc_ids || [];
     const maxDocs = args.max_docs || 1000;
+    const returnTexts = args.return_texts === true;
+    const snippetChars = Math.min(20000, Math.max(500, Number(args.snippet_chars || 4000)));
 
     if (!docIds || docIds.length === 0) {
       throw new Error('doc_ids parameter is required and must be a non-empty array');
@@ -660,7 +675,99 @@ export class CourtDecisionTools extends BaseToolHandler {
       result.warning = `Запрошено ${uniqueDocIds.length} уникальных документов, но обработано только ${maxDocs} из-за лимита безопасности`;
     }
 
+    // When requested, return the key sections of each warmed document in a single
+    // response so the model does not need a separate get_court_decision per doc
+    // (which burns the tool-call budget and leaves warmed docs unread).
+    if (returnTexts && this.db) {
+      const processedIds = docs.map(d => d.doc_id);
+      result.documents = await this.buildKeySectionExcerpts(processedIds, snippetChars);
+    }
+
     return this.wrapResponse(result);
+  }
+
+  /**
+   * For each doc_id, fetch metadata + full_text and extract the substantive
+   * sections (застосовані норми + мотивувальна + резолютивна частини), which
+   * carry the holding and the applied norms. The procedural header/facts at the
+   * start of a decision are deliberately dropped as low-signal. Falls back to a
+   * head-truncated full_text only when the sectionizer yields nothing.
+   */
+  private async buildKeySectionExcerpts(docIds: number[], snippetChars: number): Promise<any[]> {
+    if (!this.db || docIds.length === 0) return [];
+
+    const rows = (await this.db.query(`
+      SELECT d.doc_id, d.cause_num, d.judge, d.adjudication_date, f.full_text
+      FROM edrsr_documents d
+      LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
+      WHERE d.doc_id = ANY($1)
+    `, [docIds])).rows;
+
+    // Preserve caller ordering and cover fulltext-only docs missing from edrsr_documents.
+    const byId = new Map<number, any>(rows.map((r: any) => [Number(r.doc_id), r]));
+    const missing = docIds.filter(id => !byId.has(id));
+    if (missing.length > 0) {
+      const ftRows = (await this.db.query(
+        `SELECT doc_id, full_text FROM edrsr_fulltext WHERE doc_id = ANY($1)`, [missing]
+      )).rows;
+      for (const r of ftRows) byId.set(Number(r.doc_id), { doc_id: r.doc_id, full_text: r.full_text });
+    }
+
+    // Priority order: applied norms first, then court reasoning, then the operative part.
+    const KEY_SECTION_ORDER = [
+      SectionType.LAW_REFERENCES,
+      SectionType.MOTIVES,
+      SectionType.COURT_REASONING,
+      SectionType.DECISION,
+    ];
+
+    const out: any[] = [];
+    for (const docId of docIds) {
+      const row = byId.get(docId);
+      if (!row) {
+        out.push({ doc_id: docId, error: 'Текст не знайдено в базі' });
+        continue;
+      }
+      const fullText: string = row.full_text || '';
+      const url = `https://reyestr.court.gov.ua/Review/${row.doc_id}`;
+
+      let excerpt = '';
+      let source: 'sections' | 'truncated' | 'empty' = 'empty';
+
+      if (fullText) {
+        const sections = await this.sectionizer.extractSections(fullText, false);
+        const keyParts: string[] = [];
+        for (const t of KEY_SECTION_ORDER) {
+          for (const s of sections) {
+            if (s && s.type === t && typeof s.text === 'string' && s.text.trim()) {
+              keyParts.push(`[${t}]\n${s.text.trim()}`);
+            }
+          }
+        }
+        if (keyParts.length > 0) {
+          excerpt = keyParts.join('\n\n');
+          source = 'sections';
+        } else {
+          // Fallback: sectionizer produced nothing (short ruling / atypical structure).
+          excerpt = fullText;
+          source = 'truncated';
+        }
+      }
+
+      const truncated = excerpt.length > snippetChars;
+      out.push({
+        doc_id: row.doc_id,
+        case_number: row.cause_num || undefined,
+        judge: row.judge || undefined,
+        adjudication_date: row.adjudication_date || undefined,
+        url,
+        full_text_length: fullText.length,
+        excerpt_source: source,
+        truncated,
+        text: truncated ? excerpt.slice(0, snippetChars) : excerpt,
+      });
+    }
+    return out;
   }
 
   private async bulkIngestCourtDecisions(args: any): Promise<ToolResult> {
