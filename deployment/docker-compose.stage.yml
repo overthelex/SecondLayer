@@ -311,6 +311,11 @@ services:
       OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
       OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-openai-first}
+      # Bedrock model tiers - match prod (deep = Sonnet 4.6, NOT the Opus code
+      # default). Without these stage falls back to opus-4-6 for "deep" -> ~5x cost.
+      BEDROCK_MODEL_QUICK: ${BEDROCK_MODEL_QUICK:-eu.anthropic.claude-haiku-4-5-20251001-v1:0}
+      BEDROCK_MODEL_STANDARD: ${BEDROCK_MODEL_STANDARD:-eu.anthropic.claude-sonnet-4-6}
+      BEDROCK_MODEL_DEEP: ${BEDROCK_MODEL_DEEP:-eu.anthropic.claude-sonnet-4-6}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_REGION: ${AWS_REGION:-eu-central-1}
@@ -520,6 +525,11 @@ services:
       OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
       OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-openai-first}
+      # Bedrock model tiers - match prod (deep = Sonnet 4.6, NOT the Opus code
+      # default). Without these stage falls back to opus-4-6 for "deep" -> ~5x cost.
+      BEDROCK_MODEL_QUICK: ${BEDROCK_MODEL_QUICK:-eu.anthropic.claude-haiku-4-5-20251001-v1:0}
+      BEDROCK_MODEL_STANDARD: ${BEDROCK_MODEL_STANDARD:-eu.anthropic.claude-sonnet-4-6}
+      BEDROCK_MODEL_DEEP: ${BEDROCK_MODEL_DEEP:-eu.anthropic.claude-sonnet-4-6}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_REGION: ${AWS_REGION:-eu-central-1}
@@ -721,6 +731,11 @@ services:
 
       # LLM Provider Strategy (OpenAI-only pipeline)
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-openai-first}
+      # Bedrock model tiers - match prod (deep = Sonnet 4.6, NOT the Opus code
+      # default). Without these stage falls back to opus-4-6 for "deep" -> ~5x cost.
+      BEDROCK_MODEL_QUICK: ${BEDROCK_MODEL_QUICK:-eu.anthropic.claude-haiku-4-5-20251001-v1:0}
+      BEDROCK_MODEL_STANDARD: ${BEDROCK_MODEL_STANDARD:-eu.anthropic.claude-sonnet-4-6}
+      BEDROCK_MODEL_DEEP: ${BEDROCK_MODEL_DEEP:-eu.anthropic.claude-sonnet-4-6}
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
       AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
       AWS_REGION: ${AWS_REGION:-eu-central-1}
