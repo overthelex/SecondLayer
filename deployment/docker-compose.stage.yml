@@ -18,6 +18,11 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_stage}
       TZ: Europe/Kiev
+    # host.docker.internal -> host gateway, so postgres_fdw can reach the
+    # edrsr-pg-relay socat listener (:6432) that fronts the Brev host
+    # edrsr_local DB (foreign tables in the edrsr_fdw schema).
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
     - "127.0.0.1:5434:5432"
     volumes:
