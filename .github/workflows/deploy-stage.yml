@@ -268,6 +268,11 @@ jobs:
             timeout 120 $DC up --abort-on-container-exit migrate-openreyestr-stage || true
           fi
 
+          # Ensure stateful infra services are up (idempotent, no rebuild) so a
+          # partial deploy never leaves them down. minio-stage in particular is
+          # not a depends_on of any app service, so it would otherwise never start.
+          $DC up -d postgres-stage redis-stage qdrant-stage minio-stage 2>/dev/null || true
+
           [ -n "$START" ] && $DC up -d $START
 
           # Always recreate nginx after any deploy (bind-mount staleness)
