@@ -505,7 +505,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
-      QDRANT_URL: ${QDRANT_URL:-http://qdrant-prod:6333}
+      QDRANT_URL: ${QDRANT_URL:-http://10.88.0.3:6333}
       LEGISLATION_VECTOR_BACKEND: ${LEGISLATION_VECTOR_BACKEND:-}
       LEG_BGE_COLLECTION: ${LEG_BGE_COLLECTION:-legal_sections_bge}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
@@ -713,7 +713,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
-      QDRANT_URL: ${QDRANT_URL:-http://qdrant-prod:6333}
+      QDRANT_URL: ${QDRANT_URL:-http://10.88.0.3:6333}
       LEGISLATION_VECTOR_BACKEND: ${LEGISLATION_VECTOR_BACKEND:-}
       LEG_BGE_COLLECTION: ${LEG_BGE_COLLECTION:-legal_sections_bge}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
@@ -953,7 +953,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
-      QDRANT_URL: ${QDRANT_URL:-http://qdrant-prod:6333}
+      QDRANT_URL: ${QDRANT_URL:-http://10.88.0.3:6333}
       LEGISLATION_VECTOR_BACKEND: ${LEGISLATION_VECTOR_BACKEND:-}
       LEG_BGE_COLLECTION: ${LEG_BGE_COLLECTION:-legal_sections_bge}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
@@ -1230,7 +1230,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-}
       POSTGRES_DB: ${POSTGRES_DB:-secondlayer_prod}
-      QDRANT_URL: ${QDRANT_URL:-http://qdrant-prod:6333}
+      QDRANT_URL: ${QDRANT_URL:-http://10.88.0.3:6333}
       LEGISLATION_VECTOR_BACKEND: ${LEGISLATION_VECTOR_BACKEND:-}
       LEG_BGE_COLLECTION: ${LEG_BGE_COLLECTION:-legal_sections_bge}
       QDRANT_API_KEY: ${QDRANT_API_KEY:-}
