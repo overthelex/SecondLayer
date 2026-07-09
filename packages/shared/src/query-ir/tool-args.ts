@@ -40,7 +40,7 @@ const KUPAP_PRESETS = [
  * values fail too, so the caller can surface a clean error to the model.
  */
 export const EdsrSearchArgs = z.object({
-  mode: z.enum(['structured', 'fulltext', 'hybrid', 'semantic']),
+  mode: z.enum(['structured', 'exact', 'fulltext', 'hybrid', 'semantic']),
   query: z.string().max(2000).optional(),
   party_name: z.string().max(200).optional(),
   party_role: PartyRole.optional(),
