@@ -32,6 +32,7 @@ import { SpendingTools } from '../api/tools/spending-tools.js';
 import { OpenDataRegistriesTools } from '../api/tools/opendata-registries-tools.js';
 import { Tier1OpenDataTools } from '../api/tools/tier1-opendata-tools.js';
 import { RegistrySearchTool } from '../api/tools/registry-search-tool.js';
+import { IpObjectsTools } from '../api/tools/ip-objects-tools.js';
 import { AnalyzeDataTool } from '../api/tools/analyze-data-tool.js';
 import { LLMAdapter } from '../infrastructure/adapters/llm-adapter.js';
 import { DecisionLayerTools } from '../api/tools/decision-layer-tools.js';
@@ -166,6 +167,7 @@ export function createToolServices(
   toolRegistry.registerHandler(new ECHRPracticeTools(coreServices.zoECHRAdapter));
   toolRegistry.registerHandler(new CourtStatusTools(coreServices.db));
   toolRegistry.registerHandler(new RegistrySearchTool(coreServices.db));
+  toolRegistry.registerHandler(new IpObjectsTools(coreServices.db));
   toolRegistry.registerHandler(new AnalyzeDataTool(coreServices.db));
   // Bespoke tools with non-parametric query patterns
   toolRegistry.registerHandler(new OpenDataTools(coreServices.db));

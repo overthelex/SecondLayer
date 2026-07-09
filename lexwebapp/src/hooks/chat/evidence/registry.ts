@@ -13,12 +13,61 @@ const REGISTRY_TOOLS = [
   'openreyestr_search_notaries',
   'openreyestr_search_court_experts',
   'openreyestr_search_arbitration_managers',
+  'search_ip_objects',
+  'search_trademarks',
+  'find_similar_trademarks',
+  'get_ip_object',
 ];
+
+const IP_TYPE_LABEL: Record<number, string> = {
+  1: 'Винахід',
+  2: 'Корисна модель',
+  4: 'Торговельна марка',
+  6: 'Промисловий зразок',
+};
+
+function ipObjectToDocument(o: any): VaultDocument {
+  const isRegistered = o.obj_state === 2;
+  const number = o.registration_number || o.app_number;
+  const typeLabel = IP_TYPE_LABEL[o.obj_type] || o.obj_type_name || 'Об’єкт ІВ';
+  const classes = Array.isArray(o.classes) && o.classes.length ? `Класи: ${o.classes.join(', ')}` : null;
+  return {
+    id: `ip-${o.id || number || Math.random().toString(36).slice(2, 8)}`,
+    title: o.title_ua || number || typeLabel,
+    type: 'other',
+    metadata: {
+      snippet: [
+        typeLabel,
+        o.similarity != null && `Схожість: ${o.similarity}`,
+        isRegistered ? `Свідоцтво/патент № ${o.registration_number || '—'}` : `Заявка № ${o.app_number || '—'}`,
+        classes,
+        o.owner_name && `Власник: ${o.owner_name}`,
+        o.owner_edrpou && `ЄДРПОУ: ${o.owner_edrpou}`,
+        o.status && `Статус: ${o.status}`,
+      ].filter(Boolean).join(' • '),
+      status: o.status,
+      edrpou: o.owner_edrpou,
+    },
+  };
+}
 
 export function extractRegistryEvidence(toolName: string, parsed: ToolResultData): EvidenceResult {
   const citations: Citation[] = [];
   const documents: VaultDocument[] = [];
   if (!REGISTRY_TOOLS.some((t) => toolName === t)) {
+    return { decisions: [], citations, documents };
+  }
+
+  // IP registry objects (trademarks / patents / utility models / designs)
+  if (toolName === 'search_ip_objects' || toolName === 'search_trademarks' || toolName === 'find_similar_trademarks') {
+    const items = Array.isArray(parsed.results) ? parsed.results : [];
+    for (const o of items) documents.push(ipObjectToDocument(o));
+    return { decisions: [], citations, documents };
+  }
+  if (toolName === 'get_ip_object') {
+    if (parsed && ((parsed as any).app_number || (parsed as any).registration_number)) {
+      documents.push(ipObjectToDocument(parsed));
+    }
     return { decisions: [], citations, documents };
   }
 
