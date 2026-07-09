@@ -317,6 +317,17 @@ export class EdsrFtsService {
     return this.dedicatedPool ?? dbPool;
   }
 
+  /**
+   * The dedicated EDRSR pool (opened from EDRSR_DATABASE_URL) if configured,
+   * else null. Lets other EDRSR-corpus readers (e.g. CourtDecisionTools) route
+   * edrsr_documents/edrsr_fulltext reads to the same dedicated DB instead of the
+   * main app pool. When null (prod, data co-located), callers fall back to their
+   * own pool — no behaviour change.
+   */
+  getDedicatedPool(): Pool | null {
+    return this.dedicatedPool;
+  }
+
   // LEXAI-1760: years whose plaintiff/defendant spans have been extracted into edrsr_parties
   // (read from edrsr_parties_coverage). When a count's date range falls entirely inside these
   // years, countByParty serves it from the indexed parties table instead of the full-text

@@ -37,6 +37,22 @@ export class CourtDecisionTools extends BaseToolHandler {
     super();
   }
 
+  /**
+   * Pool for the EDRSR corpus tables (edrsr_documents / edrsr_fulltext /
+   * edrsr_courts / edrsr_judgment_forms). When EDRSR_DATABASE_URL is set
+   * (stage → Brev edrsr_local), route these reads to the dedicated EDRSR pool.
+   * Otherwise (prod, where the corpus is co-located in the main DB) fall back
+   * to this.db — byte-identical to the previous behaviour.
+   */
+  private edrsrDb(): any {
+    return this.ftsService?.getDedicatedPool() ?? this.db;
+  }
+
+  /** True when reads are routed to the dedicated EDRSR pool (stage). */
+  private usingDedicatedEdrsr(): boolean {
+    return !!this.ftsService?.getDedicatedPool();
+  }
+
   getToolDefinitions(): ToolDefinition[] {
     return [
       {
@@ -392,7 +408,7 @@ total_resolved_links=0 означає відсутність даних граф
     let row: any = null;
 
     if (docId) {
-      const result = await this.db.query(`
+      const result = await this.edrsrDb().query(`
         SELECT
           d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
           d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
@@ -407,7 +423,7 @@ total_resolved_links=0 означає відсутність даних граф
         row = result.rows[0];
       } else {
         // Try fulltext-only
-        const ftResult = await this.db.query(
+        const ftResult = await this.edrsrDb().query(
           `SELECT doc_id, full_text FROM edrsr_fulltext WHERE doc_id = $1`, [docId]
         );
         if (ftResult.rows.length > 0) {
@@ -415,8 +431,27 @@ total_resolved_links=0 означає відсутність даних граф
         }
       }
     } else if (caseNumber) {
-      // Find most recent decision for this case number
-      const result = await this.db.query(`
+      // Find most recent decision for this case number.
+      // On the dedicated EDRSR pool (stage → huge partitioned edrsr_local) an
+      // `ORDER BY adjudication_date LIMIT 1` over a `cause_num` filter makes the
+      // planner scan every partition by the date index instead of the highly
+      // selective cause_num index. Force the cause_num index by filtering in a
+      // MATERIALIZED CTE (no ORDER BY/LIMIT inside), then order the tiny result.
+      const byCauseSql = this.usingDedicatedEdrsr()
+        ? `
+        WITH docs AS MATERIALIZED (
+          SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+                 d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+                 d.doc_url, d.status, d.date_publ
+          FROM edrsr_documents d
+          WHERE d.cause_num = $1
+        )
+        SELECT d.*, f.full_text
+        FROM docs d
+        LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
+        ORDER BY d.adjudication_date DESC NULLS LAST
+        LIMIT 1`
+        : `
         SELECT
           d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
           d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
@@ -426,8 +461,8 @@ total_resolved_links=0 означає відсутність даних граф
         LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
         WHERE d.cause_num = $1
         ORDER BY d.adjudication_date DESC NULLS LAST
-        LIMIT 1
-      `, [caseNumber]);
+        LIMIT 1`;
+      const result = await this.edrsrDb().query(byCauseSql, [caseNumber]);
 
       if (result.rows.length > 0) {
         row = result.rows[0];
@@ -513,7 +548,7 @@ total_resolved_links=0 означає відсутність даних граф
     const allowed = CourtDecisionTools.ALLOWED_LOOKUP_TABLES[table];
     if (!allowed || !allowed.has(idColumn)) return null;
     try {
-      const result = await this.db.query(`SELECT name FROM ${table} WHERE ${idColumn} = $1 LIMIT 1`, [id]);
+      const result = await this.edrsrDb().query(`SELECT name FROM ${table} WHERE ${idColumn} = $1 LIMIT 1`, [id]);
       return result.rows.length > 0 ? result.rows[0].name : null;
     } catch {
       return null;
@@ -552,7 +587,33 @@ total_resolved_links=0 означає відсутність даних граф
       ? ', f.full_text'
       : '';
 
-    const sql = `
+    // On the dedicated EDRSR pool (stage → huge partitioned edrsr_local),
+    // `ORDER BY adjudication_date LIMIT` over a `cause_num = ANY(...)` filter
+    // makes the planner Merge-Append every partition by the date index instead
+    // of the selective cause_num index (~82s). Filter by cause_num in a
+    // MATERIALIZED CTE first (forces the cause_num index → a handful of rows),
+    // then join/sort/limit that tiny set. Prod keeps the original query.
+    const sql = this.usingDedicatedEdrsr()
+      ? `
+      WITH docs AS MATERIALIZED (
+        SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+               d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+               d.doc_url, d.status, d.date_publ
+        FROM edrsr_documents d
+        WHERE d.cause_num = ANY($1)
+      )
+      SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+             d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+             d.doc_url, d.status, d.date_publ,
+             c.name AS court_name, c.instance_code
+             ${fulltextField}
+      FROM docs d
+      LEFT JOIN edrsr_courts c ON c.court_code = d.court_code
+      ${fulltextJoin}
+      ORDER BY d.adjudication_date ASC NULLS LAST
+      LIMIT $2
+    `
+      : `
       SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
              d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
              d.doc_url, d.status, d.date_publ,
@@ -566,7 +627,7 @@ total_resolved_links=0 означає відсутність даних граф
       LIMIT $2
     `;
 
-    const result = await this.db.query(sql, [caseVariations, maxDocs]);
+    const result = await this.edrsrDb().query(sql, [caseVariations, maxDocs]);
     const rows = result.rows || [];
 
     logger.info('[MCP Tool] get_case_documents_chain DB result', {
@@ -593,7 +654,7 @@ total_resolved_links=0 означає відсутність даних граф
     const judgmentMap = new Map<number, string>();
     if (judgmentCodes.size > 0) {
       try {
-        const jfResult = await this.db.query(
+        const jfResult = await this.edrsrDb().query(
           'SELECT judgment_code, name FROM edrsr_judgment_forms WHERE judgment_code = ANY($1)',
           [Array.from(judgmentCodes)]
         );
@@ -1007,7 +1068,7 @@ total_resolved_links=0 означає відсутність даних граф
     const ids = [...new Set(codes.filter((c): c is number => typeof c === 'number'))];
     if (ids.length === 0 || !this.db) return map;
     try {
-      const res = await this.db.query(`SELECT court_code, name FROM edrsr_courts WHERE court_code = ANY($1)`, [ids]);
+      const res = await this.edrsrDb().query(`SELECT court_code, name FROM edrsr_courts WHERE court_code = ANY($1)`, [ids]);
       for (const row of res.rows) map.set(row.court_code, row.name);
     } catch { /* non-critical */ }
     return map;
