@@ -190,7 +190,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     title: 'Торговельні марки (Укрпатент)',
     description: 'Пошук торговельних марок (UIPV — Укрпатент)\n\n389K записів (повний реєстр, синхронізовано 2026-07). Пошук за текстом марки, власником, ЄДРПОУ, класом NICE, статусом.',
     table: 'opendata_trademarks',
-    selectColumns: 'app_number, app_date, registration_number, registration_date, expiry_date, mark_text, holder_name, holder_edrpou, holder_country, nice_classes, status',
+    selectColumns: 'app_number, app_date, registration_number, registration_date, expiry_date, mark_text, holder_name, holder_edrpou, holder_country, nice_classes, status, data_payments, data_docs',
     orderBy: 'registration_date DESC NULLS LAST',
     emptyMessage: 'Торговельних марок не знайдено',
     fields: [
@@ -207,7 +207,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     title: 'Патенти (Укрпатент)',
     description: 'Пошук патентів, корисних моделей та промислових зразків (UIPV — Укрпатент)\n\n347K записів (винаходи, корисні моделі, промзразки; синхронізовано 2026-07). Пошук за назвою, власником, кодом МПК, номером заявки, статусом.',
     table: 'opendata_patents',
-    selectColumns: 'app_number, app_date, registration_number, registration_date, obj_type_name, title_ua, title_en, abstract_ua, ipc_codes, owner_name, owner_country, status',
+    selectColumns: 'app_number, app_date, registration_number, registration_date, obj_type_name, title_ua, title_en, abstract_ua, ipc_codes, owner_name, owner_country, status, data_payments, data_docs',
     orderBy: 'registration_date DESC NULLS LAST',
     emptyMessage: 'Патентів не знайдено',
     fields: [
