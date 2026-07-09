@@ -131,13 +131,14 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       annotations: { title: 'Пошук судових рішень ЄДРСР', readOnlyHint: true, openWorldHint: true },
       description: `Єдиний інструмент пошуку судових рішень у ЄДРСР (82M+ рішень усіх українських судів з 2006 року).
 
-4 режими пошуку:
+5 режимів пошуку:
 • **structured** — за метаданими: номер справи, суддя, суд, дата, категорія, військові пресети. Найшвидший, коли відомі точні параметри.
-• **fulltext** — повнотекстовий пошук (PostgreSQL tsvector) з підсвіченими фрагментами. Для пошуку за ключовими словами та юридичними термінами.
+• **exact** — детермінований FTS по точному токену/фразі БЕЗ LLM-обробки: без переформулювання запиту, без term-relaxation і без фільтра релевантності та fallback у hybrid. Для пошуку конкретного номера заявки/свідоцтва/реєстру, коду чи будь-якого непрозорого токена в тексті рішення (напр. "m200604929"). Повертає ВСІ збіги. Латиниця/цифри проходять як є.
+• **fulltext** — повнотекстовий пошук (PostgreSQL tsvector) з підсвіченими фрагментами + LLM-дистиляція запиту в ключові терміни. Для пошуку за ключовими словами та юридичними термінами (природномовний запит).
 • **hybrid** — FTS + семантичний пошук (Qdrant BGE-M3) з мерджем через Reciprocal Rank Fusion. Найкращий recall, коли запит містить і семантику, і точні токени. Семантична нога працює для ВСІХ видів судочинства (justice_kind 1-5).
 • **semantic** — чистий семантичний пошук по векторній базі Qdrant (296M чанків, увесь ЄДРСР). Працює для ВСІХ видів судочинства (justice_kind 1-5); justice_kind не обов'язковий (без нього шукає по всіх кодексах). Найкраще для концептуальних/розмовних запитів.
 
-⚠️ Роль сторони (конкретна особа/компанія саме ЯК відповідач або позивач) → передавай party_name + party_role у режимі fulltext/hybrid, а НЕ дописуй слово «відповідач» у query. party_name прив'язується до тексту як фраза, party_role — до рольового слова, тож «де X — відповідач» дасть точніший результат, ніж семантика чи ключові слова. Для точного № справи/статті → structured або fulltext.
+⚠️ Роль сторони (конкретна особа/компанія саме ЯК відповідач або позивач) → передавай party_name + party_role у режимі fulltext/hybrid, а НЕ дописуй слово «відповідач» у query. party_name прив'язується до тексту як фраза, party_role — до рольового слова, тож «де X — відповідач» дасть точніший результат, ніж семантика чи ключові слова. Для точного № справи/статті → structured; для точного токена/номера в ТЕКСТІ рішення → exact.
 
 Фільтри (спільні для всіх режимів): court_code/court_name, judge, justice_kind, judgment_code, category_code, date_from/date_to, party_name, party_role, court_level (SC=Верховний Суд).
 Пресети: military_preset (військові справи), kupap_preset (адмінправопорушення — traffic_dui, traffic_accident, domestic_violence, hooliganism тощо).
@@ -147,12 +148,12 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
         properties: {
           mode: {
             type: 'string',
-            enum: ['structured', 'fulltext', 'hybrid', 'semantic'],
-            description: 'Режим пошуку: structured (метадані), fulltext (FTS), hybrid (FTS+семантика), semantic (семантика)',
+            enum: ['structured', 'exact', 'fulltext', 'hybrid', 'semantic'],
+            description: 'Режим пошуку: structured (метадані), exact (точний FTS-токен без LLM), fulltext (FTS+дистиляція), hybrid (FTS+семантика), semantic (семантика)',
           },
           query: {
             type: 'string',
-            description: 'Пошуковий запит (обов\'язковий для fulltext/hybrid/semantic). Наприклад: "ст. 210-1 КУпАП ТЦК неналежне оповіщення". НЕ додавай сюди роль сторони — для цього є party_name/party_role.',
+            description: 'Пошуковий запит (обов\'язковий для exact/fulltext/hybrid/semantic). Наприклад: "ст. 210-1 КУпАП ТЦК неналежне оповіщення". Для exact — точний токен/фраза як є (напр. "m200604929"). НЕ додавай сюди роль сторони — для цього є party_name/party_role.',
           },
           party_name: {
             type: 'string',
@@ -278,11 +279,12 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
     switch (args.mode) {
       case 'structured': return this.searchStructured(args);
+      case 'exact':      return this.searchExact(args);
       case 'fulltext':   return this.searchFulltext(args);
       case 'hybrid':     return this.searchHybrid(args);
       case 'semantic':   return this.searchSemantic(args);
       default:
-        return this.wrapError('Невідомий режим. Доступні: structured, fulltext, hybrid, semantic');
+        return this.wrapError('Невідомий режим. Доступні: structured, exact, fulltext, hybrid, semantic');
     }
   }
 
@@ -474,6 +476,60 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       result, usedQuery, startTokens, usedTokens: n,
       ...(n < cappedFrom ? { relaxedFromTokens: cappedFrom } : {}),
     };
+  }
+
+  // ── Exact FTS (deterministic, no LLM) ────────────────────────────
+
+  /**
+   * Deterministic lexical FTS for an exact token/phrase. Unlike `fulltext`, this mode is a
+   * straight `f.tsv @@ plainto_tsquery('simple', query)` over the year-partitioned GIN index
+   * with the standard metadata filters — and deliberately bypasses EVERY LLM/heuristic layer
+   * that mangles opaque identifiers:
+   *   - NO QueryReformulator (which transliterated Latin→Cyrillic, e.g. m200604929→м200604929)
+   *   - NO IDF term selection / relax-on-empty (an exact query must match verbatim, not a subset)
+   *   - NO relevance gate (Haiku drops bare registration numbers it can't semantically justify)
+   *   - NO hybrid/fulltext_gate fallback (semantic ranking buries the one exact hit)
+   * This is the correct tool for "find all cases whose text contains <code/number/token>"
+   * (registration nos, ЕДРПОУ, internal ids) — where fulltext/hybrid/semantic are unreliable
+   * by construction. plainto_tsquery ANDs multi-word input, so a phrase requires every lexeme
+   * to co-occur. Matching is token-level, not substring (tsvector lexemes), consistent with the
+   * 'simple' config the tsv column was built with.
+   */
+  private async searchExact(args: any): Promise<ToolResult> {
+    if (!args.query) return this.wrapError('query є обов\'язковим для режиму exact');
+    if (!this.ftsService) return this.wrapError('FTS сервіс недоступний');
+
+    try {
+      let courtCode = args.court_code;
+      if (args.court_name && !courtCode) {
+        const courtResult = await this.db.query(
+          `SELECT court_code FROM edrsr_courts WHERE LOWER(name) LIKE LOWER($1) LIMIT 1`,
+          [`%${args.court_name}%`]
+        );
+        if (courtResult.rows.length > 0) courtCode = courtResult.rows[0].court_code;
+      }
+
+      const query = String(args.query).trim();
+      const partyName = typeof args.party_name === 'string' ? args.party_name.trim() || undefined : undefined;
+      const filters: EdsrFtsFilters = {
+        court_code: courtCode, judge: args.judge, date_from: args.date_from, date_to: args.date_to,
+        justice_kind: args.justice_kind, judgment_code: args.judgment_code, category_code: args.category_code,
+        instance_code: args.instance_code,
+        party_name: partyName, party_role: args.party_role as EdsrFtsFilters['party_role'] | undefined,
+      };
+
+      // Raw query straight to plainto_tsquery('simple', $1) — no reformulation, no relaxation.
+      const result = await this.ftsService.searchFulltext(
+        query, this.db, filters, args.limit || 20, args.offset || 0,
+      );
+      const enriched = await this.enrichResults(result.results);
+
+      // No maybeFilter, no fallback: exact means exact.
+      return this.wrapResponse({ mode: 'exact', ...result, results: enriched });
+    } catch (err: any) {
+      logger.error('[EdsrUnifiedSearch] exact failed', { error: err.message });
+      return this.wrapError(`Помилка exact FTS пошуку: ${err.message}`);
+    }
   }
 
   // ── Fulltext search (tsvector FTS) ───────────────────────────────
