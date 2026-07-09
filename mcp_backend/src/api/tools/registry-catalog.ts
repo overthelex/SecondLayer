@@ -25,6 +25,13 @@ export interface RegistryDef {
   defaultLimit?: number;
   maxLimit?: number;
   requiredFields?: string[];
+  /**
+   * Constant SQL predicate ANDed into every query for this registry (no bind
+   * params). Used when one physical table backs several logical registries —
+   * e.g. the unified `ip_objects` table serves both `trademarks` (obj_type=4)
+   * and `patents` (obj_type IN (1,2,6)).
+   */
+  baseWhere?: string;
 }
 
 export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
@@ -186,38 +193,46 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     ],
   },
 
+  // Backed by the unified `ip_objects` table (НІПО/УІПВ SIS harvest — the live,
+  // continuously-synced IP registry, 788K rows incl. applications + all types).
+  // The legacy `opendata_trademarks`/`opendata_patents` tables are a bulk
+  // snapshot that misses recent registrations (e.g. reg. №389137), so
+  // search_registry now reads ip_objects. Result columns keep the old names
+  // (mark_text/holder_*/nice_classes/ipc_codes) via aliases for a stable shape.
   trademarks: {
-    title: 'Торговельні марки (Укрпатент)',
-    description: 'Пошук торговельних марок (UIPV — Укрпатент)\n\n389K записів (повний реєстр, синхронізовано 2026-07). Пошук за текстом марки, власником, ЄДРПОУ, класом NICE, статусом.',
-    table: 'opendata_trademarks',
-    selectColumns: 'app_number, app_date, registration_number, registration_date, expiry_date, mark_text, holder_name, holder_edrpou, holder_country, nice_classes, status',
-    orderBy: 'registration_date DESC NULLS LAST',
+    title: 'Торговельні марки (НІПО/УІПВ)',
+    description: 'Пошук торговельних марок — свідоцтв на знаки для товарів і послуг (реєстр НІПО/УІПВ ip_objects: заявки + зареєстровані, живий синк).\n\nПошук за текстом марки, власником, ЄДРПОУ, класом МКТП/NICE, статусом, номером свідоцтва/заявки.',
+    table: 'ip_objects',
+    baseWhere: 'obj_type = 4',
+    selectColumns: 'obj_type_name, obj_state, app_number, app_date, registration_number, registration_date, expiry_date, title_ua AS mark_text, status, owner_name AS holder_name, owner_edrpou AS holder_edrpou, owner_country AS holder_country, classes AS nice_classes',
+    orderBy: 'COALESCE(registration_date, app_date) DESC NULLS LAST',
     emptyMessage: 'Торговельних марок не знайдено',
     fields: [
-      { name: 'mark_text', description: 'Текст торговельної марки', match: 'ilike', columns: ['mark_text'] },
-      { name: 'holder_name', description: "Назва або ім'я власника", match: 'ilike_multi', columns: ['holder_name', 'applicant_name'] },
-      { name: 'holder_edrpou', description: 'ЄДРПОУ власника', match: 'exact_multi', columns: ['holder_edrpou', 'applicant_edrpou'] },
-      { name: 'nice_class', description: 'Клас NICE (1-45)', match: 'array_contains', columns: ['nice_classes'], type: 'number' },
-      { name: 'status', description: 'Статус марки — вкажіть точне значення "active" (чинна/діюча) або "inactive" (нечинна: сплив строк або достроково припинена)', match: 'exact_ci', columns: ['status'] },
-      { name: 'registration_number', description: 'Номер реєстрації', match: 'exact', columns: ['registration_number'] },
+      { name: 'mark_text', description: 'Текст (словесна частина) торговельної марки', match: 'ilike', columns: ['title_ua'] },
+      { name: 'holder_name', description: "Назва або ім'я власника / заявника", match: 'ilike', columns: ['owner_name'] },
+      { name: 'holder_edrpou', description: 'ЄДРПОУ власника', match: 'exact', columns: ['owner_edrpou'] },
+      { name: 'nice_class', description: 'Клас МКТП/NICE (1-45), напр. "34"', match: 'array_contains_text', columns: ['classes'] },
+      { name: 'status', description: 'Статус марки — точне значення: "active" (чинна) або "stopped" (припинена: сплив строк / достроково припинена)', match: 'exact_ci', columns: ['status'] },
+      { name: 'registration_number', description: 'Номер свідоцтва / реєстрації', match: 'exact', columns: ['registration_number'] },
+      { name: 'app_number', description: 'Номер заявки (напр. m202420274)', match: 'exact', columns: ['app_number'] },
     ],
   },
 
   patents: {
-    title: 'Патенти (Укрпатент)',
-    description: 'Пошук патентів, корисних моделей та промислових зразків (UIPV — Укрпатент)\n\n347K записів (винаходи, корисні моделі, промзразки; синхронізовано 2026-07). Пошук за назвою, власником, кодом МПК, номером заявки, статусом.',
-    table: 'opendata_patents',
-    selectColumns: 'app_number, app_date, registration_number, registration_date, obj_type_name, title_ua, title_en, abstract_ua, ipc_codes, owner_name, owner_country, status',
-    orderBy: 'registration_date DESC NULLS LAST',
+    title: 'Патенти, корисні моделі, промзразки (НІПО/УІПВ)',
+    description: 'Пошук патентів на винаходи, корисних моделей та промислових зразків (реєстр НІПО/УІПВ ip_objects: заявки + охоронні документи, живий синк).\n\nПошук за назвою, власником, кодом МПК/Локарно, номером заявки/патенту.',
+    table: 'ip_objects',
+    baseWhere: 'obj_type IN (1, 2, 6)',
+    selectColumns: 'obj_type_name, obj_state, app_number, app_date, registration_number, registration_date, title_ua, title_en, abstract_ua, classes AS ipc_codes, owner_name, owner_country, status',
+    orderBy: 'COALESCE(registration_date, app_date) DESC NULLS LAST',
     emptyMessage: 'Патентів не знайдено',
     fields: [
       { name: 'title', description: 'Назва винаходу / корисної моделі', match: 'ilike_multi', columns: ['title_ua', 'title_en'] },
       { name: 'owner_name', description: "Ім'я або назва патентовласника", match: 'ilike', columns: ['owner_name'] },
-      { name: 'ipc_code', description: 'Код МПК (наприклад, A61K)', match: 'array_contains', columns: ['ipc_codes'] },
+      { name: 'ipc_code', description: 'Код МПК/Локарно (наприклад, A61K)', match: 'array_contains_text', columns: ['classes'] },
       { name: 'app_number', description: 'Номер заявки', match: 'exact', columns: ['app_number'] },
       { name: 'registration_number', description: 'Номер патенту', match: 'exact', columns: ['registration_number'] },
       { name: 'obj_type', description: 'Тип: 1=винахід, 2=корисна модель, 6=промисл. зразок', match: 'exact', columns: ['obj_type'], type: 'number' },
-      { name: 'status', description: 'Статус патенту — вкажіть точне значення "active" (чинний), "inactive" (нечинний) або "pending" (зареєстрований, очікує дії — напр. сплати збору)', match: 'exact_ci', columns: ['status'] },
     ],
   },
 

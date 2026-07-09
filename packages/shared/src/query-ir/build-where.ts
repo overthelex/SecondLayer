@@ -99,6 +99,15 @@ export function buildWhere(
         pi++;
         break;
 
+      case 'array_contains_text':
+        // text[] array column; cast the bind param so a numeric slot value
+        // (e.g. NICE class 25) compares against text elements without a
+        // "operator does not exist: integer = text" error.
+        conditions.push(`$${pi}::text = ANY(${field.columns[0]})`);
+        values.push(String(val));
+        pi++;
+        break;
+
       case 'eq_any':
         conditions.push(`${field.columns[0]} = ANY($${pi})`);
         values.push(val);

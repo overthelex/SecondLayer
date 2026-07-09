@@ -16,6 +16,7 @@ export type MatchType =
   | 'gte'            // col >= $N
   | 'lte'            // col <= $N
   | 'array_contains' // $N = ANY(col)         — col is an array column, val is scalar
+  | 'array_contains_text' // $N::text = ANY(col) — text[] array column, val cast to text (LLM may send a number)
   | 'eq_any'         // col = ANY($N)          — col is scalar, val is an array of allowed values
   | 'ilike_cast'     // col::text ILIKE $N  (%val%)
   | 'fts'            // to_tsvector('english', col) @@ plainto_tsquery('english', $N)
