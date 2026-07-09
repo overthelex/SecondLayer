@@ -51,4 +51,20 @@ describe('CacheAdapter — fast-fail on a hung Redis client', () => {
     const adapter = new CacheAdapter(makeClient({ ping: jest.fn(() => new Promise(() => {})) }));
     await expect(adapter.ping()).resolves.toBe(false);
   });
+
+  it('fires the metrics callback with the operation label on a failed op', async () => {
+    const adapter = new CacheAdapter(makeClient({ get: jest.fn(() => new Promise(() => {})) }));
+    const onError = jest.fn();
+    adapter.setMetricsCallback(onError);
+    await expect(adapter.get('k')).rejects.toThrow(/timed out/i);
+    expect(onError).toHaveBeenCalledWith('GET');
+  });
+
+  it('does not fire the metrics callback on a successful op', async () => {
+    const adapter = new CacheAdapter(makeClient());
+    const onError = jest.fn();
+    adapter.setMetricsCallback(onError);
+    await adapter.get('k');
+    expect(onError).not.toHaveBeenCalled();
+  });
 });

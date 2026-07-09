@@ -59,6 +59,10 @@ export class MetricsService {
   readonly chatCapHits: Counter;
   readonly chatCapHitRequests: Counter;
 
+  // Backend Redis client health
+  readonly backendRedisClientUp: Gauge;
+  readonly redisCommandErrors: Counter;
+
   constructor() {
     this.registry = new Registry();
 
@@ -261,11 +265,30 @@ export class MetricsService {
       registers: [this.registry],
     });
 
+    // --- Backend Redis client health ---
+    // backendRedisClientUp: named distinctly from the redis_exporter's `redis_up` (server-side)
+    // — this tracks the backend's OWN client connection. redisCommandErrors: rate of failed cache
+    // ops; a sustained rate flags a stuck/half-open client even while the gauge still reads 1.
+    this.backendRedisClientUp = new Gauge({
+      name: 'backend_redis_client_up',
+      help: 'Backend Redis client connection state (1=ready, 0=down/reconnecting)',
+      registers: [this.registry],
+    });
+    this.redisCommandErrors = new Counter({
+      name: 'redis_command_errors_total',
+      help: 'Backend Redis cache command failures (timeout or connection error) by operation',
+      labelNames: ['operation'] as const, // GET|SET|SETEX|DEL|INCR|PING
+      registers: [this.registry],
+    });
+
     // Pre-initialize external API counters so Prometheus always has these series
     // (counters don't appear until first .inc() otherwise)
     for (const svc of ['openai', 'anthropic', 'rada', 'diia']) {
       this.externalApiCallsTotal.inc({ service: svc, status: 'success' }, 0);
     }
+    // Pre-initialize so the alert expression has a series before the first error/connect.
+    this.redisCommandErrors.inc({ operation: 'GET' }, 0);
+    this.backendRedisClientUp.set(0);
     // Pre-initialize cap-hit counters so the "share of truncated requests"
     // ratio resolves to 0 (not "no data") before the first cap fires.
     for (const kind of ['repeat', 'total']) {

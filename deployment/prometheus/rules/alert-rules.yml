@@ -37,6 +37,24 @@ groups:
           summary: "Redis evicting keys"
           description: "Redis is evicting keys due to memory pressure. Rate: {{ $value }}/s"
 
+      - alert: BackendRedisClientDown
+        expr: backend_redis_client_up == 0
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend Redis client disconnected on {{ $labels.job }}"
+          description: "The backend's own Redis client has been down/reconnecting for 2+ minutes. Rate limiting, chat-search caching and auth caching are degraded. If it does not self-heal, restart the backend."
+
+      - alert: BackendRedisCommandErrors
+        expr: sum by (job) (rate(redis_command_errors_total[2m])) > 0.2
+        for: 3m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend Redis commands failing on {{ $labels.job }}"
+          description: "Backend Redis cache ops are timing out/erroring at {{ $value | printf \"%.2f\" }}/s for 3+ minutes. This is the signature of a stuck/half-open client (the socketTimeout auto-reconnect should clear it; if not, restart the backend). Prod incident 2026-07."
+
       - alert: PgCacheHitLow
         expr: (pg_stat_database_blks_hit + pg_stat_database_blks_read) > 0 and pg_stat_database_blks_hit / (pg_stat_database_blks_hit + pg_stat_database_blks_read) < 0.95
         for: 10m
