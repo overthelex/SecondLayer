@@ -1,10 +1,29 @@
+import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 
 interface MarkdownViewerProps {
   content: string;
 }
 
+/**
+ * Legal source text (court decisions, citations) is plain text, not Markdown.
+ * Two constructs routinely misfire when it is parsed as CommonMark:
+ *  - Ukrainian apostrophes typed as a backtick (зобов`язати, ім`я, комп`ютерів)
+ *    get paired into inline `code` spans (gray monospace). Normalize ` → '.
+ *  - Indented standalone lines (e.g. "ВСТАНОВИВ:") become indented code blocks
+ *    (a solid black `<pre>`). Strip per-line leading whitespace.
+ * Intentional Markdown produced by the app (## headings, --- separators) has no
+ * leading indentation or backticks, so it is unaffected.
+ */
+function normalizeLegalText(content: string): string {
+  return content
+    .replace(/`/g, '’')
+    .replace(/^[ \t]+/gm, '');
+}
+
 export function MarkdownViewer({ content }: MarkdownViewerProps) {
+  const normalized = useMemo(() => normalizeLegalText(content), [content]);
+
   return (
     <div className="
       prose prose-zinc max-w-none
@@ -27,7 +46,7 @@ export function MarkdownViewer({ content }: MarkdownViewerProps) {
       prose-th:font-semibold prose-th:text-zinc-900 prose-th:py-2 prose-th:px-3
       prose-td:py-2 prose-td:px-3 prose-td:text-zinc-600 prose-td:border-b prose-td:border-zinc-100
     ">
-      <ReactMarkdown>{content}</ReactMarkdown>
+      <ReactMarkdown>{normalized}</ReactMarkdown>
     </div>
   );
 }
