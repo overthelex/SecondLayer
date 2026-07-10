@@ -28,11 +28,11 @@ function parse(result: any) {
 }
 
 describe('IpObjectsTools', () => {
-  it('exposes four read-only tools', () => {
+  it('exposes five read-only tools', () => {
     const tool = new IpObjectsTools(makeDb(() => ({ rows: [] })));
     const defs = tool.getToolDefinitions();
     expect(defs.map(d => d.name).sort()).toEqual(
-      ['find_similar_trademarks', 'get_ip_object', 'search_ip_objects', 'search_trademarks'],
+      ['find_similar_trademarks', 'get_ip_object', 'get_trademark_dossier', 'search_ip_objects', 'search_trademarks'],
     );
     expect(defs.every(d => d.annotations?.readOnlyHint)).toBe(true);
   });
@@ -176,5 +176,38 @@ describe('IpObjectsTools', () => {
     const res = await tool.executeTool('search_ip_objects', { query: 'x' });
     expect(res!.isError).toBe(true);
     expect(res!.content[0].text).toContain('boom');
+  });
+
+  it('get_trademark_dossier errors without a number', async () => {
+    const tool = new IpObjectsTools(makeDb(() => ({ rows: [] })));
+    const res = await tool.executeTool('get_trademark_dossier', {});
+    expect(res!.isError).toBe(true);
+  });
+
+  it('get_trademark_dossier assembles card + collisions + orchestrates enrichment', async () => {
+    const db = makeDb((sql) => {
+      if (sql.includes('ip_object_events')) return { rows: [] };
+      if (sql.includes('similarity(title_ua')) {
+        return { rows: [{ ...tmRow, id: 9, registration_number: '381898', title_ua: 'alienware', similarity: 0.6 }] };
+      }
+      if (sql.includes('obj_type = 4 ORDER BY obj_state')) {
+        return { rows: [{ ...tmRow, obj_state: 2, raw_data: {} }] };
+      }
+      // disambiguation
+      return { rows: [{ obj_type: 4, obj_type_name: 'Торговельні марки', obj_state: 2,
+        app_number: 'm202400890', registration_number: '67482', title_ua: 'planet',
+        owner_name: 'ТОВ', status: 'green' }] };
+    });
+    const registry = { executeTool: jest.fn(async () => ({ content: [{ type: 'text', text: '{"ok":true}' }] })) };
+    const tool = new IpObjectsTools(db, registry);
+    const res = await tool.executeTool('get_trademark_dossier', { number: '67482' });
+    const p = parse(res);
+    expect(p.query_number).toBe('67482');
+    expect(Array.isArray(p.disambiguation)).toBe(true);
+    expect(p.trademark.legal_status).toBeDefined();
+    expect(p.collisions[0].similarity).toBe(0.6);
+    // enrichment tools were orchestrated via the registry
+    const called = registry.executeTool.mock.calls.map((c: any[]) => c[0]);
+    expect(called).toEqual(expect.arrayContaining(['search_court_decisions', 'get_legislation_section']));
   });
 });

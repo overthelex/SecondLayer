@@ -167,7 +167,7 @@ export function createToolServices(
   toolRegistry.registerHandler(new ECHRPracticeTools(coreServices.zoECHRAdapter));
   toolRegistry.registerHandler(new CourtStatusTools(coreServices.db));
   toolRegistry.registerHandler(new RegistrySearchTool(coreServices.db));
-  toolRegistry.registerHandler(new IpObjectsTools(coreServices.db));
+  toolRegistry.registerHandler(new IpObjectsTools(coreServices.db, toolRegistry));
   toolRegistry.registerHandler(new AnalyzeDataTool(coreServices.db));
   // Bespoke tools with non-parametric query patterns
   toolRegistry.registerHandler(new OpenDataTools(coreServices.db));
