@@ -42,7 +42,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     title: 'Реєстр громадських формувань',
     description: 'Пошук у реєстрі громадських формувань (ГО, партії, профспілки, релігійні організації тощо)\n\n1.08M записів. Пошук за назвою, ЄДРПОУ, типом реєстру, статусом, засновниками.',
     table: 'opendata_public_organizations',
-    selectColumns: 'registry_type, reg_num, date_reg, name, edrpou, state, address, phone, founders, governing_body, kved, territory, obj_status',
+    selectColumns: 'registry_type, reg_num, date_reg::text AS date_reg, name, edrpou, state, address, phone, founders, governing_body, kved, territory, obj_status',
     orderBy: 'date_reg DESC NULLS LAST',
     emptyMessage: 'Громадських формувань не знайдено',
     fields: [
@@ -59,7 +59,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     title: 'Розподіл судових справ',
     description: 'Пошук у протоколах автоматичного розподілу судових справ (ДСАУ)\n\n71K записів. Пошук за номером справи, суддею, судом, учасниками, категорією справи.',
     table: 'dsa_case_distribution',
-    selectColumns: 'cause_number, court_name, case_category, case_complexity, case_essence, presiding_judge, panel_judges, participants, distribution_basis, distribution_start, distribution_end, excluded_judges, source_date',
+    selectColumns: 'cause_number, court_name, case_category, case_complexity, case_essence, presiding_judge, panel_judges, participants, distribution_basis, distribution_start, distribution_end, excluded_judges, source_date::text AS source_date',
     orderBy: 'distribution_start DESC NULLS LAST',
     emptyMessage: 'Протоколів розподілу не знайдено',
     fields: [
@@ -94,7 +94,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     title: 'Власники цінних паперів',
     description: 'Пошук власників істотної участі у цінних паперах (НКЦПФР)\n\n128K записів. Пошук за емітентом, власником, ЄДРПОУ, ISIN-кодом, часткою.',
     table: 'opendata_securities_owners',
-    selectColumns: 'report_date, issuer_edrpou, issuer_name, isin_code, owner_edrpou, owner_name, owner_name_alt, owner_type, share_percent, nominal_value, share_count, country_code',
+    selectColumns: 'report_date::text AS report_date, issuer_edrpou, issuer_name, isin_code, owner_edrpou, owner_name, owner_name_alt, owner_type, share_percent, nominal_value, share_count, country_code',
     orderBy: 'share_percent DESC NULLS LAST',
     emptyMessage: 'Власників цінних паперів не знайдено',
     fields: [
@@ -345,7 +345,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     title: 'Реєстрація транспорту',
     description: 'Пошук у реєстрі транспортних засобів та їх власників (МВС)\n\n19.5M записів з 2013 року. Дані: VIN, держномер, марка, модель, рік, колір, тип, реєстраційні операції.',
     table: 'opendata_vehicle_registrations',
-    selectColumns: 'person_type, d_reg, oper_name, brand, model, vin, make_year, color, kind, body, purpose, fuel, capacity, n_reg_new, dep',
+    selectColumns: 'person_type, d_reg::text AS d_reg, oper_name, brand, model, vin, make_year, color, kind, body, purpose, fuel, capacity, n_reg_new, dep',
     orderBy: 'd_reg DESC NULLS LAST',
     emptyMessage: 'Транспортних засобів не знайдено',
     fields: [
@@ -473,7 +473,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     title: 'US Political Contributions (58M donations)',
     description: 'Search individual political contributions reported to the FEC.\n\n58M records from 2000–2024 election cycles. Contributions over $200 by individuals to federal candidates, PACs, party committees.\n\nFind who donated to whom, how much, employer/occupation of donors.',
     table: 'us_fec_contributions',
-    selectColumns: 'contributor_name, city, state, zip_code, employer, occupation, transaction_date, transaction_amount, committee_id, memo_text',
+    selectColumns: 'contributor_name, city, state, zip_code, employer, occupation, transaction_date::text AS transaction_date, transaction_amount, committee_id, memo_text',
     orderBy: 'transaction_amount DESC NULLS LAST',
     emptyMessage: 'No FEC contributions found matching criteria',
     defaultLimit: 50,
@@ -493,7 +493,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     title: 'OSHA Workplace Enforcement (377K employers)',
     description: 'Search OSHA enforcement history by employer.\n\n377K employers with citation counts, penalties, violation types (willful, repeat, serious).\nDate range: 2009–2026. Useful for vendor safety screening and due diligence.',
     table: 'us_osha_enforcement',
-    selectColumns: 'employer_id, employer_name, city, state, naics_code, naics_description, parent_name, citation_count, inspection_count, penalties_current_total, willful_count, repeat_count, serious_count, earliest_citation, latest_citation',
+    selectColumns: 'employer_id, employer_name, city, state, naics_code, naics_description, parent_name, citation_count, inspection_count, penalties_current_total, willful_count, repeat_count, serious_count, earliest_citation::text AS earliest_citation, latest_citation::text AS latest_citation',
     orderBy: 'penalties_current_total DESC NULLS LAST',
     emptyMessage: 'No OSHA enforcement records found for this employer',
     fields: [
@@ -527,7 +527,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     title: 'CFPB Consumer Complaints (15M complaints)',
     description: 'Search consumer financial complaints from the CFPB database.\n\n15M complaints since 2011. Search by company, product, state, issue.\nUse for financial partner screening, complaint pattern analysis.',
     table: 'us_cfpb_complaints',
-    selectColumns: 'complaint_id, date_received, product_normalized as product, issue, company, state, company_response, timely_response, consumer_complaint_narrative',
+    selectColumns: 'complaint_id, date_received::text AS date_received, product_normalized as product, issue, company, state, company_response, timely_response, consumer_complaint_narrative',
     orderBy: 'date_received DESC NULLS LAST',
     emptyMessage: 'No CFPB complaints found matching criteria',
     defaultLimit: 30,
@@ -544,7 +544,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     title: 'FDA Enforcement & Recalls (17.6K actions)',
     description: 'Search FDA drug and food enforcement actions (recalls).\n\n17.6K enforcement actions since 2011. Includes product description, reason for recall, classification (Class I/II/III), recalling firm.',
     table: 'us_fda_enforcement',
-    selectColumns: 'recall_number, status, classification, product_type, recalling_firm, city, state, recall_initiation_date, reason_for_recall, product_description, distribution_pattern',
+    selectColumns: 'recall_number, status, classification, product_type, recalling_firm, city, state, recall_initiation_date::text AS recall_initiation_date, reason_for_recall, product_description, distribution_pattern',
     orderBy: 'recall_initiation_date DESC NULLS LAST',
     emptyMessage: 'No FDA enforcement actions found',
     fields: [
