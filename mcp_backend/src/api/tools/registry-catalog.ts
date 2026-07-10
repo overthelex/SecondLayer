@@ -204,7 +204,11 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     description: 'Пошук торговельних марок — свідоцтв на знаки для товарів і послуг (реєстр НІПО/УІПВ ip_objects: заявки + зареєстровані, живий синк).\n\nПошук за текстом марки, власником, ЄДРПОУ, класом МКТП/NICE, статусом, номером свідоцтва/заявки.',
     table: 'ip_objects',
     baseWhere: 'obj_type = 4',
-    selectColumns: 'obj_type_name, obj_state, app_number, app_date, registration_number, registration_date, expiry_date, title_ua AS mark_text, status, owner_name AS holder_name, owner_edrpou AS holder_edrpou, owner_country AS holder_country, classes AS nice_classes',
+    // Dates are ::text so node-postgres does not round-trip DATE columns through a
+    // local-midnight JS Date (which JSON-serializes as the prior day in UTC —
+    // an off-by-one that corrupts legal term calculations). ISO YYYY-MM-DD sorts
+    // chronologically, so the text-aliased columns keep ORDER BY correct.
+    selectColumns: 'obj_type_name, obj_state, app_number, app_date::text AS app_date, registration_number, registration_date::text AS registration_date, expiry_date::text AS expiry_date, title_ua AS mark_text, status, owner_name AS holder_name, owner_edrpou AS holder_edrpou, owner_country AS holder_country, classes AS nice_classes',
     orderBy: 'COALESCE(registration_date, app_date) DESC NULLS LAST',
     emptyMessage: 'Торговельних марок не знайдено',
     fields: [
@@ -214,6 +218,9 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
       { name: 'nice_class', description: 'Клас МКТП/NICE (1-45), напр. "34"', match: 'array_contains_text', columns: ['classes'] },
       { name: 'status', description: 'Статус марки — точне значення: "active" (чинна) або "stopped" (припинена: сплив строк / достроково припинена)', match: 'exact_ci', columns: ['status'] },
       { name: 'registration_number', description: 'Номер свідоцтва / реєстрації', match: 'exact', columns: ['registration_number'] },
+      // Synonyms the model reaches for on "перевір свідоцтво №N" — map to registration_number.
+      { name: 'certificate', description: 'Номер свідоцтва (синонім registration_number)', match: 'exact', columns: ['registration_number'] },
+      { name: 'certificate_number', description: 'Номер свідоцтва (синонім registration_number)', match: 'exact', columns: ['registration_number'] },
       { name: 'app_number', description: 'Номер заявки (напр. m202420274)', match: 'exact', columns: ['app_number'] },
     ],
   },
@@ -223,7 +230,8 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     description: 'Пошук патентів на винаходи, корисних моделей та промислових зразків (реєстр НІПО/УІПВ ip_objects: заявки + охоронні документи, живий синк).\n\nПошук за назвою, власником, кодом МПК/Локарно, номером заявки/патенту.',
     table: 'ip_objects',
     baseWhere: 'obj_type IN (1, 2, 6)',
-    selectColumns: 'obj_type_name, obj_state, app_number, app_date, registration_number, registration_date, title_ua, title_en, abstract_ua, classes AS ipc_codes, owner_name, owner_country, status',
+    // Dates ::text — see trademarks note (avoids node-postgres DATE off-by-one).
+    selectColumns: 'obj_type_name, obj_state, app_number, app_date::text AS app_date, registration_number, registration_date::text AS registration_date, title_ua, title_en, abstract_ua, classes AS ipc_codes, owner_name, owner_country, status',
     orderBy: 'COALESCE(registration_date, app_date) DESC NULLS LAST',
     emptyMessage: 'Патентів не знайдено',
     fields: [
@@ -231,7 +239,10 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
       { name: 'owner_name', description: "Ім'я або назва патентовласника", match: 'ilike', columns: ['owner_name'] },
       { name: 'ipc_code', description: 'Код МПК/Локарно (наприклад, A61K)', match: 'array_contains_text', columns: ['classes'] },
       { name: 'app_number', description: 'Номер заявки', match: 'exact', columns: ['app_number'] },
-      { name: 'registration_number', description: 'Номер патенту', match: 'exact', columns: ['registration_number'] },
+      { name: 'registration_number', description: 'Номер патенту / свідоцтва', match: 'exact', columns: ['registration_number'] },
+      // Synonyms the model reaches for — map to registration_number.
+      { name: 'certificate', description: 'Номер патенту/свідоцтва (синонім registration_number)', match: 'exact', columns: ['registration_number'] },
+      { name: 'certificate_number', description: 'Номер патенту/свідоцтва (синонім registration_number)', match: 'exact', columns: ['registration_number'] },
       { name: 'obj_type', description: 'Тип: 1=винахід, 2=корисна модель, 6=промисл. зразок', match: 'exact', columns: ['obj_type'], type: 'number' },
     ],
   },
