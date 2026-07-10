@@ -2,7 +2,6 @@ import { useEffect, useState, useRef } from 'react';
 import { Send, Plus, Square, Loader2 } from 'lucide-react';
 import showToast from '../utils/toast';
 import { toastT } from '../i18n/toast-i18n';
-import { ToolSelector } from './chat/ToolSelector';
 import { FileAttachments, SelectedFile } from './chat/FileAttachments';
 import { PromptManager } from './chat/PromptManager';
 import { useChatFileUpload } from '../hooks/useChatFileUpload';
@@ -144,9 +143,6 @@ export function ChatInput({
       onCancel={handleAupCancel}
     />
     <div className="max-w-3xl mx-auto px-4 md:px-8 pb-2" data-tour="chat-input">
-      {/* Internet toggle */}
-      <ToolSelector />
-
       {/* File Badges */}
       <FileAttachments files={files} onRemove={(idx) => setFiles((prev) => prev.filter((_, i) => i !== idx))} />
 
