@@ -491,7 +491,11 @@ export class IpObjectsTools extends BaseToolHandler {
         mode: 'fulltext', justice_kind: 3, limit: 5,
         query: `${tm.title_ua} свідоцтво недійсне торговельна марка`,
       });
-      const filingDate = tm.app_date ? String(tm.app_date).slice(0, 10) : null;
+      // app_date comes back as a Date/timestamptz — String(date).slice gives
+      // "Tue Apr 04", not "2006-04-04"; normalise to YYYY-MM-DD for as_of_date.
+      const filingDate = tm.app_date
+        ? (() => { const d = new Date(tm.app_date); return isNaN(d.getTime()) ? String(tm.app_date).slice(0, 10) : d.toISOString().slice(0, 10); })()
+        : null;
       const temporal = filingDate ? {
         filing_date: filingDate,
         article6_as_of_filing: await this.callTool('get_legislation_section', {
