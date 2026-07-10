@@ -28,7 +28,9 @@ const LIST_COLUMNS = `id, obj_type, obj_type_name, obj_state, app_number, app_da
   owner_role, image_path`;
 
 export class IpObjectsTools extends BaseToolHandler {
-  constructor(private db: any) {
+  // toolRegistry (optional) lets get_trademark_dossier orchestrate other tools
+  // (court practice, legislation, owner check) into one deterministic dossier.
+  constructor(private db: any, private toolRegistry?: any) {
     super();
   }
 
@@ -112,6 +114,20 @@ export class IpObjectsTools extends BaseToolHandler {
           },
         },
       },
+      {
+        name: 'get_trademark_dossier',
+        annotations: { title: 'Повне досьє торговельної марки', readOnlyHint: true },
+        description: `Повне ДОСЬЄ торговельної марки за одним номером — все в одному виклику: дизамбігуація номера по реєстрах, реєстрові дані та статус, таймлайн подій, обсяг охорони (класи МКТП), правоволодіння, перевірка на «зіткнення» (схожі позначення в тих самих класах), судова практика (ЄДРСР), темпоральний зріз ст. 6 ЗУ №3689-XII на дату подання заявки vs чинна, та перевірка правовласника.
+
+Викликай ЯВНО, коли користувач просить «досьє»/«досье» на торговельну марку — напр. «дай мені досьє на ТМ 67482», «досье на ТМ 389169». Параметр: number (номер свідоцтва напр. "67482" або заявки напр. "m202422025").`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            number: { type: 'string', description: 'Номер свідоцтва (напр. "67482") або заявки (напр. "m202422025")' },
+          },
+          required: ['number'],
+        },
+      },
     ];
   }
 
@@ -125,6 +141,8 @@ export class IpObjectsTools extends BaseToolHandler {
         return this.findSimilarTrademarks(args ?? {});
       case 'get_ip_object':
         return this.getIpObject(args ?? {});
+      case 'get_trademark_dossier':
+        return this.getTrademarkDossier(args ?? {});
       default:
         return null;
     }
@@ -376,5 +394,128 @@ export class IpObjectsTools extends BaseToolHandler {
     if (obj.expiry_date && new Date(obj.expiry_date) < new Date()) return 'строк дії сплив';
     if (Number(obj.obj_state) === 2) return 'чинний';
     return obj.status || 'невідомо';
+  }
+
+  /** Best-effort call of another registered tool; returns parsed JSON or null. */
+  private async callTool(name: string, args: any): Promise<any> {
+    if (!this.toolRegistry) return null;
+    try {
+      const res = await this.toolRegistry.executeTool(name, args);
+      if (!res || res.isError) return null;
+      const txt = res.content?.[0]?.text;
+      if (typeof txt !== 'string') return null;
+      try { return JSON.parse(txt); } catch { return txt; }
+    } catch (e: any) {
+      logger.warn(`get_trademark_dossier: sub-tool ${name} failed`, { error: e.message });
+      return null;
+    }
+  }
+
+  /**
+   * One-shot full trademark dossier (matches the reference artifact layout):
+   * disambiguation → registry card + events + legal_status → collisions →
+   * court practice → temporal art.6 → owner check. Registry parts are
+   * deterministic (own DB); the last three enrich via other tools if available.
+   */
+  private async getTrademarkDossier(args: any): Promise<ToolResult> {
+    const number = String(args.number ?? args.registration_number ?? args.app_number ?? '').trim();
+    if (!number) {
+      return this.wrapError('Вкажіть номер свідоцтва або заявки ТМ (параметр number, напр. "67482").');
+    }
+    // App numbers start with a letter (m/a/u/s); certificate numbers are digits.
+    const col = /^[a-z]/i.test(number) ? 'app_number' : 'registration_number';
+
+    try {
+      // 1. Disambiguation — every IP object registered under this number.
+      const disamb = await this.db.query(
+        `SELECT obj_type, obj_type_name, obj_state, app_number, registration_number,
+                title_ua, owner_name, status
+         FROM ip_objects WHERE ${col} = $1 ORDER BY obj_type, obj_state DESC`,
+        [number],
+      );
+      if (disamb.rows.length === 0) {
+        return this.wrapResponse(`Об'єкт з номером «${number}» не знайдено в реєстрі ip_objects.`);
+      }
+
+      const tmRow = disamb.rows.find((r: any) => Number(r.obj_type) === 4);
+      if (!tmRow) {
+        return this.wrapResponse({
+          query_number: number,
+          note: 'Торговельної марки з таким номером немає; знайдено інші об’єкти права ІВ.',
+          disambiguation: disamb.rows,
+        });
+      }
+
+      // 2. Full trademark card (prefer registered document over application).
+      const card = await this.db.query(
+        `SELECT ${LIST_COLUMNS}, title_en, raw_data
+         FROM ip_objects WHERE ${col} = $1 AND obj_type = 4 ORDER BY obj_state DESC LIMIT 1`,
+        [number],
+      );
+      const tm = card.rows[0];
+
+      let events: any[] = [];
+      try {
+        events = (await this.db.query(
+          `SELECT event_date, event_kind, doc_type, direction
+           FROM ip_object_events WHERE app_number = $1 ORDER BY event_date NULLS LAST, id`,
+          [tm.app_number],
+        )).rows;
+      } catch (e: any) {
+        logger.warn('dossier events lookup failed', { error: e.message });
+      }
+      const legal_status = this.deriveLegalStatus(tm, events);
+
+      // 3. Collision — similar designations in the same МКТП classes (both states, excl. self).
+      let collisions: any[] = [];
+      if (Array.isArray(tm.classes) && tm.classes.length && tm.title_ua) {
+        try {
+          collisions = (await this.db.query(
+            `SELECT ${LIST_COLUMNS}, ROUND(similarity(title_ua, $1)::numeric, 3) AS similarity
+             FROM ip_objects
+             WHERE obj_type = 4 AND classes && $2::text[]
+               AND similarity(title_ua, $1) >= $3 AND app_number <> $4
+             ORDER BY similarity(title_ua, $1) DESC LIMIT 15`,
+            [tm.title_ua, tm.classes, 0.3, tm.app_number],
+          )).rows;
+        } catch (e: any) {
+          logger.warn('dossier collision failed', { error: e.message });
+        }
+      }
+
+      // 4-6. Enrichment via other tools (best-effort, null when a service is down).
+      const owner_check = tm.owner_edrpou
+        ? await this.callTool('openreyestr_get_by_edrpou', { edrpou: tm.owner_edrpou })
+        : null;
+      const court_practice = await this.callTool('search_court_decisions', {
+        mode: 'fulltext', justice_kind: 3, limit: 5,
+        query: `${tm.title_ua} свідоцтво недійсне торговельна марка`,
+      });
+      const filingDate = tm.app_date ? String(tm.app_date).slice(0, 10) : null;
+      const temporal = filingDate ? {
+        filing_date: filingDate,
+        article6_as_of_filing: await this.callTool('get_legislation_section', {
+          rada_id: '3689-12', article_number: '6', as_of_date: filingDate,
+        }),
+        article6_current: await this.callTool('get_legislation_section', {
+          rada_id: '3689-12', article_number: '6',
+        }),
+      } : null;
+
+      const dossier = {
+        query_number: number,
+        disambiguation: disamb.rows,
+        trademark: { ...tm, events, legal_status },
+        collisions,
+        court_practice,
+        temporal,
+        owner_check,
+        guidance: 'Сформуй повне досьє за розділами: (1) Дизамбігуація та мета; (2) Реєстрові дані та статус; (3) Обсяг охорони (класи МКТП); (4) Правоволодіння; (5) Перевірка на «зіткнення» — таблиця схожих позначень із рівнем ризику, познач найсильніший блокер; (6) Судова практика з ланцюгом інстанцій і статусом позицій; (7) Темпоральний зріз ст. 6 ЗУ №3689-XII (редакція на дату заявки vs чинна); (8) Перевірка правовласника; (9) Підсумок і ризики.',
+      };
+      return this.wrapResponse(dossier);
+    } catch (error: any) {
+      logger.error('get_trademark_dossier error', { error: error.message });
+      return this.wrapError(`Помилка формування досьє: ${error.message}`);
+    }
   }
 }
