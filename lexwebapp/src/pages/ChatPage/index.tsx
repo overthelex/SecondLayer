@@ -8,14 +8,12 @@ import { useCallback, useEffect, useRef } from 'react';
 import { ChatInput } from '../../components/ChatInput';
 import { MessageThread } from '../../components/MessageThread';
 import { EmptyState } from '../../components/EmptyState';
-import { useChatStore, useSettingsStore } from '../../stores';
+import { useChatStore } from '../../stores';
 import { useAIChat } from '../../hooks/useMCPTool';
 import showToast from '../../utils/toast';
 import { getErrorMessage } from '../../utils/errors';
 
 export function ChatPage() {
-  const internetEnabled = useSettingsStore(s => s.internetEnabled);
-
   // Zustand stores — individual selectors to avoid full-store re-renders
   const messages = useChatStore(s => s.messages);
   const isStreaming = useChatStore(s => s.isStreaming);
@@ -34,7 +32,7 @@ export function ChatPage() {
       return;
     }
     try {
-      await executeChat(content, documentIds, undefined, internetEnabled);
+      await executeChat(content, documentIds);
     } catch (error: unknown) {
       console.error('Chat execution error:', error);
       showToast.error(getErrorMessage(error));
@@ -48,7 +46,7 @@ export function ChatPage() {
       executingQueueRef.current = true;
       const { content, documentIds } = queuedQuery;
       setQueuedQuery(null);
-      executeChat(content, documentIds, undefined, internetEnabled)
+      executeChat(content, documentIds)
         .catch((error: unknown) => {
           console.error('Queued chat execution error:', error);
           showToast.error(getErrorMessage(error));
@@ -57,7 +55,7 @@ export function ChatPage() {
           executingQueueRef.current = false;
         });
     }
-  }, [isStreaming, queuedQuery, setQueuedQuery, executeChat, internetEnabled]);
+  }, [isStreaming, queuedQuery, setQueuedQuery, executeChat]);
 
   const handleRegenerate = useCallback((userQuery: string) => {
     // Find the last assistant message and remove it
@@ -73,7 +71,7 @@ export function ChatPage() {
     }
     // Re-send the query
     handleSend(userQuery);
-  }, [removeMessage, internetEnabled]);
+  }, [removeMessage]);
 
   const handleEdit = useCallback((messageId: string, newContent: string) => {
     // Remove the edited message and all messages after it, then re-send
@@ -83,7 +81,7 @@ export function ChatPage() {
     // Remove from the edited message onwards
     msgs.slice(idx).forEach((m) => removeMessage(m.id));
     handleSend(newContent);
-  }, [removeMessage, internetEnabled]);
+  }, [removeMessage]);
 
   return (
     <>

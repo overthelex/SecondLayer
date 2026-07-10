@@ -158,8 +158,7 @@ export class MCPService extends BaseService {
 
   async requestPlan(
     query: string,
-    budget: string = 'standard',
-    internetEnabled?: boolean
+    budget: string = 'standard'
   ): Promise<{ plan: import('../../types/models/Message').ExecutionPlan | null; planSessionId: string | null }> {
     const response = await fetch(`${this.API_URL}/chat/plan`, {
       method: 'POST',
@@ -167,7 +166,7 @@ export class MCPService extends BaseService {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${this.getAuthToken()}`,
       },
-      body: JSON.stringify({ query, budget, internetEnabled }),
+      body: JSON.stringify({ query, budget }),
     });
 
     if (!response.ok) {
@@ -186,8 +185,7 @@ export class MCPService extends BaseService {
     conversationId?: string,
     approvedPlan?: import('../../types/models/Message').ExecutionPlan,
     planSessionId?: string,
-    allowDeepEscalation?: boolean,
-    internetEnabled?: boolean
+    allowDeepEscalation?: boolean
   ): Promise<AbortController> {
     const controller = new AbortController();
 
@@ -198,7 +196,7 @@ export class MCPService extends BaseService {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${this.getAuthToken()}`,
         },
-        body: JSON.stringify({ query, history, budget, conversationId, approvedPlan, planSessionId, allowDeepEscalation, internetEnabled }),
+        body: JSON.stringify({ query, history, budget, conversationId, approvedPlan, planSessionId, allowDeepEscalation }),
         signal: controller.signal,
       });
 
