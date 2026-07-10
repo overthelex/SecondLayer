@@ -370,10 +370,18 @@ export class IpObjectsTools extends BaseToolHandler {
 
   private deriveLegalStatus(obj: any, events: any[]): string {
     const kinds = new Set(events.map(e => e.event_kind));
+    // Prefer the SIS dossier fields in raw_data over classified events: event classification is
+    // incomplete for older records (e.g. reg. №67482 has only the 3 original 2006 docs, so the
+    // termination/prolongation live ONLY in raw_data). Without this, a terminated mark reads as
+    // "чинний" (obj_state=2) or, off the stale expiry_date alone, wrongly as "строк дії сплив".
+    const raw = obj.raw_data || {};
     if (kinds.has('invalidation')) return 'визнано недійсним';
-    if (kinds.has('termination')) return 'дію припинено';
+    if (kinds.has('termination') || raw.TerminationDate) return 'дію припинено';
+    if (String(raw.registration_status_color || '').toLowerCase() === 'red') return 'не чинний';
     if (Number(obj.obj_state) === 1) return 'заявка на розгляді';
-    if (obj.expiry_date && new Date(obj.expiry_date) < new Date()) return 'строк дії сплив';
+    // Effective term end = renewed expiry (ProlonagationExpiryDate) if present, else original.
+    const effectiveExpiry = raw.ProlonagationExpiryDate || obj.expiry_date;
+    if (effectiveExpiry && new Date(effectiveExpiry) < new Date()) return 'строк дії сплив';
     if (Number(obj.obj_state) === 2) return 'чинний';
     return obj.status || 'невідомо';
   }
