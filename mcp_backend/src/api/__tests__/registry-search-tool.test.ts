@@ -223,6 +223,22 @@ describe('RegistrySearchTool', () => {
       expect(sql).toContain('expiry_date::text AS expiry_date');
     });
 
+    it('non-IP registries with DATE columns also select them as ::text', async () => {
+      // Same node-postgres DATE off-by-one applies to any `date`-typed column.
+      const cases: Array<[string, Record<string, unknown>, string]> = [
+        ['public_organizations', { name: 'Фонд' }, 'date_reg::text AS date_reg'],
+        ['securities_owners', { owner_name: 'Іван' }, 'report_date::text AS report_date'],
+        ['us_fda_enforcement', { firm: 'Acme' }, 'recall_initiation_date::text AS recall_initiation_date'],
+      ];
+      for (const [registry, filters, expected] of cases) {
+        calls = [];
+        db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
+        tool = new RegistrySearchTool(db);
+        await tool.executeTool('search_registry', { registry, filters });
+        expect(calls[0].sql).toContain(expected);
+      }
+    });
+
     it('ilike_multi: uses ILIKE with OR across columns', async () => {
       db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
       tool = new RegistrySearchTool(db);
