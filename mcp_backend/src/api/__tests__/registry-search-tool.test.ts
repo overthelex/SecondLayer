@@ -192,6 +192,37 @@ describe('RegistrySearchTool', () => {
       expect(calls[0].sql).toContain('founders::text ILIKE');
     });
 
+    it('trademarks: certificate / certificate_number alias resolve to registration_number', async () => {
+      for (const key of ['certificate', 'certificate_number']) {
+        calls = [];
+        db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
+        tool = new RegistrySearchTool(db);
+
+        await tool.executeTool('search_registry', {
+          registry: 'trademarks',
+          filters: { [key]: '67482' },
+        });
+
+        expect(calls[0].sql).toContain('registration_number = $');
+        expect(calls[0].params).toContain('67482');
+      }
+    });
+
+    it('trademarks: date columns are selected as ::text (avoids DATE off-by-one)', async () => {
+      db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
+      tool = new RegistrySearchTool(db);
+
+      await tool.executeTool('search_registry', {
+        registry: 'trademarks',
+        filters: { registration_number: '67482' },
+      });
+
+      const sql = calls[0].sql;
+      expect(sql).toContain('app_date::text AS app_date');
+      expect(sql).toContain('registration_date::text AS registration_date');
+      expect(sql).toContain('expiry_date::text AS expiry_date');
+    });
+
     it('ilike_multi: uses ILIKE with OR across columns', async () => {
       db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
       tool = new RegistrySearchTool(db);
