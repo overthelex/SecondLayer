@@ -201,14 +201,24 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
   // (mark_text/holder_*/nice_classes/ipc_codes) via aliases for a stable shape.
   trademarks: {
     title: 'Торговельні марки (НІПО/УІПВ)',
-    description: 'Пошук торговельних марок — свідоцтв на знаки для товарів і послуг (реєстр НІПО/УІПВ ip_objects: заявки + зареєстровані, живий синк).\n\nПошук за текстом марки, власником, ЄДРПОУ, класом МКТП/NICE, статусом, номером свідоцтва/заявки.',
+    description: 'Пошук торговельних марок — свідоцтв на знаки для товарів і послуг (реєстр НІПО/УІПВ ip_objects: заявки + зареєстровані, живий синк).\n\nПошук за текстом марки, власником, ЄДРПОУ, класом МКТП/NICE, статусом, номером свідоцтва/заявки.\n\nЧинність визначайте за legal_status / effective_expiry_date / termination_date, а НЕ за сирим полем status (воно з реєстру і буває стале). effective_expiry_date враховує поновлення; termination_date — дострокове припинення.',
     table: 'ip_objects',
     baseWhere: 'obj_type = 4',
     // Dates are ::text so node-postgres does not round-trip DATE columns through a
     // local-midnight JS Date (which JSON-serializes as the prior day in UTC —
     // an off-by-one that corrupts legal term calculations). ISO YYYY-MM-DD sorts
     // chronologically, so the text-aliased columns keep ORDER BY correct.
-    selectColumns: 'obj_type_name, obj_state, app_number, app_date::text AS app_date, registration_number, registration_date::text AS registration_date, expiry_date::text AS expiry_date, title_ua AS mark_text, status, owner_name AS holder_name, owner_edrpou AS holder_edrpou, owner_country AS holder_country, classes AS nice_classes',
+    //
+    // The raw `status` column is unreliable (e.g. reg. №67482 reads "active" while the mark was
+    // terminated 2025-07-22). Authoritative validity lives only in raw_data — surface it:
+    //   effective_expiry_date = renewed term end (ProlonagationExpiryDate) or the original expiry;
+    //   termination_date      = early termination (TerminationDate);
+    //   status_color          = registry colour ('red' = not in force);
+    //   legal_status          = derived headline the model should quote.
+    // All via raw_data->> (null-safe: a row without these keys falls through to obj_state).
+    // Date comparisons use ISO text (YYYY-MM-DD sorts chronologically) — no ::date casts, so a
+    // malformed value can never throw and break the whole search.
+    selectColumns: `obj_type_name, obj_state, app_number, app_date::text AS app_date, registration_number, registration_date::text AS registration_date, expiry_date::text AS expiry_date, COALESCE(NULLIF(raw_data->>'ProlonagationExpiryDate',''), expiry_date::text) AS effective_expiry_date, NULLIF(raw_data->>'ProlongationDate','') AS prolongation_date, NULLIF(raw_data->>'TerminationDate','') AS termination_date, NULLIF(raw_data->>'registration_status_color','') AS status_color, CASE WHEN NULLIF(raw_data->>'TerminationDate','') IS NOT NULL THEN 'дію припинено (достроково)' WHEN lower(COALESCE(raw_data->>'registration_status_color','')) = 'red' THEN 'не чинна' WHEN COALESCE(NULLIF(raw_data->>'ProlonagationExpiryDate',''), expiry_date::text) < CURRENT_DATE::text THEN 'строк дії сплив' WHEN obj_state = 2 THEN 'чинна' WHEN obj_state = 1 THEN 'заявка на розгляді' ELSE COALESCE(status, 'невідомо') END AS legal_status, title_ua AS mark_text, status, owner_name AS holder_name, owner_edrpou AS holder_edrpou, owner_country AS holder_country, classes AS nice_classes`,
     orderBy: 'COALESCE(registration_date, app_date) DESC NULLS LAST',
     emptyMessage: 'Торговельних марок не знайдено',
     fields: [
@@ -216,7 +226,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
       { name: 'holder_name', description: "Назва або ім'я власника / заявника", match: 'ilike', columns: ['owner_name'] },
       { name: 'holder_edrpou', description: 'ЄДРПОУ власника', match: 'exact', columns: ['owner_edrpou'] },
       { name: 'nice_class', description: 'Клас МКТП/NICE (1-45), напр. "34"', match: 'array_contains_text', columns: ['classes'] },
-      { name: 'status', description: 'Статус марки — точне значення: "active" (чинна) або "stopped" (припинена: сплив строк / достроково припинена)', match: 'exact_ci', columns: ['status'] },
+      { name: 'status', description: 'Сирий статус марки з реєстру для фільтрації: "active" / "stopped". УВАГА: буває стале — фактичну чинність дивіться у legal_status/termination_date/effective_expiry_date у результатах, а не тут.', match: 'exact_ci', columns: ['status'] },
       { name: 'registration_number', description: 'Номер свідоцтва / реєстрації', match: 'exact', columns: ['registration_number'] },
       // Synonyms the model reaches for on "перевір свідоцтво №N" — map to registration_number.
       { name: 'certificate', description: 'Номер свідоцтва (синонім registration_number)', match: 'exact', columns: ['registration_number'] },
@@ -227,11 +237,13 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
 
   patents: {
     title: 'Патенти, корисні моделі, промзразки (НІПО/УІПВ)',
-    description: 'Пошук патентів на винаходи, корисних моделей та промислових зразків (реєстр НІПО/УІПВ ip_objects: заявки + охоронні документи, живий синк).\n\nПошук за назвою, власником, кодом МПК/Локарно, номером заявки/патенту.',
+    description: 'Пошук патентів на винаходи, корисних моделей та промислових зразків (реєстр НІПО/УІПВ ip_objects: заявки + охоронні документи, живий синк).\n\nПошук за назвою, власником, кодом МПК/Локарно, номером заявки/патенту.\n\nЧинність визначайте за legal_status / effective_expiry_date / termination_date, а НЕ за сирим полем status.',
     table: 'ip_objects',
     baseWhere: 'obj_type IN (1, 2, 6)',
     // Dates ::text — see trademarks note (avoids node-postgres DATE off-by-one).
-    selectColumns: 'obj_type_name, obj_state, app_number, app_date::text AS app_date, registration_number, registration_date::text AS registration_date, title_ua, title_en, abstract_ua, classes AS ipc_codes, owner_name, owner_country, status',
+    // Validity (legal_status/effective_expiry_date/termination_date/status_color) surfaced from
+    // raw_data the same way as trademarks — see the trademarks selectColumns note. Null-safe.
+    selectColumns: `obj_type_name, obj_state, app_number, app_date::text AS app_date, registration_number, registration_date::text AS registration_date, expiry_date::text AS expiry_date, COALESCE(NULLIF(raw_data->>'ProlonagationExpiryDate',''), expiry_date::text) AS effective_expiry_date, NULLIF(raw_data->>'TerminationDate','') AS termination_date, NULLIF(raw_data->>'registration_status_color','') AS status_color, CASE WHEN NULLIF(raw_data->>'TerminationDate','') IS NOT NULL THEN 'дію припинено (достроково)' WHEN lower(COALESCE(raw_data->>'registration_status_color','')) = 'red' THEN 'не чинний' WHEN COALESCE(NULLIF(raw_data->>'ProlonagationExpiryDate',''), expiry_date::text) < CURRENT_DATE::text THEN 'строк дії сплив' WHEN obj_state = 2 THEN 'чинний' WHEN obj_state = 1 THEN 'заявка на розгляді' ELSE COALESCE(status, 'невідомо') END AS legal_status, title_ua, title_en, abstract_ua, classes AS ipc_codes, owner_name, owner_country, status`,
     orderBy: 'COALESCE(registration_date, app_date) DESC NULLS LAST',
     emptyMessage: 'Патентів не знайдено',
     fields: [
@@ -244,6 +256,7 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
       { name: 'certificate', description: 'Номер патенту/свідоцтва (синонім registration_number)', match: 'exact', columns: ['registration_number'] },
       { name: 'certificate_number', description: 'Номер патенту/свідоцтва (синонім registration_number)', match: 'exact', columns: ['registration_number'] },
       { name: 'obj_type', description: 'Тип: 1=винахід, 2=корисна модель, 6=промисл. зразок', match: 'exact', columns: ['obj_type'], type: 'number' },
+      { name: 'status', description: 'Сирий статус з реєстру для фільтрації. УВАГА: буває стале — фактичну чинність дивіться у legal_status/termination_date у результатах.', match: 'exact_ci', columns: ['status'] },
     ],
   },
 
