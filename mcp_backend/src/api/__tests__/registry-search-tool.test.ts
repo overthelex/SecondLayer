@@ -104,9 +104,11 @@ describe('RegistrySearchTool', () => {
         filters: { last_name: 'Іваненко' },
       });
 
-      expect(calls).toHaveLength(1);
+      // Data query + parallel COUNT(*) query share the same WHERE
+      expect(calls).toHaveLength(2);
       expect(calls[0].sql).toContain('ILIKE');
       expect(calls[0].params).toContain('%Іваненко%');
+      expect(calls[1].sql).toContain('COUNT(*)');
     });
 
     it('exact: uses = operator without wrapping', async () => {
@@ -163,7 +165,7 @@ describe('RegistrySearchTool', () => {
       expect(calls[0].sql).toContain('<= $');
     });
 
-    it('array_contains: uses ANY() syntax', async () => {
+    it('array_contains_text: uses ::text = ANY() and casts value', async () => {
       db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
       tool = new RegistrySearchTool(db);
 
@@ -172,8 +174,10 @@ describe('RegistrySearchTool', () => {
         filters: { nice_class: 25 },
       });
 
-      expect(calls[0].sql).toContain('ANY(nice_classes)');
-      expect(calls[0].params).toContain(25);
+      // trademarks is backed by the unified ip_objects table (classes text[])
+      expect(calls[0].sql).toContain('::text = ANY(classes)');
+      expect(calls[0].sql).toContain('obj_type = 4'); // baseWhere applied
+      expect(calls[0].params).toContain('25'); // numeric slot cast to text
     });
 
     it('ilike_cast: casts column to text', async () => {
@@ -188,19 +192,67 @@ describe('RegistrySearchTool', () => {
       expect(calls[0].sql).toContain('founders::text ILIKE');
     });
 
-    it('exact_multi: uses = with OR across columns', async () => {
+    it('trademarks: certificate / certificate_number alias resolve to registration_number', async () => {
+      for (const key of ['certificate', 'certificate_number']) {
+        calls = [];
+        db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
+        tool = new RegistrySearchTool(db);
+
+        await tool.executeTool('search_registry', {
+          registry: 'trademarks',
+          filters: { [key]: '67482' },
+        });
+
+        expect(calls[0].sql).toContain('registration_number = $');
+        expect(calls[0].params).toContain('67482');
+      }
+    });
+
+    it('trademarks: date columns are selected as ::text (avoids DATE off-by-one)', async () => {
       db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
       tool = new RegistrySearchTool(db);
 
       await tool.executeTool('search_registry', {
         registry: 'trademarks',
-        filters: { holder_edrpou: '12345678' },
+        filters: { registration_number: '67482' },
       });
 
       const sql = calls[0].sql;
-      expect(sql).toContain('holder_edrpou = $');
-      expect(sql).toContain('applicant_edrpou = $');
+      expect(sql).toContain('app_date::text AS app_date');
+      expect(sql).toContain('registration_date::text AS registration_date');
+      expect(sql).toContain('expiry_date::text AS expiry_date');
+    });
+
+    it('non-IP registries with DATE columns also select them as ::text', async () => {
+      // Same node-postgres DATE off-by-one applies to any `date`-typed column.
+      const cases: Array<[string, Record<string, unknown>, string]> = [
+        ['public_organizations', { name: 'Фонд' }, 'date_reg::text AS date_reg'],
+        ['securities_owners', { owner_name: 'Іван' }, 'report_date::text AS report_date'],
+        ['us_fda_enforcement', { firm: 'Acme' }, 'recall_initiation_date::text AS recall_initiation_date'],
+      ];
+      for (const [registry, filters, expected] of cases) {
+        calls = [];
+        db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
+        tool = new RegistrySearchTool(db);
+        await tool.executeTool('search_registry', { registry, filters });
+        expect(calls[0].sql).toContain(expected);
+      }
+    });
+
+    it('ilike_multi: uses ILIKE with OR across columns', async () => {
+      db = makeDb(() => ({ rows: [{ _total_count: 1 }] }));
+      tool = new RegistrySearchTool(db);
+
+      await tool.executeTool('search_registry', {
+        registry: 'patents',
+        filters: { title: 'двигун' },
+      });
+
+      const sql = calls[0].sql;
+      expect(sql).toContain('title_ua ILIKE $');
+      expect(sql).toContain('title_en ILIKE $');
       expect(sql).toContain(' OR ');
+      expect(sql).toContain('obj_type IN (1, 2, 6)'); // baseWhere applied
     });
   });
 
@@ -264,9 +316,12 @@ describe('RegistrySearchTool', () => {
     });
 
     it('strips _total_count from results', async () => {
-      db = makeDb(() => ({
-        rows: [{ name: 'Test Corp', schema: 'Company', _total_count: 42 }],
-      }));
+      // The COUNT(*) companion query supplies the total; data rows carry it as _total_count
+      db = makeDb((sql: string) =>
+        sql.includes('COUNT(*)')
+          ? { rows: [{ total: '42' }] }
+          : { rows: [{ name: 'Test Corp', schema: 'Company', _total_count: 42 }] }
+      );
       tool = new RegistrySearchTool(db);
 
       const result = await tool.executeTool('search_registry', {
@@ -295,5 +350,111 @@ describe('RegistrySearchTool', () => {
       expect(result?.isError).toBe(true);
       expect(result?.content[0].text).toContain('connection refused');
     });
+  });
+});
+
+// LEXAI-1820: aggregate mode — GROUP BY a catalog field with optional distinct-count,
+// so the chat can answer "which identical marks are held by multiple owners" without
+// pulling 26K rows through the LLM context.
+describe('aggregate mode (LEXAI-1820)', () => {
+  let db: any;
+  let calls: QueryCall[];
+  let tool: RegistrySearchTool;
+
+  const makeDb = (responder: (sql: string, params?: any[]) => any) => ({
+    query: jest.fn((sql: string, params?: any[]) => {
+      calls.push({ sql, params });
+      return Promise.resolve(responder(sql, params));
+    }),
+  });
+
+  beforeEach(() => {
+    calls = [];
+  });
+
+  it('builds GROUP BY + HAVING count(DISTINCT …) query for the TM-collision case', async () => {
+    db = makeDb(() => ({
+      rows: [{ group_value: 'marengo', distinct_count: '5', row_count: '9', samples: ['ТОВ А', 'ТОВ Б'] }],
+    }));
+    tool = new RegistrySearchTool(db);
+
+    const result = await tool.executeTool('search_registry', {
+      registry: 'trademarks',
+      filters: { nice_class: 33 },
+      aggregate: { group_by: 'mark_text', count_distinct: 'holder_name', min_count: 2, min_length: 4 },
+      limit: 10,
+    });
+
+    expect(calls).toHaveLength(1);
+    const sql = calls[0].sql;
+    // trademarks is backed by ip_objects: catalog fields resolve to its columns
+    // (mark_text→title_ua, holder_name→owner_name, nice_class→classes).
+    expect(sql).toContain('GROUP BY');
+    expect(sql).toContain('COUNT(DISTINCT owner_name)');
+    expect(sql).toContain('HAVING');
+    expect(sql).toContain('length(title_ua) >= 4');
+    expect(sql).toContain('::text = ANY(classes)');
+    expect(sql).toContain('obj_type = 4'); // baseWhere applied in aggregate mode
+    const text = (result as any).content[0].text;
+    expect(text).toContain('marengo');
+  });
+
+  it('aggregates without count_distinct as plain frequency count', async () => {
+    db = makeDb(() => ({ rows: [{ group_value: 'нфіл', distinct_count: null, row_count: '12' }] }));
+    tool = new RegistrySearchTool(db);
+
+    await tool.executeTool('search_registry', {
+      registry: 'trademarks',
+      filters: { nice_class: 33 },
+      aggregate: { group_by: 'holder_name' },
+    });
+
+    const sql = calls[0].sql;
+    expect(sql).toContain('GROUP BY');
+    expect(sql).not.toContain('HAVING');
+  });
+
+  it('rejects group_by field not present in the catalog', async () => {
+    db = makeDb(() => ({ rows: [] }));
+    tool = new RegistrySearchTool(db);
+
+    const result = await tool.executeTool('search_registry', {
+      registry: 'trademarks',
+      filters: { nice_class: 33 },
+      aggregate: { group_by: 'drop_table' },
+    });
+
+    const text = (result as any).content[0].text;
+    expect(text).toContain('group_by');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('rejects aggregation on array fields (nice_class)', async () => {
+    db = makeDb(() => ({ rows: [] }));
+    tool = new RegistrySearchTool(db);
+
+    const result = await tool.executeTool('search_registry', {
+      registry: 'trademarks',
+      filters: { mark_text: 'nemiroff' },
+      aggregate: { group_by: 'nice_class' },
+    });
+
+    const text = (result as any).content[0].text;
+    expect(text).toContain('group_by');
+    expect(calls).toHaveLength(0);
+  });
+
+  it('still requires at least one filter in aggregate mode', async () => {
+    db = makeDb(() => ({ rows: [] }));
+    tool = new RegistrySearchTool(db);
+
+    const result = await tool.executeTool('search_registry', {
+      registry: 'trademarks',
+      aggregate: { group_by: 'mark_text', count_distinct: 'holder_name' },
+    });
+
+    const text = (result as any).content[0].text;
+    expect(text).toContain('фільтр');
+    expect(calls).toHaveLength(0);
   });
 });

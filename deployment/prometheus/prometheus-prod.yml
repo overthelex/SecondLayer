@@ -78,6 +78,43 @@ scrape_configs:
           service: qdrant
           environment: production
 
+  # Qdrant EDRSR — dedicated bigbox instance (r6i.8xlarge, WG 10.88.0.6:6333),
+  # serving the edrsr_serving collection (~296M vectors). We DO NOT scrape Qdrant
+  # directly: its /metrics generation for this collection is I/O-bound over cold
+  # mmap'd segments and takes far longer than any safe scrape timeout (observed
+  # >240s, vs ~8-12s when first tuned) — so direct scrapes timed out and the
+  # dashboard flapped DOWN / "No data" despite a healthy Qdrant. Instead we scrape
+  # the qdrant-edrsr-metrics-cache sidecar, which refreshes /metrics on a slow
+  # background loop and serves the last-good body instantly. The sidecar holds the
+  # bearer key, so no auth is needed here. Freshness is alertable via the appended
+  # qdrant_edrsr_metrics_cache_{up,last_scrape_success,age_seconds} gauges.
+  - job_name: qdrant_edrsr
+    scrape_interval: 30s
+    scrape_timeout: 10s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ['qdrant-edrsr-metrics-cache:9109']
+        labels:
+          service: qdrant_edrsr
+          environment: production
+          host: bigbox
+
+  # AWS costs (Cost Explorer) + API activity (CloudTrail) via aws-cost-exporter
+  # sidecar. The exporter refreshes AWS APIs on slow background loops (CE hourly -
+  # paid API, CloudTrail 15m) and serves last-good data, so scraping is cheap.
+  # honor_labels: the exporter's own service="<AWS service name>" label must win
+  # over the target's service label, otherwise per-service costs all collapse to
+  # service="aws_cost" (real names shoved into exported_service).
+  - job_name: aws_cost
+    honor_labels: true
+    scrape_interval: 60s
+    scrape_timeout: 10s
+    static_configs:
+      - targets: ['aws-cost-exporter:9199']
+        labels:
+          service: aws_cost
+          environment: production
+
   # cAdvisor container metrics
   - job_name: cadvisor
     scrape_interval: 15s
@@ -92,3 +129,26 @@ scrape_configs:
     scrape_interval: 15s
     static_configs:
       - targets: ['localhost:9090']
+
+  # WireGuard mesh hosts - node_exporter on each node (scraped over the wg-sync tunnel).
+  # prod is reached via its in-network container DNS; the rest via their WG IPs (10.88.0.x).
+  - job_name: wg_mesh
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['node-exporter:9100']
+        labels: { host: prod }
+      - targets: ['10.88.0.2:9100']
+        labels: { host: local }
+      - targets: ['10.88.0.4:9100']
+        labels: { host: workstation }
+      - targets: ['10.88.0.6:9100']
+        labels: { host: bigbox }
+      - targets: ['10.88.0.3:9100']
+        labels: { host: brev }
+
+  # WireGuard mesh GPU metrics - DCGM exporter (brev 8x H100 box only).
+  - job_name: wg_mesh_gpu
+    scrape_interval: 15s
+    static_configs:
+      - targets: ['10.88.0.3:9400']
+        labels: { host: brev }

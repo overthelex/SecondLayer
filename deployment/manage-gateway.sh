@@ -204,7 +204,7 @@ start_env() {
             print_msg "$BLUE" "Starting prod services on ${PROD_SERVER}..."
             $ssh_cmd \
                 "cd ${PROD_REMOTE_PATH} && docker compose -f docker-compose.prod.yml --env-file .env.prod up -d \
-                    postgres-prod pgbouncer-prod redis-prod qdrant-prod minio-prod postgres-openreyestr-prod \
+                    postgres-prod pgbouncer-prod redis-prod minio-prod postgres-openreyestr-prod \
                     app-prod rada-mcp-app-prod app-openreyestr-prod document-service-prod lexwebapp-prod \
                     nginx-prod \
                     prometheus-prod grafana-prod cadvisor-prod"
@@ -518,7 +518,11 @@ ensure_letsencrypt_certs() {
         # Ensure latest certs are copied
         sudo cp "$le_dir/fullchain.pem" "$certs_dir/fullchain.pem"
         sudo cp "$le_dir/privkey.pem" "$certs_dir/privkey.pem"
-        sudo chown $(id -u):$(id -g) "$certs_dir/fullchain.pem" "$certs_dir/privkey.pem"
+        # Keep the whole certs dir owned by the runner user. On the self-hosted
+        # CI runner this dir lives inside the Actions workspace; if it (or any
+        # file in it) stays root-owned, the next `actions/checkout` git-clean
+        # fails with EACCES and blocks every subsequent deploy.
+        sudo chown -R $(id -u):$(id -g) "$certs_dir"
         return 0
     fi
 
@@ -539,7 +543,9 @@ ensure_letsencrypt_certs() {
         print_msg "$GREEN" "Certificate obtained successfully"
         sudo cp "$le_dir/fullchain.pem" "$certs_dir/fullchain.pem"
         sudo cp "$le_dir/privkey.pem" "$certs_dir/privkey.pem"
-        sudo chown $(id -u):$(id -g) "$certs_dir/fullchain.pem" "$certs_dir/privkey.pem"
+        # Keep the whole certs dir runner-owned (see note above) so the next
+        # CI checkout can git-clean the workspace without EACCES.
+        sudo chown -R $(id -u):$(id -g) "$certs_dir"
     else
         print_msg "$YELLOW" "Let's Encrypt failed -- falling back to existing certs"
     fi
@@ -884,7 +890,7 @@ deploy_to_server() {
                 INFRA_FLAGS="--force-recreate"
             fi
             $DC up -d $INFRA_FLAGS \
-                postgres-prod redis-prod qdrant-prod \
+                postgres-prod redis-prod \
                 postgres-openreyestr-prod minio-prod
             $DC up -d pgbouncer-prod 2>/dev/null || true
 

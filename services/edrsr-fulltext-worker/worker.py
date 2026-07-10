@@ -115,6 +115,8 @@ def decode_win1251_byte(match):
 
 def decode_unicode(match):
     code = int(match.group(1))
+    if code < 0:              # RTF \uN is a signed 16-bit value
+        code += 65536
     return chr(code) if 0 <= code <= 0x10FFFF else ""
 
 
@@ -185,7 +187,13 @@ def rtf_bytes_to_text(raw: bytes) -> str | None:
     text = re.sub(r"\\line\b", "\n", text)
     text = re.sub(r"\\tab\b", "\t", text)
     text = re.sub(r"\\'([0-9a-fA-F]{2})", decode_win1251_byte, text)
-    text = re.sub(r"\\u(\d+)\??", decode_unicode, text)
+    # \uN carries a per-\ucN fallback char (court RTFs use \uc1 with a literal
+    # 'F' fallback). Consume the optional delimiter space + one fallback token,
+    # else the fallback leaks after every Cyrillic char ("ПFОFСFТF").
+    text = re.sub(r"\\u(-?\d+) ?(?:\\'[0-9a-fA-F]{2}|[^\\{} \n])?", decode_unicode, text)
+    # RTF control SYMBOLS (backslash + non-letter) — the control-word regex below
+    # only matches \word, so strip these explicitly or they survive as junk.
+    text = text.replace("\\~", " ").replace("\\_", "-").replace("\\-", "")
     text = re.sub(r"\\[a-zA-Z]+-?\d*\s?", "", text)
     text = text.replace("{", "").replace("}", "")
     text = text.replace("\x00", "")
@@ -412,8 +420,11 @@ async def insert_batch(pool: asyncpg.Pool, rows: list[tuple]) -> int:
                     columns=["doc_id", "adj_year", "full_text"],
                 )
                 result = await conn.execute("""
-                    INSERT INTO edrsr_fulltext (doc_id, adj_year, full_text)
-                    SELECT s.doc_id, s.adj_year, s.full_text FROM _ft_stage s
+                    INSERT INTO edrsr_fulltext (doc_id, adj_year, full_text, text_length, tsv)
+                    SELECT s.doc_id, s.adj_year, s.full_text,
+                           length(s.full_text),
+                           to_tsvector(left(s.full_text, 400000))
+                    FROM _ft_stage s
                     WHERE NOT EXISTS (SELECT 1 FROM edrsr_fulltext f WHERE f.doc_id = s.doc_id)
                 """)
                 inserted = int(result.split()[-1])
@@ -426,8 +437,8 @@ async def insert_batch(pool: asyncpg.Pool, rows: list[tuple]) -> int:
             for doc_id, adj_year, text in rows:
                 try:
                     r = await conn.execute(
-                        """INSERT INTO edrsr_fulltext (doc_id, adj_year, full_text)
-                           SELECT $1, $2, $3
+                        """INSERT INTO edrsr_fulltext (doc_id, adj_year, full_text, text_length, tsv)
+                           SELECT $1, $2, $3, length($3), to_tsvector(left($3, 400000))
                            WHERE NOT EXISTS (SELECT 1 FROM edrsr_fulltext WHERE doc_id = $1)""",
                         doc_id, adj_year, text,
                     )

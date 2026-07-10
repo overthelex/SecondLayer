@@ -82,6 +82,19 @@ describe('EdsrFtsService.searchFulltext party filters', () => {
     expect(rx).toContain('за[[:space:]]+позов'); // anchored on the claimant slot
   });
 
+  it('falls back to pool.query when connect() yields no usable client (wrapper pool regression)', async () => {
+    // Regression: compare_practice_pro_contra passes a wrapper pool whose connect() exists but
+    // returns undefined; the statement-timeout path did `client.release()` and crashed with
+    // "Cannot read properties of undefined (reading 'release')". Must fall back, not throw.
+    const svc = new EdsrFtsService();
+    const db = makeDb() as any;
+    db.connect = jest.fn(() => Promise.resolve(undefined)); // connect present but yields nothing
+
+    await expect(svc.searchFulltext('поновлення строку', db)).resolves.toBeDefined();
+    expect(db.query).toHaveBeenCalled();           // fell back to the plain pooled query
+    expect(db.calls[0].sql).toContain('cand AS MATERIALIZED'); // still runs cap-before-rank
+  });
+
   it('treats party_role "any" as no role constraint', async () => {
     const svc = new EdsrFtsService();
     const db = makeDb();
@@ -180,5 +193,23 @@ describe('EdsrFtsService.countByParty', () => {
     expect(db.calls[1].sql).toContain('LIMIT 50');
     expect(res.sample).toHaveLength(1);
     expect(res.sample![0].doc_id).toBe(5);
+  });
+});
+
+describe('EdsrFtsService dedicated EDRSR pool', () => {
+  it('routes queries to the dedicated pool instead of the caller-passed one', async () => {
+    const dedicated = makeDb();
+    const passed = makeDb();
+    const svc = new EdsrFtsService(dedicated as any);
+    await svc.searchFulltext('оренда землі', passed);
+    expect(dedicated.query).toHaveBeenCalled();
+    expect(passed.query).not.toHaveBeenCalled();
+  });
+
+  it('uses the caller-passed pool when no dedicated pool is configured', async () => {
+    const passed = makeDb();
+    const svc = new EdsrFtsService();
+    await svc.searchFulltext('оренда землі', passed);
+    expect(passed.query).toHaveBeenCalled();
   });
 });

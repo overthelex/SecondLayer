@@ -18,7 +18,10 @@ import * as https from 'https';
 
 // ── Config ──────────────────────────────────────────────────────────────────
 const API_BASE = 'https://sis.nipo.gov.ua/api/v1/open-data/';
-const RATE_LIMIT_MS = 1100; // 1 req/sec + margin
+// 1 req/sec API limit; the sleep runs BEFORE each fetch, so effective period =
+// RATE_LIMIT_MS + fetch latency (~0.6s). Override via env to pace closer to the
+// real limit (429s are retried with a 5s backoff anyway).
+const RATE_LIMIT_MS = parseInt(process.env.RATE_LIMIT_MS || '1100');
 const BATCH_INSERT_SIZE = 50;
 const CHECKPOINT_DIR = '/tmp/uipv-import-checkpoints';
 const CONCURRENCY = parseInt(process.env.CONCURRENCY || '1'); // stay at 1 for rate limit
@@ -83,13 +86,28 @@ function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+// NIPO exposes the authoritative live/dead flag as a colour: green = in force,
+// red = not in force, yellow = registered but pending (e.g. awaiting an annual fee).
+// Map it to a human-readable status shared by both trademarks and patents so the
+// registry-catalog text filters work and the two tables stay consistent.
+function statusFromColor(color: any, fallback: string | null = null): string | null {
+  switch (color) {
+    case 'green': return 'active';
+    case 'red': return 'inactive';
+    case 'yellow': return 'pending';
+    default: return fallback;
+  }
+}
+
 // ── Extract trademark fields ────────────────────────────────────────────────
 function extractTrademark(record: any): any[] {
   const data = record.data || {};
 
-  // Mark text
+  // Mark text — the verbal element is nested under `data`, same as every other
+  // field below (holder/applicant/nice). Reading it off `record` left mark_text
+  // NULL for the entire trademark table.
   let markText = '';
-  const wordMark = record.WordMarkSpecification?.MarkSignificantVerbalElement;
+  const wordMark = data.WordMarkSpecification?.MarkSignificantVerbalElement;
   if (Array.isArray(wordMark)) {
     markText = wordMark.map((w: any) => w['#text'] || '').filter(Boolean).join(' ');
   }
@@ -126,12 +144,26 @@ function extractTrademark(record: any): any[] {
     }).join(' | ');
   }
 
+  // Expiry — prefer the prolongation expiry when the mark was renewed. NIPO keeps
+  // the original 10-year `ExpiryDate` even after a prolongation; the effective term
+  // end lives in `ProlonagationExpiryDate` (note NIPO's misspelling). Reading only
+  // `ExpiryDate` reported ~90K renewed marks as long expired (e.g. TM 67482 showed
+  // 2016 while it was actually renewed to 2026).
+  const expiryDate = data.ProlonagationExpiryDate || data.ExpiryDate || null;
+
+  // Status — `registration_status_color` is the authoritative live/dead flag, same
+  // source patents use. `application_status` is unreliable: ~127K marks are stamped
+  // "active" while their color is red (expired/terminated), so the raw `TerminationDate`
+  // never surfaced. Map color → human-readable status the registry catalog filters on
+  // by text ("зареєстровано, припинено тощо"), falling back to application_status.
+  const status = statusFromColor(data.registration_status_color, data.application_status || null);
+
   return [
     record.app_number,
     record.app_date ? record.app_date.split('T')[0] : null,
     record.registration_number || null,
     record.registration_date ? record.registration_date.split('T')[0] : null,
-    data.ExpiryDate || null,
+    expiryDate,
     markText || null,
     holderName || null,
     holderEdrpou || null,
@@ -140,7 +172,7 @@ function extractTrademark(record: any): any[] {
     applicantEdrpou || null,
     niceClasses.length > 0 ? niceClasses : null,
     niceDescriptions || null,
-    data.application_status || data.registration_status_color || null,
+    status,
     record.last_update || null,
     JSON.stringify(data),
   ];
@@ -184,7 +216,9 @@ function extractPatent(record: any, objType: number): any[] {
     inventorNames = inventors.map((i: any) => i['I_72.N.U'] || i['I_72.N.R'] || '').filter(Boolean);
   }
 
-  const status = data.registration_status_color || null;
+  // Human-readable status from the NIPO colour flag (green→active, red→inactive,
+  // yellow→pending), consistent with trademarks. Previously stored the raw colour.
+  const status = statusFromColor(data.registration_status_color);
 
   return [
     objType,
@@ -207,7 +241,19 @@ function extractPatent(record: any, objType: number): any[] {
 }
 
 // ── Batch insert ────────────────────────────────────────────────────────────
-async function insertTrademarks(rows: any[][]): Promise<number> {
+/**
+ * NIPO pages occasionally contain the same app_number twice; a duplicate inside one
+ * multi-row INSERT makes Postgres abort with "ON CONFLICT DO UPDATE command cannot
+ * affect row a second time" (SQLSTATE 21000). Keep the LAST occurrence per key.
+ */
+function dedupeByKey(rows: any[][], keyOf: (r: any[]) => string): any[][] {
+  const map = new Map<string, any[]>();
+  for (const r of rows) map.set(keyOf(r), r);
+  return Array.from(map.values());
+}
+
+async function insertTrademarks(inputRows: any[][]): Promise<number> {
+  const rows = dedupeByKey(inputRows, r => String(r[0])); // key: app_number
   if (rows.length === 0) return 0;
 
   const values: any[] = [];
@@ -246,7 +292,8 @@ async function insertTrademarks(rows: any[][]): Promise<number> {
   return res.rowCount || 0;
 }
 
-async function insertPatents(rows: any[][]): Promise<number> {
+async function insertPatents(inputRows: any[][]): Promise<number> {
+  const rows = dedupeByKey(inputRows, r => `${r[2]}::${r[0]}`); // key: (app_number, obj_type)
   if (rows.length === 0) return 0;
 
   const values: any[] = [];

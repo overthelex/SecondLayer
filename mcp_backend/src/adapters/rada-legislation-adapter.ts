@@ -2,6 +2,7 @@ import axios, { AxiosInstance } from 'axios';
 import * as cheerio from 'cheerio';
 import { logger } from '../utils/logger';
 import type { IDatabase } from '../domain/ports/index.js';
+import { buildLegislationTsquery, extractArticleNumberTokens } from '../services/legislation-search-utils';
 
 /**
  * КУпАП (Кодекс України про адміністративні правопорушення) is split in RADA
@@ -65,7 +66,44 @@ export class RadaLegislationAdapter {
   private readonly BASE_URL = 'https://zakon.rada.gov.ua';
   private readonly CHUNK_SIZE = 500; // characters per chunk for vector search
   private readonly CHUNK_OVERLAP = 100; // overlap between chunks
+  /**
+   * full_text length above which a parsed article is almost certainly a broken parse
+   * (the last "Стаття N." swallowing the document tail — LEXAI-1809). The largest legit
+   * article observed is ПКУ ст. 14 «визначення понять» ≈ 216K chars, so 400K is a safe
+   * alarm threshold. We keep the record but log an error so the anomaly is visible.
+   */
+  private readonly MEGA_ARTICLE_WARN_CHARS = 400_000;
+  /**
+   * Headings that begin the "Прикінцеві та перехідні положення" block. Article bodies
+   * must stop here — the block is extracted separately by extractTransitionalProvisions,
+   * and letting the last article run past it produces the ст. 346 mega-record.
+   */
+  // The transitional-section heading must be the document's OWN structural header
+  // (an rvts15/rvts23 span), never an in-text REFERENCE to another act's section
+  // (LEXAI-1821: «…розділу XX "Перехідні положення" ПКУ» cited inside КУпАП ст.163
+  // cut the main scan at 53%, and a «Про споживче кредитування» reference cut ПКУ
+  // at 2% — nearly the whole main body went through the transitional extractor,
+  // producing thousands of bogus 'п.*' rows).
+  private static readonly TRANSITIONAL_HEADER_PATTERNS = [
+    /<span\s+class=["']?rvts(?:15|23)["']?>[^<]{0,120}?ПРИКІНЦЕВІ\s+ТА\s+ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
+    /<span\s+class=["']?rvts(?:15|23)["']?>[^<]{0,120}?ПЕРЕХІДНІ\s+ТА\s+ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
+    /<span\s+class=["']?rvts(?:15|23)["']?>[^<]{0,120}?ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
+    /<span\s+class=["']?rvts(?:15|23)["']?>[^<]{0,120}?ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
+  ];
   private externalApiMetrics: ((service: string, status: string, durationSec: number) => void) | null = null;
+
+  /**
+   * Index of the earliest "Прикінцеві та перехідні положення" heading in the HTML, or -1.
+   * Used to bound the main-article scan so the last article can't swallow the tail.
+   */
+  private findTransitionalSectionStart(html: string): number {
+    let earliest = -1;
+    for (const pat of RadaLegislationAdapter.TRANSITIONAL_HEADER_PATTERNS) {
+      const m = pat.exec(html);
+      if (m && (earliest < 0 || m.index < earliest)) earliest = m.index;
+    }
+    return earliest;
+  }
 
   constructor(db: IDatabase) {
     this.db = db;
@@ -99,7 +137,7 @@ export class RadaLegislationAdapter {
       const callDuration = (Date.now() - callStart) / 1000;
       this.externalApiMetrics?.('zakon_rada', 'success', callDuration);
 
-      const html = response.data;
+      const html = RadaLegislationAdapter.normalizeSuperscriptIndexes(String(response.data));
       const $ = cheerio.load(html);
 
       const metadata = this.extractMetadata($, radaId, url);
@@ -151,6 +189,45 @@ export class RadaLegislationAdapter {
     };
   }
 
+  /**
+   * LEXAI-1821: RADA renders the надрядковий індекс of dash-numbered units
+   * (ст. 297-1, транзитний п. 16-1) as a superscript span whose dash is hidden with
+   * font-size:0 (visually «297¹», copy-paste «297-1»):
+   *
+   *   297<span class="rvts37"><span style="font-size:0px">-</span>1</span>.
+   *
+   * The HTML-level parsers stop `[^<]*` capture at the inner span, so «Стаття 297-1»
+   * was captured as «297» (and ON CONFLICT overwrote the REAL ст.297 with 297-1's
+   * text), while transitional «16-1.» matched nothing — its sub-points were stored as
+   * bare 'п.1.11' orphans. Flatten the markup to the literal dash form BEFORE any
+   * parsing so every downstream regex sees plain «297-1» / «16-1».
+   */
+  static normalizeSuperscriptIndexes(html: string): string {
+    return html
+      .replace(
+        /<span[^>]*>\s*<span[^>]*font-size:\s*0(?:px)?[^>]*>\s*-\s*<\/span>\s*(\d+)\s*<\/span>/gi,
+        '-$1',
+      )
+      // Second pass (КК shape A): the dash-article HEADER is split across spans — the
+      // number span closes BEFORE the superscript index, and the trailing dot (with or
+      // without the title) sits in its own span:
+      //   <span class=rvts9>Стаття 111</span>-2<span class=rvts9>.</span> Пособництво…
+      // Merge it back into the single-span shape the article regex expects.
+      .replace(
+        /(Стаття\s+\d+)<\/span>(-\d+)<span[^>]*>\s*\.\s*([^<]*)<\/span>/gi,
+        '$1$2. $3</span>',
+      )
+      // Shape B (КК 111-1, КУпАП 173-2, ПКУ 297-1): after the flattened index the dot
+      // and title are PLAIN TEXT — no span to merge:
+      //   <span class=rvts9>Стаття 111</span>-1. Колабораційна діяльність</p>
+      // Pull the dash index inside the header span. Safe: body references to dash
+      // articles are plain text with no </span> between the number and the index.
+      .replace(
+        /(Стаття\s+\d+)<\/span>(-\d+)\s*\./gi,
+        '$1$2.</span>',
+      );
+  }
+
   private extractArticles($: cheerio.CheerioAPI, radaId: string): LegislationArticle[] {
     const articles: LegislationArticle[] = [];
     const bodyHtml = $('body').html() || '';
@@ -160,11 +237,20 @@ export class RadaLegislationAdapter {
     // Chapters: <span class=rvts15>Глава 1 </span><br><span class=rvts15>TITLE</span>
     const structureMap = this.extractStructureMap(bodyHtml);
 
-    // Parse articles: handles both <span class=rvts9>Стаття N. Title</span> and <span class=rvts9>Стаття N.</span>
-    const articleRegex = /<span\s+class=["']?rvts9["']?>Стаття\s+(\d+(?:-\d+)?)\.?\s*([^<]*)<\/span>\s*(.*?)(?=<span\s+class=["']?rvts9["']?>Стаття\s+\d|$)/gs;
+    // Bound the article scan at the "Прикінцеві та перехідні положення" heading: that block
+    // is parsed separately (extractTransitionalProvisions), and without this bound the last
+    // "Стаття N." greedily absorbs the entire tail (the ст. 346 ≈1M-char mega-record, LEXAI-1809).
+    // Slicing only the tail keeps match.index aligned with structureMap (built on full bodyHtml).
+    const transitionalStart = this.findTransitionalSectionStart(bodyHtml);
+    const scanHtml = transitionalStart >= 0 ? bodyHtml.slice(0, transitionalStart) : bodyHtml;
+
+    // Parse articles: handles both <span class=rvts9>Стаття N. Title</span> and <span class=rvts9>Стаття N.</span>.
+    // A body also terminates at the next structural header (Розділ/Підрозділ/Глава/Книга) so an article
+    // never swallows a following section that has no "Стаття N." of its own.
+    const articleRegex = /<span\s+class=["']?rvts9["']?>Стаття\s+(\d+(?:-\d+)?)\.?\s*([^<]*)<\/span>\s*(.*?)(?=<span\s+class=["']?rvts9["']?>Стаття\s+\d|<span\s+class=["']?rvts15["']?>\s*(?:Розділ|Підрозділ|Глава|Книга)\b|$)/gs;
 
     let match;
-    while ((match = articleRegex.exec(bodyHtml)) !== null) {
+    while ((match = articleRegex.exec(scanHtml)) !== null) {
       const articleNumber = match[1];
       const inlineTitle = match[2]?.trim(); // Title text inside the <span> tag
       const articleHtml = match[3];
@@ -203,6 +289,15 @@ export class RadaLegislationAdapter {
         : bodyText;
 
       if (fullText.length < 10) continue;
+
+      // Alarm on a likely broken parse (a body that swallowed the tail). Kept, not dropped,
+      // but logged so the anomaly surfaces instead of silently polluting search (LEXAI-1809).
+      if (fullText.length > this.MEGA_ARTICLE_WARN_CHARS) {
+        logger.error(
+          `[legislation] Suspiciously large article ${radaId} ст.${articleNumber}: ${fullText.length} chars ` +
+          `(> ${this.MEGA_ARTICLE_WARN_CHARS}) — probable parser tail-swallow, please re-check`
+        );
+      }
 
       // Use inline title from span if available, otherwise extract from body text
       let title: string | undefined;
@@ -420,21 +515,14 @@ export class RadaLegislationAdapter {
   private extractTransitionalProvisions(bodyHtml: string, radaId: string): LegislationArticle[] {
     const articles: LegislationArticle[] = [];
 
-    // Find the transitional provisions section header
-    const headerPatterns = [
-      /ПРИКІНЦЕВІ\s+ТА\s+ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
-      /ПЕРЕХІДНІ\s+ТА\s+ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
-      /ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
-      /ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
-    ];
-
+    // Find the transitional provisions section header (shared with the article-scan bound).
     let sectionStart = -1;
     let sectionTitle = '';
-    for (const pat of headerPatterns) {
+    for (const pat of RadaLegislationAdapter.TRANSITIONAL_HEADER_PATTERNS) {
       const m = pat.exec(bodyHtml);
       if (m) {
         sectionStart = m.index;
-        sectionTitle = m[0];
+        sectionTitle = m[0].replace(/<[^>]*>/g, '').trim();
         break;
       }
     }
@@ -462,8 +550,10 @@ export class RadaLegislationAdapter {
     }
 
     // Extract numbered points: <a name="nNNNN"></a>\s*N. or N.N. or N.N.N. text...
-    // Matches: "38.6.", "69.14.", "1.", "41.2.5." etc.
-    const pointRegex = /<a\s+name="n(\d+)">\s*<\/a>\s*(\d+(?:\.\d+)*)\.\s*/g;
+    // Matches: "38.6.", "69.14.", "1.", "41.2.5." — and dash-indexed points «16-1.»,
+    // «52-1.» (LEXAI-1821; the superscript markup is flattened to a literal dash
+    // by normalizeSuperscriptIndexes before parsing).
+    const pointRegex = /<a\s+name="n(\d+)">\s*<\/a>\s*(\d+(?:-\d+)?(?:\.\d+)*)\.\s*/g;
     const points: Array<{ anchor: string; num: string; startPos: number }> = [];
     let pMatch;
     while ((pMatch = pointRegex.exec(sectionHtml)) !== null) {
@@ -895,6 +985,65 @@ export class RadaLegislationAdapter {
     return result.rows;
   }
 
+  /**
+   * FTS leg for the hybrid legislation retrieval path (LEXAI-1806).
+   *
+   * Unlike `searchArticles` (which AND-joins terms via plainto_tsquery('simple', …) and
+   * is brittle against Ukrainian inflection), this builds an OR-of-prefixes tsquery
+   * ("подат:* | нерух:* | окупова:*") so an article matching more topical stems ranks
+   * higher, and separately matches exact article-number tokens from the query
+   * (e.g. "266" → art. 266, "38.6" → п.38.6). Returns rows ordered by ts_rank, best first.
+   */
+  async searchArticlesHybrid(query: string, radaId?: string, limit: number = 24): Promise<any[]> {
+    const tsq = buildLegislationTsquery(query);
+    // Match both the bare token and its transitional "п."-prefixed form.
+    const numberTokens = extractArticleNumberTokens(query);
+    const articleNumberVariants = [
+      ...numberTokens,
+      ...numberTokens.map((t) => `п.${t}`),
+    ];
+
+    const params: any[] = [];
+    const conditions: string[] = [];
+
+    if (tsq) {
+      params.push(tsq);
+      conditions.push(`to_tsvector('simple', la.full_text) @@ to_tsquery('simple', $${params.length})`);
+    }
+    if (articleNumberVariants.length > 0) {
+      params.push(articleNumberVariants);
+      conditions.push(`la.article_number = ANY($${params.length})`);
+    }
+
+    // No usable terms at all → nothing to search on.
+    if (conditions.length === 0) return [];
+
+    let sql = `
+      SELECT la.*, l.rada_id, l.title as legislation_title, l.short_title
+      FROM legislation_articles la
+      JOIN legislation l ON la.legislation_id = l.id
+      WHERE la.is_current = true
+        AND (${conditions.join(' OR ')})
+    `;
+
+    if (radaId) {
+      params.push(expandKupapRadaIds(radaId.toLowerCase()).map((id) => id.toLowerCase()));
+      sql += ` AND LOWER(l.rada_id) = ANY($${params.length})`;
+    }
+
+    // Rank by lexical relevance when we have a tsquery; otherwise fall back to a stable order.
+    if (tsq) {
+      sql += ` ORDER BY ts_rank(to_tsvector('simple', la.full_text), to_tsquery('simple', $1)) DESC`;
+    } else {
+      sql += ` ORDER BY la.id ASC`;
+    }
+    params.push(limit);
+    sql += ` LIMIT $${params.length}`;
+
+    const result = await this.db.query(sql, params);
+    return result.rows;
+  }
+
   async fetchEditionDates(radaId: string): Promise<string[]> {
     if (/[^\p{L}\p{N}\-_\/\.]/u.test(radaId) || radaId.includes('..')) {
       throw new Error(`Invalid legislation ID: ${radaId}`);
@@ -932,7 +1081,7 @@ export class RadaLegislationAdapter {
       const callDuration = (Date.now() - callStart) / 1000;
       this.externalApiMetrics?.('zakon_rada', 'success', callDuration);
 
-      const html = response.data as string;
+      const html = RadaLegislationAdapter.normalizeSuperscriptIndexes(String(response.data));
       const $ = cheerio.load(html);
       const metadata = this.extractMetadata($, radaId, url);
 
@@ -967,12 +1116,16 @@ export class RadaLegislationAdapter {
 
   private extractArticlesPreBold(html: string): LegislationArticle[] {
     const articles: LegislationArticle[] = [];
+    // Bound the scan at the transitional block so the last <b>Стаття N.</b> can't swallow
+    // the document tail (same mega-record defect as the /print parser — LEXAI-1809).
+    const transitionalStart = this.findTransitionalSectionStart(html);
+    const scanHtml = transitionalStart >= 0 ? html.slice(0, transitionalStart) : html;
     // Edition pages wrap text in <pre> blocks with <b>Стаття N.</b> headers
     const articleRegex = /<b>Стаття\s+(\d+(?:-\d+)?)\.?<\/b>\s*(.*?)(?=<b>Стаття\s+\d|<\/pre>\s*$|$)/gs;
 
     const seen = new Set<string>();
     let match;
-    while ((match = articleRegex.exec(html)) !== null) {
+    while ((match = articleRegex.exec(scanHtml)) !== null) {
       const articleNumber = match[1].trim();
       if (seen.has(articleNumber)) continue;
       seen.add(articleNumber);
@@ -993,6 +1146,13 @@ export class RadaLegislationAdapter {
       body = body.trim();
 
       if (body.length < 5) continue;
+
+      if (body.length > this.MEGA_ARTICLE_WARN_CHARS) {
+        logger.error(
+          `[legislation] Suspiciously large edition article ст.${articleNumber}: ${body.length} chars ` +
+          `(> ${this.MEGA_ARTICLE_WARN_CHARS}) — probable parser tail-swallow, please re-check`
+        );
+      }
 
       const firstLine = body.split('\n')[0].trim();
       const title = firstLine.length < 200 ? firstLine : undefined;

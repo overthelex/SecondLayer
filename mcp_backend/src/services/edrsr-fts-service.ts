@@ -11,8 +11,13 @@
  *
  * Data is sharded across 4 databases; this service operates on whichever pool it receives.
  * edrsr_documents (metadata) lives only in the main DB.
+ *
+ * EDRSR_DATABASE_URL (optional): when set, the service opens its own pool to that database
+ * and uses it for ALL its queries, ignoring caller-passed pools — so a dev deployment can
+ * read EDRSR data from prod (readonly user) while the rest of the app stays on its own DB.
  */
 
+import { Pool } from 'pg';
 import { logger } from '../utils/logger.js';
 import type { PartyRole } from '@secondlayer/shared';
 import type { EdsrCacheService } from './edrsr-cache-service.js';
@@ -127,28 +132,330 @@ export interface EdsrIndexProgress {
   percentComplete: number;
 }
 
+// Anchor-vocabulary floor (LEXAI Cause-A fix). A token must occur in at least this many
+// sampled documents to be trusted as an FTS anchor. Below it (or absent from the corpus),
+// the token is a WEAK term — a colloquial abbreviation / OCR / typo (e.g. "сумування",
+// "дррп") that the LLM reformulator baked into the fts string. Such tokens pollute an
+// all-AND plainto_tsquery (→ 0 results) AND, fatally, survive IDF-only relaxation because
+// "rare == high idf == kept first". The floor is relative to the sample with an absolute
+// minimum, and is applied ONLY when document frequencies are supplied.
+export const ANCHOR_DF_FRACTION = 1e-4;  // 3.0M-doc sample → ~300-doc floor
+export const ANCHOR_DF_MIN_ABS = 8;
+
+export interface SelectFtsTermsOpts {
+  // Per-(lowercased)-token document frequency from edrsr_lexeme_df. When present, tokens
+  // below the anchor floor are demoted to the tail so relaxation drops THEM first.
+  df?: Map<string, number>;
+  sampleDocs?: number;  // total sampled docs → relative floor = sampleDocs * ANCHOR_DF_FRACTION
+}
+
+// ── Status-vocabulary demotion + geo promotion (CORE-106) ─────────────────────
+// Repro chat-98f8472e/chat-5340fe5c (gold-eval FAILs): the LLM echoes the user's
+// party-status wording («ВПО» → «внутрішньо переміщені особи») into the search query.
+// Those tokens are corpus-RARE (переміщ df≈1095), so IDF-first ordering puts them at the
+// head of the capped AND-set — where they poison it: the query stays satisfiable (IDP
+// cases exist in droves, so term-relaxation never fires) but the target decision, which
+// exempts objects BY TERRITORY and never mentions the owner's status, can no longer match.
+// Party status describes the person, not the legal issue — it must never outrank operative
+// anchors. Conversely a locality token («Донецьк») is the single most discriminative
+// operative fact and must survive the cap even at a modest idf.
+// Prefix stems (lowercased, matched via startsWith over the sanitized token) so declined
+// forms match without morphology.
+
+/** Party-status vocabulary — demoted to the very tail (below weak junk: weak terms yield
+ *  0 results and relaxation recovers, a satisfiable-but-wrong status conjunct does not). */
+export const STATUS_VOCAB_STEMS: readonly string[] = [
+  'впо', 'переміщен', 'переселен', 'внутрішньо', 'пенсіонер', 'інвалід',
+  'ветеран', 'чорнобил', 'багатодіт', 'малозабезпечен', 'біженц', 'безробітн',
+];
+
+/** Occupied/frontline localities + oblast stems — promoted to the head of the anchor tier. */
+export const GEO_ANCHOR_STEMS: readonly string[] = [
+  'донецьк', 'донецк', 'луганськ', 'маріупол', 'крим', 'севастопол', 'херсон',
+  'запоріз', 'запоріж', 'харків', 'миколаїв', 'бахмут', 'авдіївк', 'лисичанськ',
+  'сєвєродонецьк', 'словянськ', 'краматорськ', 'горлівк', 'макіївк', 'мелітопол',
+  'бердянськ', 'енергодар', 'токмак', 'волноваха',
+];
+
+/** Minimum count of non-status anchors for status demotion to apply: with fewer, the
+ *  query is genuinely ABOUT the status (e.g. «пільги переселенців») and stays untouched. */
+const STATUS_DEMOTE_MIN_ANCHORS = 3;
+
+function matchesStemList(tokenLc: string, stems: readonly string[]): boolean {
+  const t = sanitizeFtsToken(tokenLc);
+  return t.length > 0 && stems.some(s => t.startsWith(s));
+}
+
+/** Telemetry helper (CORE-106): does the token belong to the party-status vocabulary? */
+export function isStatusVocabToken(token: string): boolean {
+  return matchesStemList((token || '').toLowerCase(), STATUS_VOCAB_STEMS);
+}
+
 /**
- * IDF-weighted ordering of FTS keyword tokens (CORE-21 P1.5a). Returns the tokens
- * most-discriminative first so the caller probes the rarest terms and relaxation drops
- * the commonest. `idfByToken` is keyed by lowercased token (see EdsrFtsService.lexemeDf).
+ * IDF-weighted ordering of FTS keyword tokens (CORE-21 P1.5a + LEXAI Cause-A).
  *
- * Zero-risk fallback: an EMPTY idf map (df table unpopulated / lookup failed) preserves
- * the original token order — i.e. the previous positional behaviour. Stable sort: equal
- * idf (and the fallback) keep input order via the original index.
+ * Returns discriminative-but-REAL terms first, so the caller probes them and relaxation
+ * drops the commonest (low idf) and the junk (sub-floor df) first. Two-tier order:
+ *   1. anchors (df ≥ floor, or df unknown) — by idf desc (rarest real term first)
+ *   2. weak terms (df < floor: ultra-rare / absent → likely colloquial/typo) — by df desc,
+ *      kept only as a last resort so a fully-colloquial query still searches *something*.
+ *
+ * Zero-risk fallbacks: an EMPTY idf map (df table unpopulated / lookup failed) preserves the
+ * original positional order; with no `opts.df` the behaviour is exactly the previous pure-idf
+ * ordering. Stable on ties via the original index.
  */
-export function selectFtsTerms(tokens: string[], idfByToken: Map<string, number>): string[] {
+export function selectFtsTerms(
+  tokens: string[],
+  idfByToken: Map<string, number>,
+  opts?: SelectFtsTermsOpts,
+): string[] {
   if (idfByToken.size === 0) return [...tokens];
-  return tokens
-    .map((tok, i) => ({ tok, i, idf: idfByToken.get(tok.toLowerCase()) ?? 0 }))
-    .sort((a, b) => (b.idf - a.idf) || (a.i - b.i))
+  const df = opts?.df;
+  const floor = df
+    ? Math.max(ANCHOR_DF_MIN_ABS, Math.round((opts?.sampleDocs ?? 0) * ANCHOR_DF_FRACTION))
+    : 0;
+  const scored = tokens.map((tok, i) => {
+    const lc = tok.toLowerCase();
+    const d = df ? (df.get(lc) ?? 0) : undefined;
+    return {
+      tok, i,
+      idf: idfByToken.get(lc) ?? 0,
+      d: d ?? 0,
+      weak: df ? (d! < floor) : false,
+      geo: matchesStemList(lc, GEO_ANCHOR_STEMS),
+      status: matchesStemList(lc, STATUS_VOCAB_STEMS),
+    };
+  });
+  // CORE-106: demote status vocabulary only while enough operative anchors remain —
+  // a status-centric query (e.g. «пільги переселенців») keeps its subject untouched.
+  const anchorCount = scored.filter(x => !x.weak && !x.status).length;
+  const demoteStatus = anchorCount >= STATUS_DEMOTE_MIN_ANCHORS;
+  // Tier order (cap takes the head, relaxation pops the tail):
+  //   0 geo anchors · 1 anchors · 2 weak junk · 3 demoted status
+  const tier = (x: typeof scored[number]): number => {
+    if (demoteStatus && x.status) return 3;
+    if (x.weak) return 2;
+    return x.geo ? 0 : 1;
+  };
+  return scored
+    .sort((a, b) => {
+      const ta = tier(a), tb = tier(b);
+      if (ta !== tb) return ta - tb;
+      return ta === 2 ? (b.d - a.d) || (a.i - b.i)     // weak tail: least-rare junk first
+                      : (b.idf - a.idf) || (a.i - b.i); // others: discriminative first
+    })
     .map(x => x.tok);
 }
+
+// Token sanitisation for prefix tsquery construction. The 'simple' config keeps Cyrillic
+// and Latin letters + digits; everything else (punctuation, tsquery metachars & | ! ( ) : *)
+// is stripped so the token can never break to_tsquery or inject operators.
+const MIN_STEM_LEN = 5;       // shortest prefix we will snap to (4-grams over-match in uk)
+const MAX_STEM_LEN = 12;      // longest candidate prefix considered
+
+export function sanitizeFtsToken(token: string): string {
+  return (token || '').toLowerCase().replace(/[^\p{L}\p{Nd}]+/gu, '');
+}
+
+/**
+ * Build a declension-tolerant prefix tsquery string from already-snapped stems:
+ *   ['окупован', 'нерухом'] → "окупован:* & нерухом:*"
+ * Stems are sanitised corpus prefixes (no user metacharacters), so they are safe to embed.
+ * Returns null when there is nothing usable (caller falls back to plainto_tsquery).
+ */
+export function buildPrefixTsquery(stems: string[]): string | null {
+  const parts = stems.map(s => sanitizeFtsToken(s)).filter(s => s.length >= 1);
+  if (parts.length === 0) return null;
+  return parts.map(s => `${s}:*`).join(' & ');
+}
+
+// Cap-before-rank (LEXAI FTS perf). `ORDER BY ts_rank_cd(...) DESC` forces Postgres to
+// compute the rank of EVERY matching row before it can take the top N. For broad topical
+// prefix queries (податок:* & нерухом:* …) the match set is millions of rows across the
+// year partitions, so ranking alone runs >40s and the tool hits its 120s ceiling. Instead
+// we cap the candidate set with a cheap GIN-only scan (WHERE tsv @@ q LIMIT N), then rank
+// only those — measured 412ms vs >35s on prod. Narrow queries (party/metadata, < cap
+// matches) are unaffected: ranking the full match set and ranking the capped set are
+// identical when the match set already fits under the cap.
+const FTS_CANDIDATE_CAP = 2000;
+// Belt-and-suspenders: even the capped rank could be pathological. A per-statement timeout
+// caps the worst case; on timeout we return EMPTY so the caller's relax/hybrid fallback
+// takes over instead of surfacing an error (the FTS leg returning 0 → hybrid is an
+// already-supported path). Must comfortably clear the capped query (sub-second on prod).
+const FTS_STATEMENT_TIMEOUT_MS = 8000;
 
 export class EdsrFtsService {
   private edsrCache: EdsrCacheService | null = null;
 
+  // EDRSR data can live in a different database than the app's main one (e.g. a dev instance
+  // reading EDRSR from prod under a readonly user while writing sessions/costs to its own DB).
+  // When EDRSR_DATABASE_URL is set, this dedicated pool overrides whatever pool callers pass;
+  // unset → the caller-passed pool is used unchanged (prod behaviour).
+  private readonly dedicatedPool: Pool | null;
+
+  constructor(dedicatedPool?: Pool) {
+    if (dedicatedPool) {
+      this.dedicatedPool = dedicatedPool;
+    } else {
+      const url = (process.env.EDRSR_DATABASE_URL || '').trim();
+      this.dedicatedPool = url
+        ? new Pool({
+            connectionString: url,
+            max: parseInt(process.env.EDRSR_POOL_MAX || '20', 10),
+          })
+        : null;
+      if (this.dedicatedPool) {
+        let host = 'unparseable-url';
+        try { host = new URL(url).host; } catch { /* keep placeholder, never log creds */ }
+        logger.info('[EdsrFtsService] EDRSR_DATABASE_URL set — using dedicated EDRSR pool', { host });
+      }
+    }
+  }
+
+  /** Dedicated EDRSR pool when configured, otherwise the pool the caller passed. */
+  private resolvePool(dbPool: any): any {
+    return this.dedicatedPool ?? dbPool;
+  }
+
+  /**
+   * The dedicated EDRSR pool (opened from EDRSR_DATABASE_URL) if configured,
+   * else null. Lets other EDRSR-corpus readers (e.g. CourtDecisionTools) route
+   * edrsr_documents/edrsr_fulltext reads to the same dedicated DB instead of the
+   * main app pool. When null (prod, data co-located), callers fall back to their
+   * own pool — no behaviour change.
+   */
+  getDedicatedPool(): Pool | null {
+    return this.dedicatedPool;
+  }
+
+  // LEXAI-1760: years whose plaintiff/defendant spans have been extracted into edrsr_parties
+  // (read from edrsr_parties_coverage). When a count's date range falls entirely inside these
+  // years, countByParty serves it from the indexed parties table instead of the full-text
+  // regex scan. Cached briefly; empty set (table absent / not yet built) ⇒ always FTS fallback.
+  private coveredYearsCache: { years: Set<number>; at: number } | null = null;
+  private static readonly COVERAGE_TTL_MS = 60_000;
+
   setEdsrCache(cache: EdsrCacheService): void {
     this.edsrCache = cache;
+  }
+
+  /**
+   * Years served by the structured parties table (edrsr_parties_coverage), cached for
+   * COVERAGE_TTL_MS. Fail-safe: any error / missing table ⇒ empty set ⇒ callers fall back to
+   * the legacy FTS path, so a half-built or absent table can never break counting.
+   */
+  private async coveredPartyYears(dbPool: any): Promise<Set<number>> {
+    const now = Date.now();
+    if (this.coveredYearsCache && now - this.coveredYearsCache.at < EdsrFtsService.COVERAGE_TTL_MS) {
+      return this.coveredYearsCache.years;
+    }
+    let years = new Set<number>();
+    try {
+      const res = await dbPool.query(`SELECT adj_year FROM edrsr_parties_coverage`);
+      years = new Set(res.rows.map((r: any) => Number(r.adj_year)));
+    } catch {
+      years = new Set();
+    }
+    this.coveredYearsCache = { years, at: now };
+    return years;
+  }
+
+  /** Normalise a party name the same way the backfill builds name_norm (lower, strip quotes,
+   *  collapse whitespace), then escape ILIKE wildcards so it is matched literally as a substring. */
+  private normalizePartyName(partyName: string): string {
+    return partyName
+      .toLowerCase()
+      .replace(/[«»"“”']/g, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .replace(/[%_\\]/g, '\\$&');
+  }
+
+  /**
+   * Fast role count from the structured parties table — used by countByParty only when the
+   * whole [date_from, date_to] year span is covered (see coveredPartyYears). Returns null when
+   * the fast path is not applicable (no/partial date range, an uncovered year, or any error),
+   * which signals the caller to fall back to the FTS scan.
+   */
+  private async countByPartyFast(
+    partyName: string,
+    partyRole: PartyRole | undefined,
+    dbPool: any,
+    filters: { date_from?: string; date_to?: string; justice_kind?: number },
+    sampleLimit: number,
+  ): Promise<PartyCaseCount | null> {
+    const { date_from, date_to } = filters;
+    if (!date_from || !date_to) return null;                       // open-ended range — coverage not guaranteed
+    const yFrom = Number(date_from.slice(0, 4));
+    const yTo = Number(date_to.slice(0, 4));
+    if (!Number.isInteger(yFrom) || !Number.isInteger(yTo) || yFrom > yTo) return null;
+
+    const covered = await this.coveredPartyYears(dbPool);
+    if (covered.size === 0) return null;
+    for (let y = yFrom; y <= yTo; y++) {
+      if (!covered.has(y)) return null;                            // any uncovered year ⇒ fall back to FTS
+    }
+
+    const namePattern = `%${this.normalizePartyName(partyName)}%`;
+    const params: any[] = [namePattern, yFrom, yTo];
+    let p = 4;
+    const conditions = [`name_norm ILIKE $1`, `adj_year BETWEEN $2 AND $3`];
+    if (partyRole && partyRole !== 'any') {
+      conditions.push(`role = $${p}`);
+      params.push(partyRole === 'defendant' ? 2 : 1);
+      p++;
+    } else {
+      conditions.push(`role IN (1, 2)`);
+    }
+    // Day-precision bounds inside the boundary years (the year span is coarse): re-check the
+    // exact adjudication_date so e.g. 2023-03-01..2023-09-30 is honoured, not the whole year.
+    conditions.push(`adjudication_date >= $${p}`); params.push(date_from); p++;
+    conditions.push(`adjudication_date <= $${p}`); params.push(date_to); p++;
+    if (filters.justice_kind) { conditions.push(`justice_kind = $${p}`); params.push(filters.justice_kind); p++; }
+    const whereClause = conditions.join(' AND ');
+
+    try {
+      const countSql = `
+        SELECT court_code, count(DISTINCT doc_id)::int AS n
+        FROM edrsr_parties
+        WHERE ${whereClause}
+        GROUP BY court_code
+        ORDER BY n DESC`;
+      const countResult = await dbPool.query(countSql, params);
+      const by_court = countResult.rows
+        .filter((r: any) => r.court_code !== null)
+        .map((r: any) => ({ court_code: r.court_code, count: r.n }));
+      const total = countResult.rows.reduce((s: number, r: any) => s + r.n, 0);
+
+      let sample: PartyCaseCount['sample'];
+      if (sampleLimit > 0) {
+        const safeSample = Math.min(Math.max(sampleLimit, 1), 1000);
+        const sampleSql = `
+          SELECT DISTINCT ON (p.doc_id) p.doc_id, d.cause_num, p.court_code, p.justice_kind, p.adjudication_date
+          FROM edrsr_parties p
+          JOIN edrsr_documents d ON d.doc_id = p.doc_id
+          WHERE ${whereClause.replace(/\bname_norm\b/g, 'p.name_norm')
+                              .replace(/\badj_year\b/g, 'p.adj_year')
+                              .replace(/\brole\b/g, 'p.role')
+                              .replace(/\badjudication_date\b/g, 'p.adjudication_date')
+                              .replace(/\bjustice_kind\b/g, 'p.justice_kind')}
+          ORDER BY p.doc_id, p.adjudication_date DESC NULLS LAST
+          LIMIT ${safeSample}`;
+        const sampleResult = await dbPool.query(sampleSql, params);
+        sample = sampleResult.rows.map((r: any) => ({
+          doc_id: Number(r.doc_id), cause_num: r.cause_num ?? null, court_code: r.court_code ?? null,
+          justice_kind: r.justice_kind ?? null, adjudication_date: r.adjudication_date ?? null,
+        }));
+      }
+
+      logger.info('[EdsrFtsService] countByParty (fast/parties-table)', {
+        party_name: partyName, party_role: partyRole ?? 'any', years: [yFrom, yTo], total, courts: by_court.length,
+      });
+      return { total, by_court, ...(sample ? { sample } : {}) };
+    } catch (err: any) {
+      logger.warn('[EdsrFtsService] countByPartyFast failed; falling back to FTS', { error: err.message, party_name: partyName });
+      return null;
+    }
   }
 
   /**
@@ -159,9 +466,25 @@ export class EdsrFtsService {
    * callers then keep positional ordering (no regression before the table is built).
    */
   async lexemeDf(tokens: string[], dbPool: any): Promise<Map<string, number>> {
-    const out = new Map<string, number>();
+    return (await this.lexemeStats(tokens, dbPool)).idf;
+  }
+
+  /**
+   * Like lexemeDf but also returns the raw per-token document frequency and the sample size,
+   * so callers can apply the anchor-floor in selectFtsTerms (LEXAI Cause-A). `df` carries 0
+   * for tokens absent from the sampled corpus — the signal that separates a rare-but-real
+   * legal term from colloquial junk/typos. Same fail-safe contract as lexemeDf: an
+   * empty/missing/unreadable table yields empty maps + sampleDocs 0 (positional fallback).
+   */
+  async lexemeStats(
+    tokens: string[],
+    dbPool: any,
+  ): Promise<{ idf: Map<string, number>; df: Map<string, number>; sampleDocs: number }> {
+    dbPool = this.resolvePool(dbPool);
+    const idf = new Map<string, number>();
+    const df = new Map<string, number>();
     const lexemes = [...new Set(tokens.map(t => t.toLowerCase()).filter(Boolean))];
-    if (lexemes.length === 0) return out;
+    if (lexemes.length === 0) return { idf, df, sampleDocs: 0 };
     try {
       const res = await dbPool.query(
         `SELECT lexeme, df, sample_docs FROM edrsr_lexeme_df WHERE lexeme = ANY($1::text[])`,
@@ -174,17 +497,78 @@ export class EdsrFtsService {
         const probe = await dbPool.query(`SELECT sample_docs FROM edrsr_lexeme_df LIMIT 1`);
         sampleDocs = Number(probe.rows[0]?.sample_docs) || 0;
       }
-      if (!sampleDocs) return out;
+      if (!sampleDocs) return { idf, df, sampleDocs: 0 };
       const maxIdf = Math.log(sampleDocs);
       const dfByLex = new Map<string, number>();
       for (const r of res.rows) dfByLex.set(r.lexeme, Number(r.df));
       for (const lex of lexemes) {
-        const df = dfByLex.get(lex);
-        out.set(lex, df && df > 0 ? Math.log(sampleDocs / df) : maxIdf);
+        const d = dfByLex.get(lex);
+        idf.set(lex, d && d > 0 ? Math.log(sampleDocs / d) : maxIdf);
+        df.set(lex, d && d > 0 ? d : 0);
+      }
+      return { idf, df, sampleDocs };
+    } catch (err: any) {
+      logger.warn('[EdsrFtsService] lexemeStats lookup failed; positional FTS fallback', { error: err.message });
+      return { idf: new Map(), df: new Map(), sampleDocs: 0 };
+    }
+  }
+
+  /**
+   * Snap each query token to the LONGEST corpus stem present in edrsr_lexeme_df with
+   * prefix-df ≥ floor (LEXAI Cause-A.2). This is the data-driven fix for two coupled
+   * failures: (1) the 'simple' config has no Ukrainian stemmer, so an exact-form match
+   * ("окупована") misses the declined forms a decision actually uses ("окупованій",
+   * "нерухомості"); snapping to the stem ("окупован") + a `:*` prefix query restores
+   * recall. (2) colloquial junk / typos that have no corpus stem (or only a sub-floor
+   * one) snap to nothing and are dropped — choosing terms FROM the existing key list.
+   *
+   * Returns Map<sanitized-token, stem>. Tokens with no qualifying stem are absent (dropped).
+   * Floor mirrors the anchor floor: max(ANCHOR_DF_MIN_ABS, sampleDocs * ANCHOR_DF_FRACTION).
+   * Fail-safe: any error → empty map (caller keeps the plainto_tsquery path).
+   */
+  async snapTokensToStems(tokens: string[], dbPool: any): Promise<Map<string, string>> {
+    dbPool = this.resolvePool(dbPool);
+    const out = new Map<string, string>();
+    const clean = [...new Set(tokens.map(sanitizeFtsToken).filter(t => t.length >= MIN_STEM_LEN))];
+    if (clean.length === 0) return out;
+    // Candidate prefixes per token: longest → shortest (we pick the longest that clears the
+    // floor). Bounded by [MIN_STEM_LEN, MAX_STEM_LEN] so very long words stay cheap.
+    const candidates: string[] = [];
+    for (const tok of clean) {
+      const top = Math.min(tok.length, MAX_STEM_LEN);
+      for (let len = top; len >= MIN_STEM_LEN; len--) candidates.push(tok.slice(0, len));
+    }
+    const uniqCandidates = [...new Set(candidates)];
+    try {
+      // Prefix-df for every candidate in one round-trip. The text_pattern_ops index
+      // (migration 166) turns each `lexeme LIKE cand||'%'` into an index range scan.
+      const res = await dbPool.query(
+        `SELECT u.cand AS cand,
+                (SELECT COALESCE(sum(df), 0) FROM edrsr_lexeme_df WHERE lexeme LIKE u.cand || '%') AS df
+         FROM unnest($1::text[]) AS u(cand)`,
+        [uniqCandidates],
+      );
+      let sampleDocs = 0;
+      const probe = await dbPool.query(`SELECT sample_docs FROM edrsr_lexeme_df LIMIT 1`);
+      sampleDocs = Number(probe.rows[0]?.sample_docs) || 0;
+      if (!sampleDocs) return out;  // table empty → no snap signal → plainto fallback
+      const floor = Math.max(ANCHOR_DF_MIN_ABS, Math.round(sampleDocs * ANCHOR_DF_FRACTION));
+      const dfByCand = new Map<string, number>();
+      for (const r of res.rows) dfByCand.set(r.cand, Number(r.df));
+      for (const tok of clean) {
+        const top = Math.min(tok.length, MAX_STEM_LEN);
+        // SHORTEST valid prefix wins: it is the most inflection-tolerant stem (e.g. "нерух"
+        // matches нерухоме/нерухомості/нерухомість), whereas the longest above-floor prefix
+        // ("нерухомість") would again miss other declensions. The floor blocks meaningless
+        // short n-grams that don't actually occur in the corpus.
+        for (let len = MIN_STEM_LEN; len <= top; len++) {
+          const cand = tok.slice(0, len);
+          if ((dfByCand.get(cand) ?? 0) >= floor) { out.set(tok, cand); break; }
+        }
       }
       return out;
     } catch (err: any) {
-      logger.warn('[EdsrFtsService] lexemeDf lookup failed; positional FTS fallback', { error: err.message });
+      logger.warn('[EdsrFtsService] snapTokensToStems failed; plainto fallback', { error: err.message });
       return new Map();
     }
   }
@@ -202,15 +586,26 @@ export class EdsrFtsService {
     limit: number = 20,
     offset: number = 0,
     headlineQuery?: string,
+    topicalTsquery?: string,
   ): Promise<EdsrFtsSearchResponse> {
+    dbPool = this.resolvePool(dbPool);
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     const safeOffset = Math.max(offset, 0);
 
+    // LEXAI Cause-A.2: when the caller supplies a prebuilt prefix tsquery (vocabulary-snapped
+    // stems like "окупован:* & нерухом:*"), match/rank/highlight with to_tsquery so declined
+    // Ukrainian forms are caught. Without it, behaviour is the original plainto_tsquery path.
+    const useTsq = !!(topicalTsquery && topicalTsquery.trim());
+    const topicalArg = useTsq ? topicalTsquery!.trim() : query;
+    const topicalExpr = useTsq ? `to_tsquery('simple', $1)` : `plainto_tsquery('simple', $1)`;
+    // Distinct cache key per actual tsquery so prefix and plainto results never collide.
+    const cacheKey = useTsq ? `tsq:${topicalArg}` : query;
+
     // Check cache first
     if (this.edsrCache) {
-      const cached = await this.edsrCache.getCachedFtsResults(query, filters, safeLimit, safeOffset);
+      const cached = await this.edsrCache.getCachedFtsResults(cacheKey, filters, safeLimit, safeOffset);
       if (cached) {
-        logger.debug('[EdsrFtsService] Cache hit for FTS query', { query });
+        logger.debug('[EdsrFtsService] Cache hit for FTS query', { query: cacheKey });
         return cached;
       }
     }
@@ -225,8 +620,8 @@ export class EdsrFtsService {
     //   - party_name → phraseto_tsquery (contiguous phrase, declension-tolerant for
     //     quoted proper names which courts keep in nominative)
     //   - party_role → to_tsquery of enumerated role-noun case forms
-    const tsqueryParts: string[] = [`plainto_tsquery('simple', $${paramIdx})`];
-    params.push(query);
+    const tsqueryParts: string[] = [topicalExpr];   // $1 — plainto OR to_tsquery (see useTsq)
+    params.push(topicalArg);
     paramIdx++;
 
     const partyName = filters.party_name?.trim();
@@ -322,35 +717,91 @@ export class EdsrFtsService {
       ? `edrsr_fulltext f INNER JOIN edrsr_documents d ON d.doc_id = f.doc_id`
       : `edrsr_fulltext f`;
 
+    // Headline tsquery: a caller-supplied bare headlineQuery is plain text (plainto); otherwise
+    // it reuses $1, which is a prefix tsquery when useTsq → highlight via to_tsquery so the
+    // snippet centres on the same declined matches the search found.
+    const explicitHeadline = !!(headlineQuery && headlineQuery !== query);
+    const headlineFn = (useTsq && !explicitHeadline)
+      ? `to_tsquery('simple', $${headlineParamIdx})`
+      : `plainto_tsquery('simple', $${headlineParamIdx})`;
+
     const buildSelectFields = (withHeadline: boolean) => {
       const headlineExpr = withHeadline
-        ? `safe_ts_headline('simple'::regconfig, f.full_text, plainto_tsquery('simple', $${headlineParamIdx}),
+        ? `safe_ts_headline('simple'::regconfig, f.full_text, ${headlineFn},
            'MaxWords=${FTS_HEADLINE_MAX_WORDS}, MinWords=${FTS_HEADLINE_MIN_WORDS}, StartSel=**, StopSel=**') AS headline`
         : `NULL AS headline`;
 
       return hasMetadataFilter
         ? `f.doc_id,
-           ts_rank_cd(f.tsv, plainto_tsquery('simple', $1)) AS rank,
+           ts_rank_cd(f.tsv, ${topicalExpr}) AS rank,
            ${headlineExpr},
            d.adjudication_date, d.cause_num, d.judge, d.court_code,
            d.justice_kind, d.judgment_code`
         : `f.doc_id,
-           ts_rank_cd(f.tsv, plainto_tsquery('simple', $1)) AS rank,
+           ts_rank_cd(f.tsv, ${topicalExpr}) AS rank,
            ${headlineExpr}`;
+    };
+
+    // Run the data query under a per-statement timeout (B). SET LOCAL needs a transaction,
+    // so use a dedicated client when the pool exposes connect(); otherwise fall back to a
+    // plain pooled query (timeout-less) so non-pg pool wrappers still work.
+    const queryWithTimeout = async (sql: string, args: any[]) => {
+      // A pooled client lets us scope SET LOCAL statement_timeout to one transaction. Only the
+      // raw pg Pool yields a client with query()/release(); sharded/wrapper pools may expose a
+      // connect() that returns undefined or a non-pg object (this broke compare_practice_pro_contra,
+      // which passes such a wrapper). Probe the client and fall back to a plain pooled query —
+      // which still runs the cap-before-rank SQL, just without the per-statement timeout.
+      let client: any;
+      if (typeof dbPool.connect === 'function') {
+        try { client = await dbPool.connect(); } catch { client = undefined; }
+      }
+      if (!client || typeof client.query !== 'function' || typeof client.release !== 'function') {
+        if (client && typeof client.release === 'function') client.release();
+        return dbPool.query(sql, args);
+      }
+      try {
+        await client.query('BEGIN');
+        await client.query(`SET LOCAL statement_timeout = ${FTS_STATEMENT_TIMEOUT_MS}`);
+        const res = await client.query(sql, args);
+        await client.query('COMMIT');
+        return res;
+      } catch (e) {
+        try { await client.query('ROLLBACK'); } catch { /* ignore rollback failure */ }
+        throw e;
+      } finally {
+        client.release();
+      }
     };
 
     const executeQuery = async (withHeadline: boolean) => {
       const selectFields = buildSelectFields(withHeadline);
 
+      // Cap-before-rank (A): a MATERIALIZED CTE pins a bounded candidate set via a cheap
+      // GIN-only scan (WHERE tsv @@ q LIMIT cap, no rank/headline), then rank/highlight only
+      // those. AS MATERIALIZED stops the planner from inlining the cap back into the ranked
+      // scan. The metadata JOIN (when present) lives in the CTE so its filters bound the
+      // candidates; the outer JOIN re-fetches d.* for the returned rows only.
+      const outerFrom = hasMetadataFilter
+        ? `edrsr_fulltext f
+           JOIN cand ON cand.doc_id = f.doc_id
+           JOIN edrsr_documents d ON d.doc_id = f.doc_id`
+        : `edrsr_fulltext f
+           JOIN cand ON cand.doc_id = f.doc_id`;
+
       // Skip expensive COUNT(*) — use LIMIT+1 to detect has_more instead
       const dataSql = `
+        WITH cand AS MATERIALIZED (
+          SELECT f.doc_id
+          FROM ${fromClause}${extraJoin}
+          WHERE ${whereClause}
+          LIMIT ${FTS_CANDIDATE_CAP}
+        )
         SELECT ${selectFields}
-        FROM ${fromClause}${extraJoin}
-        WHERE ${whereClause}
+        FROM ${outerFrom}
         ORDER BY ${EDRSR_FTS_SEARCH_ORDER}
         LIMIT $${paramIdx} OFFSET $${paramIdx + 1}`;
 
-      const dataResult = await dbPool.query(dataSql, [...params, safeLimit + 1, safeOffset]);
+      const dataResult = await queryWithTimeout(dataSql, [...params, safeLimit + 1, safeOffset]);
       const total = dataResult.rows.length > safeLimit ? safeLimit * 10 : dataResult.rows.length;
       if (dataResult.rows.length > safeLimit) {
         dataResult.rows = dataResult.rows.slice(0, safeLimit);
@@ -369,6 +820,15 @@ export class EdsrFtsService {
         if (headlineErr.code === '22021') {
           logger.warn('[EdsrFtsService] Retrying without ts_headline due to encoding error', { query });
           ({ total, dataResult } = await executeQuery(false));
+        } else if (headlineErr.code === '57014') {
+          // Statement timeout (B): even the candidate-capped rank blew the budget. Return
+          // empty so the caller's relax/hybrid fallback (FTS-0 → hybrid) takes over instead
+          // of erroring out to the user.
+          logger.warn('[EdsrFtsService] FTS statement timeout; returning empty for fallback', {
+            query: cacheKey, timeoutMs: FTS_STATEMENT_TIMEOUT_MS,
+          });
+          total = 0;
+          dataResult = { rows: [] };
         } else {
           throw headlineErr;
         }
@@ -400,9 +860,9 @@ export class EdsrFtsService {
         })),
       };
 
-      // Cache the result
+      // Cache the result (keyed by the actual tsquery so prefix/plainto never collide)
       if (this.edsrCache) {
-        this.edsrCache.setCachedFtsResults(query, filters, safeLimit, safeOffset, response).catch(() => {});
+        this.edsrCache.setCachedFtsResults(cacheKey, filters, safeLimit, safeOffset, response).catch(() => {});
       }
 
       return response;
@@ -429,6 +889,13 @@ export class EdsrFtsService {
     filters: { date_from?: string; date_to?: string; justice_kind?: number } = {},
     sampleLimit: number = 0,
   ): Promise<PartyCaseCount> {
+    dbPool = this.resolvePool(dbPool);
+    // LEXAI-1760: when the requested year span is fully covered by the structured parties
+    // table, answer from its indexes (fast, exact) instead of regex-scanning 125M full texts.
+    // Returns null when not applicable / on error → fall through to the legacy FTS path below.
+    const fast = await this.countByPartyFast(partyName, partyRole, dbPool, filters, sampleLimit);
+    if (fast) return fast;
+
     const params: any[] = [];
     let p = 1;
 
@@ -512,6 +979,7 @@ export class EdsrFtsService {
     constraints: { party_name?: string; party_role?: PartyRole; instance_code?: number },
     dbPool: any,
   ): Promise<Set<number>> {
+    dbPool = this.resolvePool(dbPool);
     const matched = new Set<number>();
     if (docIds.length === 0) return matched;
 
@@ -588,6 +1056,7 @@ export class EdsrFtsService {
    * @returns Number of rows indexed in this batch
    */
   async indexBatch(batchSize: number = 1000, dbPool: any): Promise<number> {
+    dbPool = this.resolvePool(dbPool);
     const safeBatch = Math.min(Math.max(batchSize, 1), 10000);
 
     try {
@@ -623,6 +1092,7 @@ export class EdsrFtsService {
    * Report indexing progress for the given database pool.
    */
   async getIndexProgress(dbPool: any): Promise<EdsrIndexProgress> {
+    dbPool = this.resolvePool(dbPool);
     try {
       const result = await dbPool.query(`
         SELECT

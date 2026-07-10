@@ -8,7 +8,7 @@ import 'widgets/evidence_panel.dart';
 import 'widgets/evidence_badge.dart';
 import 'widgets/plan_review_sheet.dart';
 import 'conversation_list.dart';
-import '../../../shared/widgets/empty_state.dart';
+import 'widgets/chat_welcome.dart';
 
 class ChatScreen extends ConsumerStatefulWidget {
   const ChatScreen({super.key});
@@ -101,11 +101,10 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
               // Messages
               Expanded(
                 child: chatState.messages.isEmpty
-                    ? const EmptyState(
-                        icon: Icons.chat_bubble_outline,
-                        title: 'Почніть розмову',
-                        subtitle:
-                            'Задайте питання про судову практику,\nзаконодавство або правові документи',
+                    ? ChatWelcome(
+                        onSuggestionTap: (prompt) => ref
+                            .read(chatNotifierProvider.notifier)
+                            .sendMessage(prompt),
                       )
                     : ListView.builder(
                         controller: _scrollController,

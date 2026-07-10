@@ -25,12 +25,19 @@ interface SearchDedup {
   ts: number;
 }
 
+/** Cap for SEARCH/list hits — many articles per response, protects the chat context window (PR #1846). */
 const MAX_ARTICLE_TEXT_CHARS = 2000;
+/** Cap for an EXPLICIT single-article fetch (get_legislation_section) — the tool promises "повний текст
+ * статті", so only pathological outliers get cut (ПКУ ст. 14 ≈ 216K, ст. 346 ≈ 1M chars). */
+const MAX_SINGLE_ARTICLE_TEXT_CHARS = 60_000;
+/** Total full_text budget for an explicit multi-article fetch (get_legislation_articles) —
+ * split across the requested articles, but never below the search-hit cap. */
+const MAX_ARTICLES_TOTAL_TEXT_CHARS = 120_000;
 
-function capText(text: string | undefined | null): string {
+function capText(text: string | undefined | null, maxChars: number = MAX_ARTICLE_TEXT_CHARS): string {
   if (!text) return '';
-  if (text.length <= MAX_ARTICLE_TEXT_CHARS) return text;
-  return text.slice(0, MAX_ARTICLE_TEXT_CHARS) + '… [обрізано]';
+  if (text.length <= maxChars) return text;
+  return text.slice(0, maxChars) + `… [обрізано; повний текст — ${text.length} символів]`;
 }
 
 /** Confidence at/above which an AI-resolved article is trusted without semantic supplementation. */
@@ -186,7 +193,8 @@ export class LegislationTools extends BaseToolHandler {
       rada_id: article.rada_id,
       article_number: article.article_number,
       title: article.title,
-      full_text: capText(article.full_text),
+      full_text: capText(article.full_text, MAX_SINGLE_ARTICLE_TEXT_CHARS),
+      full_text_length: article.full_text?.length,
       url: article.url,
       metadata: article.metadata,
       npa_title: article.npa_title,
@@ -231,6 +239,13 @@ export class LegislationTools extends BaseToolHandler {
       };
     }
 
+    // Явно названі статті — ділимо загальний бюджет тексту між ними (2-3 статті
+    // отримують повний текст), але не нижче кепу пошукової видачі.
+    const perArticleCap = Math.max(
+      MAX_ARTICLE_TEXT_CHARS,
+      Math.floor(MAX_ARTICLES_TOTAL_TEXT_CHARS / articles.length)
+    );
+
     const response: any = {
       rada_id: args.rada_id,
       total_found: articles.length,
@@ -238,7 +253,7 @@ export class LegislationTools extends BaseToolHandler {
       articles: articles.map(a => ({
         article_number: a.article_number,
         title: a.title,
-        full_text: capText(a.full_text),
+        full_text: capText(a.full_text, perArticleCap),
         url: a.url,
         npa_title: a.npa_title,
         section_number: a.section_number,
@@ -324,7 +339,63 @@ export class LegislationTools extends BaseToolHandler {
       if (directRef.articleNumber) {
         const article = await this.service.getArticle(resolvedRadaId, directRef.articleNumber);
         if (!article) {
-          // Article not found but legislation exists — return structure
+          // AI-визначена стаття не існує — класифікатор міг вгадати не той закон або номер
+          // (на його боці немає retrieval/grounding). Замість термінального "не знайдено"
+          // пробуємо семантичний пошук: у межах вгаданого акту та по всьому законодавству
+          // (сам факт "стаття відсутня" — сильний сигнал, що і закон може бути не той).
+          try {
+            const [scoped, unscoped] = await Promise.all([
+              this.service.findRelevantArticles(args.query, resolvedRadaId, limit),
+              this.service.findRelevantArticles(args.query, undefined, limit),
+            ]);
+            const seen = new Set<string>();
+            const fallbackArticles: any[] = [];
+            for (const a of [...unscoped, ...scoped]) {
+              if (fallbackArticles.length >= limit) break;
+              const key = `${a.rada_id}:${a.article_number}`;
+              if (seen.has(key)) continue;
+              seen.add(key);
+              fallbackArticles.push({
+                rada_id: a.rada_id,
+                article_number: a.article_number,
+                title: a.title,
+                full_text: capText(a.full_text),
+                url: a.url,
+                npa_title: a.npa_title,
+                section_number: a.section_number,
+                section_title: a.section_title,
+                chapter_number: a.chapter_number,
+                chapter_title: a.chapter_title,
+              });
+            }
+            if (fallbackArticles.length > 0) {
+              logger.info('[MCP Tool] search_legislation: AI-resolved article missing, semantic fallback', {
+                rada_id: resolvedRadaId,
+                ai_article: directRef.articleNumber,
+                confidence: directRef.confidence,
+                fallback_count: fallbackArticles.length,
+              });
+              return {
+                query: args.query,
+                resolved_reference: {
+                  rada_id: resolvedRadaId,
+                  article_number: directRef.articleNumber,
+                  source: directRef.source,
+                  confidence: directRef.confidence,
+                  not_found: true,
+                },
+                total_found: fallbackArticles.length,
+                articles: fallbackArticles,
+                note: `Стаття ${directRef.articleNumber} не знайдена в ${resolvedRadaId} — показано релевантні статті за семантичним пошуком.`,
+              };
+            }
+          } catch (err: any) {
+            logger.warn('[MCP Tool] search_legislation semantic fallback failed', {
+              error: err?.message,
+            });
+          }
+
+          // Семантичний fallback нічого не дав — повертаємо структуру акту, якщо він існує
           const structure = await this.service.getLegislationStructure(resolvedRadaId);
           return {
             query: args.query,
@@ -344,7 +415,9 @@ export class LegislationTools extends BaseToolHandler {
           rada_id: article.rada_id,
           article_number: article.article_number,
           title: article.title,
-          full_text: capText(article.full_text),
+          // Пряме посилання на конкретну статтю — віддаємо повний текст, як і
+          // get_legislation_section (кеп лише для патологічно великих статей).
+          full_text: capText(article.full_text, MAX_SINGLE_ARTICLE_TEXT_CHARS),
           url: article.url,
           npa_title: article.npa_title,
           section_number: article.section_number,
@@ -382,15 +455,24 @@ export class LegislationTools extends BaseToolHandler {
 
         if (!trusted) {
           try {
-            const supplemental = await this.service.findRelevantArticles(
-              args.query,
-              resolvedRadaId,
-              limit
-            );
+            // Very low grounding means the AI guess — possibly the LAW itself — may be wrong,
+            // so also search UNSCOPED across all legislation, not only within the guessed act
+            // (a scoped-only fallback returns nothing when the wrong law was picked, leaving a
+            // single wrong answer). When the law is suspect, prefer globally-relevant hits.
+            const lawMayBeWrong = grounding < ARTICLE_GROUNDING_MIN_RATIO;
+            const [scoped, unscoped] = await Promise.all([
+              this.service.findRelevantArticles(args.query, resolvedRadaId, limit),
+              lawMayBeWrong
+                ? this.service.findRelevantArticles(args.query, undefined, limit)
+                : Promise.resolve([] as any[]),
+            ]);
+            const supplemental = lawMayBeWrong ? [...unscoped, ...scoped] : [...scoped, ...unscoped];
+
             const seen = new Set<string>([
               `${resolvedArticle.rada_id}:${resolvedArticle.article_number}`,
             ]);
             for (const a of supplemental) {
+              if (response.articles.length >= limit) break; // honor the caller's limit
               const key = `${a.rada_id}:${a.article_number}`;
               if (seen.has(key)) continue;
               seen.add(key);
@@ -418,6 +500,7 @@ export class LegislationTools extends BaseToolHandler {
               ai_article: directRef.articleNumber,
               confidence: directRef.confidence,
               grounding_ratio: Number(grounding.toFixed(2)),
+              law_may_be_wrong: lawMayBeWrong,
               supplemental_count: response.articles.length - 1,
             });
           } catch (err: any) {
@@ -544,7 +627,9 @@ export class LegislationTools extends BaseToolHandler {
     return response;
   }
 
-  async getLegislationStructure(args: LegislationToolArgs & { force_refresh?: boolean }): Promise<any> {
+  async getLegislationStructure(
+    args: LegislationToolArgs & { force_refresh?: boolean; include_articles?: boolean; offset?: number; limit?: number }
+  ): Promise<any> {
     if (!args.rada_id) {
       throw new Error('rada_id is required');
     }
@@ -565,9 +650,14 @@ export class LegislationTools extends BaseToolHandler {
       }
     }
 
-    logger.info(`Getting structure for ${radaId}`, { force_refresh: args.force_refresh });
+    const includeArticles = args.include_articles === true;
 
-    const structure = await this.service.getLegislationStructure(radaId, args.force_refresh);
+    logger.info(`Getting structure for ${radaId}`, { force_refresh: args.force_refresh, includeArticles });
+
+    // Always build a headings-only TOC — a full act (e.g. ЦК, ~1300 articles) with per-article
+    // leaves otherwise returns ~1.2M chars and overflows the MCP token limit. The flat per-article
+    // list is opt-in + paginated below (structure.articles is always the full flat set).
+    const structure = await this.service.getLegislationStructure(radaId, args.force_refresh, false);
 
     if (!structure) {
       return {
@@ -576,18 +666,41 @@ export class LegislationTools extends BaseToolHandler {
       };
     }
 
-    return {
+    const base = {
       rada_id: structure.rada_id,
       title: structure.title,
       short_title: structure.short_title,
       type: structure.type,
       total_articles: structure.total_articles,
       table_of_contents: structure.table_of_contents,
-      articles_summary: structure.articles.map((a: any) => ({
-        article_number: a.article_number,
-        title: a.title,
-        byte_size: a.byte_size,
-      })),
+    };
+
+    if (!includeArticles) {
+      return {
+        ...base,
+        note:
+          'Зміст (розділи/глави/статті-лічильники) без повного переліку статей. Для переліку статей передайте include_articles:true з offset/limit, або скористайтесь get_legislation_articles для конкретних статей.',
+      };
+    }
+
+    // include_articles=true → paginated flat article list.
+    const all: any[] = structure.articles || [];
+    const offset = Math.max(0, Number(args.offset) || 0);
+    const limit = Math.min(1000, Math.max(1, Number(args.limit) || 300));
+    const page = all.slice(offset, offset + limit).map((a: any) => ({
+      article_number: a.article_number,
+      title: a.title,
+      byte_size: a.byte_size,
+    }));
+
+    return {
+      ...base,
+      articles_total: all.length,
+      offset,
+      limit,
+      returned: page.length,
+      has_more: offset + limit < all.length,
+      articles_summary: page,
     };
   }
 
@@ -736,13 +849,29 @@ export class LegislationTools extends BaseToolHandler {
       {
         name: 'get_legislation_structure',
         annotations: { title: 'Структура закону', readOnlyHint: true, idempotentHint: true },
-        description: 'Отримати структуру законодавчого акту (зміст, розділи, глави, список статей). Корисно для навігації по великому документу.',
+        description:
+          'Отримати структуру законодавчого акту: зміст (розділи, глави, параграфи) з лічильником статей у кожному вузлі. За замовчуванням БЕЗ повного переліку статей (великі кодекси інакше не вміщуються). Для переліку статей передайте include_articles:true з offset/limit; для конкретних статей — get_legislation_articles.',
         inputSchema: {
           type: 'object',
           properties: {
             rada_id: {
               type: 'string',
               description: 'ID законодавчого акту',
+            },
+            include_articles: {
+              type: 'boolean',
+              default: false,
+              description: 'Додати плоский перелік статей (пагінований через offset/limit). За замовчуванням false — повертається лише зміст.',
+            },
+            offset: {
+              type: 'number',
+              default: 0,
+              description: 'Зміщення для переліку статей (лише коли include_articles:true)',
+            },
+            limit: {
+              type: 'number',
+              default: 300,
+              description: 'Макс. статей у переліку (1-1000, лише коли include_articles:true)',
             },
           },
           required: ['rada_id'],
@@ -821,22 +950,33 @@ export class LegislationTools extends BaseToolHandler {
     const articleFilter = args.article_number?.trim() || null;
     logger.info('[MCP Tool] get_legislation_history started', { rada_id: radaId, article_number: articleFilter });
 
-    const structure = await this.service.getLegislationStructure(radaId);
+    const structure = await this.service.getLegislationStructure(radaId, undefined, false);
 
     if (articleFilter) {
-      // Detailed history for a specific article
-      const history = await this.service.getAmendmentHistory(radaId);
-      const filtered = history.filter(h => h.article_number === articleFilter);
+      // Detailed history for a specific article:
+      // 1) real clause-level amendments (dated, from legislation_article_amendments), and
+      // 2) distinct text versions deduped by full_text (many editions carry identical text,
+      //    so raw per-edition rows over-report). Reads the real version_date column.
+      const [amendments, versionsResult] = await Promise.all([
+        this.service.getArticleAmendments(radaId, articleFilter),
+        this.service.getArticleVersions(radaId, articleFilter, 50),
+      ]);
+      const changed = amendments.length > 0 || versionsResult.total > 1;
       return {
         rada_id: radaId,
         title: structure?.title || null,
         article_number: articleFilter,
         url: `https://zakon.rada.gov.ua/laws/show/${radaId}`,
-        total_versions: filtered.length,
-        versions: filtered,
-        note: filtered.length === 0
-          ? `Попередні редакції статті ${articleFilter} не знайдені в базі`
-          : undefined,
+        amendments_count: amendments.length,
+        amendments,
+        distinct_versions: versionsResult.total,
+        versions: versionsResult.versions,
+        versions_truncated: versionsResult.total > versionsResult.versions.length || undefined,
+        note: !changed
+          ? `Стаття ${articleFilter}: зафіксованих змін немає — поточна редакція єдина.`
+          : amendments.length === 0
+            ? `Деталізованих операцій зміни немає; показано ${versionsResult.versions.length} відмінних редакцій тексту (з ${versionsResult.total}).`
+            : undefined,
       };
     }
 
@@ -873,7 +1013,7 @@ export class LegislationTools extends BaseToolHandler {
     if (!args.rada_id) throw new Error('rada_id is required');
     const radaId = normalizeRadaId(args.rada_id);
     const editions = await this.service.getEditionDates(radaId);
-    const structure = await this.service.getLegislationStructure(radaId);
+    const structure = await this.service.getLegislationStructure(radaId, undefined, false);
     return {
       rada_id: radaId,
       title: structure?.title || null,

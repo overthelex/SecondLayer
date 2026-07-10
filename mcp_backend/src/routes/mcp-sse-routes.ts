@@ -16,7 +16,9 @@ import { logger } from '../utils/logger.js';
 import { sanitizeId, maskSensitive } from '../utils/sanitize-log.js';
 import { requestContext } from '../utils/openai-client.js';
 import { MCPSSEServer } from '../api/mcp-sse-server.js';
-import { ToolRegistry } from '../api/tool-registry.js';
+import { ToolRegistry, ToolDefinition } from '../api/tool-registry.js';
+import { V2_TOOL_NAMES } from '../api/curated-mcp-tools.js';
+import { ChatService } from '../services/chat-service.js';
 import { OAuthService } from '../services/oauth-service.js';
 import { ApiKeyService } from '../services/api-key-service.js';
 import { CostTracker } from '../services/cost-tracker.js';
@@ -29,6 +31,7 @@ import { CallToolRequestSchema, ListToolsRequestSchema, isInitializeRequest } fr
 export function createMCPSSERoutes(deps: {
   mcpSSEServer: MCPSSEServer;
   toolRegistry: ToolRegistry;
+  chatService: ChatService;
   oauthService: OAuthService;
   apiKeyService: ApiKeyService;
   costTracker: CostTracker;
@@ -145,11 +148,17 @@ export function createMCPSSERoutes(deps: {
   }
 
   // Helper: build a fully-wired MCP Server (tools/list + tools/call with billing) for a user.
-  // Shared by the classic SSE transport (/v1/sse) and the Streamable HTTP transport (/v1/mcp).
-  function buildMcpServer(userId: string | undefined, clientKey: string | undefined): Server {
+  // Shared by the classic SSE transport (/v1/sse) and the Streamable HTTP transports (/v1/mcp,
+  // /v2/mcp). Pass opts.allowedTools to restrict the exposed surface to a whitelist (v2 subset);
+  // omit it to expose the full ~112-tool surface (v1).
+  function buildMcpServer(
+    userId: string | undefined,
+    clientKey: string | undefined,
+    opts?: { allowedTools?: Set<string>; version?: string }
+  ): Server {
     const safeUserId = sanitizeId(userId || 'anonymous');
     const mcpServer = new Server(
-      { name: 'secondlayer-mcp', version: '1.0.0' },
+      { name: 'secondlayer-mcp', version: opts?.version || '1.0.0' },
       { capabilities: { tools: {} } }
     );
 
@@ -157,12 +166,22 @@ export function createMCPSSERoutes(deps: {
       // Expose local backend tools + unified-gateway proxied tools (rada_*, openreyestr_*).
       // Remote defs are fetched once and cached; executeTool() routes prefixed calls to the
       // proxy. Falls back to local-only if remote services are unreachable.
+      let tools: ToolDefinition[];
       try {
-        return { tools: await deps.toolRegistry.getAllToolDefinitions() };
+        tools = await deps.toolRegistry.getAllToolDefinitions();
       } catch (err: any) {
         logger.warn('[MCP] getAllToolDefinitions failed, serving local tools only', { error: err.message });
-        return { tools: deps.toolRegistry.getLocalToolDefinitions() };
+        tools = deps.toolRegistry.getLocalToolDefinitions();
       }
+      if (opts?.allowedTools) {
+        const available = new Set(tools.map((t) => t.name));
+        const missing = [...opts.allowedTools].filter((n) => !available.has(n));
+        if (missing.length > 0) {
+          logger.warn('[MCP] Whitelisted v2 tools missing from registry', { missing });
+        }
+        tools = tools.filter((t) => opts.allowedTools!.has(t.name));
+      }
+      return { tools };
     });
 
     mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
@@ -173,6 +192,15 @@ export function createMCPSSERoutes(deps: {
 
       try {
         logger.info('[MCP] Tool call', { tool: toolName, userId: safeUserId });
+
+        // Enforce the v2 whitelist in code (not just tools/list): reject any tool outside
+        // the exposed subset so a client can't call a hidden low-level tool by name.
+        if (opts?.allowedTools && !opts.allowedTools.has(toolName)) {
+          return {
+            content: [{ type: 'text', text: `Error: tool '${toolName}' is not available on this endpoint.` }],
+            isError: true,
+          };
+        }
 
         // Phase 2 Billing: Check credits BEFORE execution
         if (userId && deps.creditService) {
@@ -240,6 +268,21 @@ export function createMCPSSERoutes(deps: {
     });
 
     return mcpServer;
+  }
+
+  // ========================= MCP v2 (curated 15-tool subset) =========================
+  // v2 exposes a curated subset of 15 tools — 6 legislation + 9 court-decision (ЄДРСР) —
+  // instead of the ~112 low-level tools that v1 surfaces. A small, focused toolset keeps
+  // tool selection tractable for external MCP clients (Claude Code/Desktop) while still
+  // letting them call the real handlers directly. Execution, billing and cost-tracking are
+  // identical to v1 (buildMcpServer); only the exposed set differs.
+  // The whitelist is shared with the legacy /sse transport (MCPSSEServer) — see
+  // curated-mcp-tools.ts — so both endpoints advertise the same curated set.
+
+  // Build an MCP Server exposing only the curated v2 subset. Reuses the fully-wired v1
+  // builder (tools/list + tools/call with billing) with the whitelist applied.
+  function buildMcpServerV2(userId: string | undefined, clientKey: string | undefined): Server {
+    return buildMcpServer(userId, clientKey, { allowedTools: V2_TOOL_NAMES, version: '2.0.0' });
   }
 
   // ========================= /sse endpoints =========================
@@ -531,6 +574,11 @@ export function createMCPSSERoutes(deps: {
   // POST /v1/mcp - JSON-RPC requests (initialize + tool calls). Stateful via Mcp-Session-Id.
   router.post('/v1/mcp', (async (req: DualAuthRequest, res: Response) => {
     try {
+      // Deprecated in favour of /api/v2/mcp (curated 15-tool subset). v1 still serves the
+      // full ~112-tool surface for backward compatibility; advertise the successor to clients.
+      res.setHeader('Deprecation', 'true');
+      res.setHeader('Link', '</api/v2/mcp>; rel="successor-version"');
+
       const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
       // Reuse an existing session if present
@@ -621,6 +669,97 @@ export function createMCPSSERoutes(deps: {
   router.get('/.well-known/oauth-protected-resource/api/v1/mcp', mcpResourceMetadata);
   router.get('/.well-known/oauth-protected-resource/v1/mcp', mcpResourceMetadata);
 
+  // ========================= /v2/mcp (Streamable HTTP, curated subset) =========================
+  // Canonical transport. Same OAuth/session mechanics as /v1/mcp, but the wired MCP server
+  // exposes only the curated 15-tool subset (see buildMcpServerV2). Publicly reached at /api/v2/mcp.
+  const MCP_V2_RESOURCE_METADATA_PATH = '/.well-known/oauth-protected-resource/api/v2/mcp';
+
+  router.post('/v2/mcp', (async (req: DualAuthRequest, res: Response) => {
+    try {
+      const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+      if (sessionId && streamableSessions.has(sessionId)) {
+        const transport = streamableSessions.get(sessionId)!;
+        return await transport.handleRequest(req, res, req.body);
+      }
+
+      if (sessionId || !isInitializeRequest(req.body)) {
+        return res.status(400).json({
+          jsonrpc: '2.0',
+          error: { code: -32000, message: 'Bad Request: no valid session ID for non-initialize request' },
+          id: null,
+        });
+      }
+
+      const auth = await authenticateMcpBearer(req, res, '[MCP v2/mcp]', MCP_V2_RESOURCE_METADATA_PATH);
+      if (!auth) return; // response already sent
+
+      const { userId, clientKey } = auth;
+      const mcpServer = buildMcpServerV2(userId, clientKey);
+
+      const transport = new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => uuidv4(),
+        onsessioninitialized: (sid: string) => {
+          streamableSessions.set(sid, transport);
+          logger.info('[MCP v2/mcp] Session initialized', { sessionId: sid });
+        },
+      });
+
+      transport.onclose = () => {
+        if (transport.sessionId) {
+          streamableSessions.delete(transport.sessionId);
+          logger.info('[MCP v2/mcp] Session closed', { sessionId: transport.sessionId });
+        }
+        mcpServer.close();
+      };
+
+      await mcpServer.connect(transport);
+      await transport.handleRequest(req, res, req.body);
+    } catch (error: any) {
+      logger.error('[MCP v2/mcp] POST error:', error);
+      if (!res.headersSent) {
+        res.status(500).json({
+          jsonrpc: '2.0',
+          error: { code: -32603, message: 'Internal server error', data: error.message },
+          id: null,
+        });
+      }
+    }
+  }) as any);
+
+  router.get('/v2/mcp', (async (req: DualAuthRequest, res: Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId || !streamableSessions.has(sessionId)) {
+      const baseUrl = getBaseUrl(req);
+      res.setHeader('WWW-Authenticate', `Bearer resource_metadata="${baseUrl}${MCP_V2_RESOURCE_METADATA_PATH}"`);
+      return res.status(400).json({ error: 'Invalid or missing Mcp-Session-Id', code: 'INVALID_SESSION' });
+    }
+    const transport = streamableSessions.get(sessionId)!;
+    await transport.handleRequest(req, res);
+  }) as any);
+
+  router.delete('/v2/mcp', (async (req: DualAuthRequest, res: Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+    if (!sessionId || !streamableSessions.has(sessionId)) {
+      return res.status(400).json({ error: 'Invalid or missing Mcp-Session-Id', code: 'INVALID_SESSION' });
+    }
+    const transport = streamableSessions.get(sessionId)!;
+    await transport.handleRequest(req, res);
+  }) as any);
+
+  // RFC 9728 protected-resource metadata for the v2 transport.
+  const mcpV2ResourceMetadata = (req: Request, res: Response) => {
+    const baseUrl = getBaseUrl(req);
+    res.json({
+      resource: `${baseUrl}/api/v2/mcp`,
+      authorization_servers: [baseUrl],
+      scopes_supported: ['mcp'],
+      bearer_methods_supported: ['header'],
+    });
+  };
+  router.get('/.well-known/oauth-protected-resource/api/v2/mcp', mcpV2ResourceMetadata);
+  router.get('/.well-known/oauth-protected-resource/v2/mcp', mcpV2ResourceMetadata);
+
   // ========================= /mcp discovery =========================
 
   // GET /mcp - MCP discovery endpoint (public, rate limited)
@@ -645,6 +784,9 @@ export function createMCPSSERoutes(deps: {
         sse: '/sse',
         'sse-standard': '/v1/sse',
         http: '/api/tools',
+        'streamable-http-v1': '/api/v1/mcp',
+        // Canonical: curated 15-tool subset (6 legislation + 9 ЄДРСР).
+        'streamable-http-v2': '/api/v2/mcp',
       },
       tools: tools.map(t => ({
         name: t.name,

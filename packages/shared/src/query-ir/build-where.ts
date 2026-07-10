@@ -60,6 +60,15 @@ export function buildWhere(
         pi++;
         break;
 
+      // Case-insensitive exact match for categorical enums. ILIKE with a value
+      // that has no % / _ is a plain case-insensitive equality — avoids the
+      // substring trap of 'ilike' (e.g. status "active" matching "inactive").
+      case 'exact_ci':
+        conditions.push(`${field.columns[0]} ILIKE $${pi}`);
+        values.push(val);
+        pi++;
+        break;
+
       case 'ilike_multi':
         conditions.push(`(${field.columns.map(c => `${c} ILIKE $${pi}`).join(' OR ')})`);
         values.push(`%${val}%`);
@@ -87,6 +96,15 @@ export function buildWhere(
       case 'array_contains':
         conditions.push(`$${pi} = ANY(${field.columns[0]})`);
         values.push(val);
+        pi++;
+        break;
+
+      case 'array_contains_text':
+        // text[] array column; cast the bind param so a numeric slot value
+        // (e.g. NICE class 25) compares against text elements without a
+        // "operator does not exist: integer = text" error.
+        conditions.push(`$${pi}::text = ANY(${field.columns[0]})`);
+        values.push(String(val));
         pi++;
         break;
 

@@ -1,6 +1,6 @@
 {
   "name": "secondlayer-mcp",
-  "version": "1.0.7",
+  "version": "1.0.13",
   "description": "SecondLayer MCP Backend — semantic legal analysis, court decisions, legislation",
   "main": "dist/index.js",
   "bin": {
@@ -88,6 +88,7 @@
     "mammoth": "^1.11.0",
     "minio": "^8.0.6",
     "multer": "^2.1.0",
+    "neo4j-driver": "^5.28.3",
     "node-cron": "^4.2.1",
     "nodemailer": "^9.0.1",
     "openai": "^6.27.0",

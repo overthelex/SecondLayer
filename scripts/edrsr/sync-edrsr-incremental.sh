@@ -1,6 +1,7 @@
 #!/bin/bash
 # Incremental EDRSR sync from data.gov.ua → prod PostgreSQL
-# Downloads current year ZIP, extracts documents.csv, imports new records via NOT EXISTS (partitioned table)
+# Downloads current year ZIP, extracts documents.csv, imports new records via
+# INSERT ... ON CONFLICT DO NOTHING (idempotent; per-partition unique doc_id skips existing)
 #
 # Usage:
 #   ./sync-edrsr-incremental.sh              # Sync current year (2026)
@@ -9,7 +10,9 @@
 #
 # Environment:
 #   PGHOST, PGPORT, PGUSER, PGPASSWORD, PGDATABASE — PostgreSQL connection (or via SSH)
-#   SSH_HOST — if set, runs psql via SSH (e.g. SSH_HOST=prod)
+#   SSH_HOST — if set, runs psql via SSH to a remote docker host (e.g. SSH_HOST=prod)
+#   PG_DOCKER_CONTAINER — if set, runs psql via a LOCAL docker container (e.g. when the
+#     runner is already on the DB host). Takes precedence over SSH_HOST. Avoids ssh-to-self.
 
 set -euo pipefail
 
@@ -47,7 +50,9 @@ log() {
 }
 
 run_sql() {
-  if [ -n "${SSH_HOST:-}" ]; then
+  if [ -n "${PG_DOCKER_CONTAINER:-}" ]; then
+    docker exec "$PG_DOCKER_CONTAINER" psql -U "${PGUSER:-secondlayer}" -d "${PGDATABASE:-secondlayer_prod}" -v ON_ERROR_STOP=1 -c "$1"
+  elif [ -n "${SSH_HOST:-}" ]; then
     ssh -T "$SSH_HOST" "docker exec secondlayer-postgres-prod psql -U secondlayer -d secondlayer_prod -v ON_ERROR_STOP=1 -c \"$1\""
   else
     psql -h "${PGHOST:-localhost}" -p "${PGPORT:-5432}" -U "${PGUSER:-secondlayer}" -d "${PGDATABASE:-secondlayer_prod}" -v ON_ERROR_STOP=1 -c "$1"
@@ -69,10 +74,28 @@ count_sql() {
 
 copy_to_db() {
   local file="$1"
-  # Use NOT EXISTS instead of ON CONFLICT — edrsr_documents is a partitioned table
-  # and PostgreSQL requires the partition key in any parent-level unique constraint.
-  # Per-partition unique indexes on doc_id exist, so NOT EXISTS uses them efficiently.
-  if [ -n "${SSH_HOST:-}" ]; then
+  # Dedup is delegated to the database: INSERT ... ON CONFLICT DO NOTHING silently skips
+  # any row whose doc_id already exists in the target adjudication-year partition (each
+  # partition has a unique index on doc_id). This is idempotent and, unlike the old
+  # NOT EXISTS anti-join keyed on (doc_id, adjudication_date), it also handles the case
+  # where data.gov.ua republishes an existing doc_id with a changed adjudication_date
+  # (the anti-join treated that as new and hit the per-partition unique index).
+  if [ -n "${PG_DOCKER_CONTAINER:-}" ]; then
+    # Runner is on the DB host: copy the CSV straight into the container and import
+    # locally (no SSH round-trip).
+    docker cp "$file" "${PG_DOCKER_CONTAINER}:/tmp/import.csv"
+    docker exec -i "$PG_DOCKER_CONTAINER" psql -U "${PGUSER:-secondlayer}" -d "${PGDATABASE:-secondlayer_prod}" -v ON_ERROR_STOP=1 <<SQLEOF
+CREATE TEMP TABLE edrsr_import (LIKE edrsr_documents INCLUDING DEFAULTS);
+COPY edrsr_import(doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
+  FROM '/tmp/import.csv' WITH (FORMAT csv, DELIMITER E'\t', QUOTE '"', NULL '');
+INSERT INTO edrsr_documents (doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
+  SELECT doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ
+  FROM edrsr_import ei
+  ON CONFLICT DO NOTHING;
+DROP TABLE edrsr_import;
+SQLEOF
+    docker exec "$PG_DOCKER_CONTAINER" rm -f /tmp/import.csv
+  elif [ -n "${SSH_HOST:-}" ]; then
     # Compress before transfer to shrink payload on large files
     local compressed_file="${file}.gz"
     gzip -c "$file" > "$compressed_file"
@@ -101,7 +124,7 @@ COPY edrsr_import(doc_id, court_code, judgment_code, justice_kind, category_code
 INSERT INTO edrsr_documents (doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
   SELECT doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ
   FROM edrsr_import ei
-  WHERE NOT EXISTS (SELECT 1 FROM edrsr_documents ed WHERE ed.doc_id = ei.doc_id);
+  ON CONFLICT DO NOTHING;
 DROP TABLE edrsr_import;
 SQLEOF
     ssh -T "$SSH_HOST" "docker cp ${sql_file} secondlayer-postgres-prod:/tmp/import.sql && rm -f ${sql_file}"
@@ -115,7 +138,7 @@ CREATE TEMP TABLE edrsr_import (LIKE edrsr_documents INCLUDING DEFAULTS);
 INSERT INTO edrsr_documents (doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ)
   SELECT doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ
   FROM edrsr_import ei
-  WHERE NOT EXISTS (SELECT 1 FROM edrsr_documents ed WHERE ed.doc_id = ei.doc_id);
+  ON CONFLICT DO NOTHING;
 DROP TABLE edrsr_import;
 SQLEOF
   fi
@@ -175,9 +198,12 @@ if [ "$DRY_RUN" = "true" ]; then
 fi
 
 # ── Step 4: Strip header and import ───────────────────────────────────
+# Strip the header line only; keep CSV quoting intact so COPY (FORMAT csv,
+# QUOTE '"') can parse quoted fields that contain embedded newlines/tabs.
+# The old `sed 's/"//g'` stripped every quote, which split multiline fields
+# across physical lines and aborted the COPY with
+# "missing data for column adjudication_date" (e.g. edrsr_data_2010).
 tail -n +2 "$DOC_FILE" > "$WORK_DIR/docs_noheader.csv"
-# Remove quotes from CSV (match existing import scripts)
-sed -i 's/"//g' "$WORK_DIR/docs_noheader.csv"
 
 log "Importing into edrsr_documents (ON CONFLICT DO NOTHING)..."
 copy_to_db "$WORK_DIR/docs_noheader.csv"

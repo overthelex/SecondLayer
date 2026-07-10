@@ -1,7 +1,7 @@
 /**
  * Court Decision Tools - Handlers for court decision retrieval and analysis
  *
- * 7 tools:
+ * 8 tools:
  * - get_court_decision
  * - get_case_documents_chain
  * - extract_document_sections
@@ -9,6 +9,7 @@
  * - bulk_ingest_court_decisions
  * - analyze_case_pattern
  * - count_cases_by_party
+ * - get_decision_cited_norms
  */
 
 import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
@@ -16,6 +17,7 @@ import type { EdsrFtsService } from '../../services/edrsr-fts-service.js';
 import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
 import type { IEmbeddingPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
+import type { CitationGraphService } from '../../services/citation-graph-service.js';
 import { SectionType } from '../../types/index.js';
 import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
@@ -29,9 +31,26 @@ export class CourtDecisionTools extends BaseToolHandler {
     private embeddingService: IEmbeddingPort,
     private patternStore: LegalPatternStore,
     private db?: any,
-    private ftsService?: EdsrFtsService
+    private ftsService?: EdsrFtsService,
+    private citationGraphService?: CitationGraphService
   ) {
     super();
+  }
+
+  /**
+   * Pool for the EDRSR corpus tables (edrsr_documents / edrsr_fulltext /
+   * edrsr_courts / edrsr_judgment_forms). When EDRSR_DATABASE_URL is set
+   * (stage → Brev edrsr_local), route these reads to the dedicated EDRSR pool.
+   * Otherwise (prod, where the corpus is co-located in the main DB) fall back
+   * to this.db — byte-identical to the previous behaviour.
+   */
+  private edrsrDb(): any {
+    return this.ftsService?.getDedicatedPool() ?? this.db;
+  }
+
+  /** True when reads are routed to the dedicated EDRSR pool (stage). */
+  private usingDedicatedEdrsr(): boolean {
+    return !!this.ftsService?.getDedicatedPool();
   }
 
   getToolDefinitions(): ToolDefinition[] {
@@ -50,6 +69,11 @@ export class CourtDecisionTools extends BaseToolHandler {
             case_number: { type: 'string' },
             depth: { type: 'number', default: 2 },
             reasoning_budget: { type: 'string', enum: ['quick', 'standard', 'deep'], default: 'standard' },
+            include_citations: {
+              type: 'boolean',
+              default: true,
+              description: 'Додати зведення цитованих статей з графа цитувань (Neo4j). Активне лише коли CITATION_BACKEND=neo4j; інакше ігнорується.',
+            },
           },
           required: [],
         },
@@ -129,7 +153,10 @@ export class CourtDecisionTools extends BaseToolHandler {
         description: `Завантаження повних текстів судових рішень у базу даних
 
 Завантажує тексти рішень за масивом doc_id, перевіряє наявність у PostgreSQL/Redis кеші перед завантаженням.
-Використовуйте для попереднього завантаження текстів перед масовим аналізом.`,
+Використовуйте для попереднього завантаження текстів перед масовим аналізом.
+
+ВАЖЛИВО: за замовчуванням інструмент лише завантажує тексти в кеш і НЕ повертає їх — для читання кожного документа потрібен окремий get_court_decision, що витрачає бюджет викликів.
+Встановіть return_texts=true, щоб одразу отримати ключові секції (мотивувальна + резолютивна частини + застосовані норми) усіх документів ОДНИМ викликом — це економить бюджет викликів і одразу дає позицію суду та застосовані норми. Саме початок рішення (шапка, історія розгляду) не повертається як малоінформативний.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -147,6 +174,16 @@ export class CourtDecisionTools extends BaseToolHandler {
               type: 'number',
               default: 100,
               description: 'Розмір батчу для обробки'
+            },
+            return_texts: {
+              type: 'boolean',
+              default: false,
+              description: 'Повернути ключові секції (мотивувальна + резолютивна + застосовані норми) кожного документа одразу, замість окремих get_court_decision. Економить бюджет викликів.'
+            },
+            snippet_chars: {
+              type: 'number',
+              default: 4000,
+              description: 'Макс. символів витягу на документ (лише коли return_texts=true). За замовчуванням 4000.'
             }
           },
           required: ['doc_ids'],
@@ -260,6 +297,22 @@ export class CourtDecisionTools extends BaseToolHandler {
           required: ['party_name'],
         },
       },
+      {
+        name: 'get_decision_cited_norms',
+        annotations: { title: 'Норми, цитовані рішенням', readOnlyHint: true, idempotentHint: true },
+        description: `Перелік норм законодавства, на які фактично посилається судове рішення (граф цитувань legislation_citation_links)
+
+Повертає розв'язані посилання рішення на статті законодавства: rada_id закону/кодексу та базовий номер статті, згруповані з кількістю згадок, плюс загальну кількість таких посилань.
+total_resolved_links=0 означає відсутність даних графа для цього рішення, а НЕ відсутність цитувань у тексті.
+Використовуйте для детермінованої перевірки, чи посилається рішення на конкретну норму («суд застосував ст. X у справі Y»).`,
+        inputSchema: {
+          type: 'object',
+          properties: {
+            doc_id: { type: ['string', 'number'], description: 'doc_id рішення в ЄДРСР' },
+          },
+          required: ['doc_id'],
+        },
+      },
     ];
   }
 
@@ -280,8 +333,61 @@ export class CourtDecisionTools extends BaseToolHandler {
         return await this.analyzeCasePattern(args);
       case 'count_cases_by_party':
         return await this.countCasesByParty(args);
+      case 'get_decision_cited_norms':
+        return await this.getDecisionCitedNorms(args);
       default:
         return null;
+    }
+  }
+
+  /**
+   * Deterministic norm-attribution lookup (CORE-103): which legislation articles a
+   * decision actually cites, per the citation graph (legislation_citation_links,
+   * resolved rows only, grouped to base article numbers). The chat verify phase uses
+   * this to catch «суд застосував ст. X у справі Y» claims the decision's own
+   * citation edges do not support. Fail-soft: any failure (missing table on local,
+   * no DB) → total_resolved_links=0, which callers must read as "no graph data",
+   * never as "the decision cites nothing".
+   */
+  private async getDecisionCitedNorms(args: any): Promise<ToolResult> {
+    const docId = Number(args.doc_id);
+    if (!Number.isFinite(docId) || docId <= 0) {
+      return this.wrapResponse({
+        error: `doc_id має бути додатним числом, отримано "${args.doc_id}"`,
+        provided_value: args.doc_id,
+      });
+    }
+    if (!this.db) {
+      return this.wrapResponse({ doc_id: docId, total_resolved_links: 0, norms: [], note: 'database unavailable' });
+    }
+    try {
+      const res = await this.db.query(
+        `SELECT l.rada_id,
+                lcl.legislation_id,
+                split_part(lcl.article_number, '.', 1) AS article_base,
+                count(*)::int AS links
+           FROM legislation_citation_links lcl
+           JOIN legislation l ON l.id = lcl.legislation_id
+          WHERE lcl.doc_id = $1 AND lcl.resolved = true AND lcl.article_number IS NOT NULL
+          GROUP BY l.rada_id, lcl.legislation_id, split_part(lcl.article_number, '.', 1)
+          ORDER BY count(*) DESC
+          LIMIT 300`,
+        [docId]
+      );
+      const norms = res.rows.map((r: any) => ({
+        rada_id: r.rada_id,
+        legislation_id: r.legislation_id,
+        article_base: r.article_base,
+        links: r.links,
+      }));
+      return this.wrapResponse({
+        doc_id: docId,
+        total_resolved_links: norms.reduce((s: number, n: any) => s + n.links, 0),
+        norms,
+      });
+    } catch (error: any) {
+      logger.warn('[get_decision_cited_norms] lookup failed (fail-soft)', { docId, error: error?.message });
+      return this.wrapResponse({ doc_id: docId, total_resolved_links: 0, norms: [], note: error?.message });
     }
   }
 
@@ -315,7 +421,7 @@ export class CourtDecisionTools extends BaseToolHandler {
     let row: any = null;
 
     if (docId) {
-      const result = await this.db.query(`
+      const result = await this.edrsrDb().query(`
         SELECT
           d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
           d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
@@ -330,7 +436,7 @@ export class CourtDecisionTools extends BaseToolHandler {
         row = result.rows[0];
       } else {
         // Try fulltext-only
-        const ftResult = await this.db.query(
+        const ftResult = await this.edrsrDb().query(
           `SELECT doc_id, full_text FROM edrsr_fulltext WHERE doc_id = $1`, [docId]
         );
         if (ftResult.rows.length > 0) {
@@ -338,8 +444,27 @@ export class CourtDecisionTools extends BaseToolHandler {
         }
       }
     } else if (caseNumber) {
-      // Find most recent decision for this case number
-      const result = await this.db.query(`
+      // Find most recent decision for this case number.
+      // On the dedicated EDRSR pool (stage → huge partitioned edrsr_local) an
+      // `ORDER BY adjudication_date LIMIT 1` over a `cause_num` filter makes the
+      // planner scan every partition by the date index instead of the highly
+      // selective cause_num index. Force the cause_num index by filtering in a
+      // MATERIALIZED CTE (no ORDER BY/LIMIT inside), then order the tiny result.
+      const byCauseSql = this.usingDedicatedEdrsr()
+        ? `
+        WITH docs AS MATERIALIZED (
+          SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+                 d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+                 d.doc_url, d.status, d.date_publ
+          FROM edrsr_documents d
+          WHERE d.cause_num = $1
+        )
+        SELECT d.*, f.full_text
+        FROM docs d
+        LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
+        ORDER BY d.adjudication_date DESC NULLS LAST
+        LIMIT 1`
+        : `
         SELECT
           d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
           d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
@@ -349,8 +474,8 @@ export class CourtDecisionTools extends BaseToolHandler {
         LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
         WHERE d.cause_num = $1
         ORDER BY d.adjudication_date DESC NULLS LAST
-        LIMIT 1
-      `, [caseNumber]);
+        LIMIT 1`;
+      const result = await this.edrsrDb().query(byCauseSql, [caseNumber]);
 
       if (result.rows.length > 0) {
         row = result.rows[0];
@@ -396,6 +521,31 @@ export class CourtDecisionTools extends BaseToolHandler {
       full_text_length: fullText.length,
     };
 
+    // Best-effort citation-graph enrichment (Neo4j). Gated by CITATION_BACKEND=neo4j;
+    // never blocks or breaks the primary decision response.
+    if (args.include_citations !== false && this.citationGraphService?.isEnabled() && row.doc_id != null) {
+      try {
+        const summary = await this.citationGraphService.getDecisionCitationSummary(row.doc_id);
+        if (summary.citedCount > 0) {
+          payload.citation_graph = {
+            backend: 'neo4j',
+            cited_count: summary.citedCount,
+            top_cited_articles: summary.topCitedArticles.map((a) => ({
+              law: a.law,
+              article: a.article,
+              citation_type: a.citationType || undefined,
+              popularity: a.popularity || undefined,
+            })),
+          };
+        }
+      } catch (error: any) {
+        logger.warn('[get_court_decision] citation-graph enrichment failed (non-fatal)', {
+          docId: row.doc_id,
+          error: error?.message,
+        });
+      }
+    }
+
     return this.wrapResponse(payload);
   }
 
@@ -411,7 +561,7 @@ export class CourtDecisionTools extends BaseToolHandler {
     const allowed = CourtDecisionTools.ALLOWED_LOOKUP_TABLES[table];
     if (!allowed || !allowed.has(idColumn)) return null;
     try {
-      const result = await this.db.query(`SELECT name FROM ${table} WHERE ${idColumn} = $1 LIMIT 1`, [id]);
+      const result = await this.edrsrDb().query(`SELECT name FROM ${table} WHERE ${idColumn} = $1 LIMIT 1`, [id]);
       return result.rows.length > 0 ? result.rows[0].name : null;
     } catch {
       return null;
@@ -450,7 +600,33 @@ export class CourtDecisionTools extends BaseToolHandler {
       ? ', f.full_text'
       : '';
 
-    const sql = `
+    // On the dedicated EDRSR pool (stage → huge partitioned edrsr_local),
+    // `ORDER BY adjudication_date LIMIT` over a `cause_num = ANY(...)` filter
+    // makes the planner Merge-Append every partition by the date index instead
+    // of the selective cause_num index (~82s). Filter by cause_num in a
+    // MATERIALIZED CTE first (forces the cause_num index → a handful of rows),
+    // then join/sort/limit that tiny set. Prod keeps the original query.
+    const sql = this.usingDedicatedEdrsr()
+      ? `
+      WITH docs AS MATERIALIZED (
+        SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+               d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+               d.doc_url, d.status, d.date_publ
+        FROM edrsr_documents d
+        WHERE d.cause_num = ANY($1)
+      )
+      SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+             d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+             d.doc_url, d.status, d.date_publ,
+             c.name AS court_name, c.instance_code
+             ${fulltextField}
+      FROM docs d
+      LEFT JOIN edrsr_courts c ON c.court_code = d.court_code
+      ${fulltextJoin}
+      ORDER BY d.adjudication_date ASC NULLS LAST
+      LIMIT $2
+    `
+      : `
       SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
              d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
              d.doc_url, d.status, d.date_publ,
@@ -464,7 +640,7 @@ export class CourtDecisionTools extends BaseToolHandler {
       LIMIT $2
     `;
 
-    const result = await this.db.query(sql, [caseVariations, maxDocs]);
+    const result = await this.edrsrDb().query(sql, [caseVariations, maxDocs]);
     const rows = result.rows || [];
 
     logger.info('[MCP Tool] get_case_documents_chain DB result', {
@@ -491,7 +667,7 @@ export class CourtDecisionTools extends BaseToolHandler {
     const judgmentMap = new Map<number, string>();
     if (judgmentCodes.size > 0) {
       try {
-        const jfResult = await this.db.query(
+        const jfResult = await this.edrsrDb().query(
           'SELECT judgment_code, name FROM edrsr_judgment_forms WHERE judgment_code = ANY($1)',
           [Array.from(judgmentCodes)]
         );
@@ -577,6 +753,40 @@ export class CourtDecisionTools extends BaseToolHandler {
       },
     };
 
+    // Best-effort precedent enrichment from the decision↔case graph (Neo4j, LEXAI-1777).
+    // The document chain itself stays in Postgres (above); the graph adds the
+    // precedent signal — how many decisions cite this case. Gated by
+    // CITATION_BACKEND=neo4j; non-fatal.
+    if (this.citationGraphService?.isEnabled()) {
+      try {
+        const stat = await this.citationGraphService.getCaseStats(caseVariations);
+        if (stat && (stat.citingDecisions > 0 || stat.departedByDecision)) {
+          const sampleCiting = await this.citationGraphService.getCaseCitedBy(stat.causeNum, 20);
+          payload.citation_graph = {
+            backend: 'neo4j',
+            cited_by_decisions: stat.citingDecisions,
+            documents_in_case: stat.memberCount || undefined,
+            latest_doc_id: stat.latestDocId || undefined,
+            sample_citing_decisions: sampleCiting,
+            ...(stat.departedByDecision
+              ? {
+                  position_departed_from: {
+                    by_grand_chamber_decision: stat.departedByDecision,
+                    on: stat.departedOn || undefined,
+                    note: 'Правову позицію у цій справі відступлено Великою Палатою ВС — прецедент може бути нечинним.',
+                  },
+                }
+              : {}),
+          };
+        }
+      } catch (error: any) {
+        logger.warn('[get_case_documents_chain] citation-graph enrichment failed (non-fatal)', {
+          caseNumber,
+          error: error?.message,
+        });
+      }
+    }
+
     return this.wrapResponse(payload);
   }
 
@@ -620,6 +830,8 @@ export class CourtDecisionTools extends BaseToolHandler {
   private async loadFullTexts(args: any): Promise<ToolResult> {
     const docIds: number[] = args.doc_ids || [];
     const maxDocs = args.max_docs || 1000;
+    const returnTexts = args.return_texts === true;
+    const snippetChars = Math.min(20000, Math.max(500, Number(args.snippet_chars || 4000)));
 
     if (!docIds || docIds.length === 0) {
       throw new Error('doc_ids parameter is required and must be a non-empty array');
@@ -660,7 +872,99 @@ export class CourtDecisionTools extends BaseToolHandler {
       result.warning = `Запрошено ${uniqueDocIds.length} уникальных документов, но обработано только ${maxDocs} из-за лимита безопасности`;
     }
 
+    // When requested, return the key sections of each warmed document in a single
+    // response so the model does not need a separate get_court_decision per doc
+    // (which burns the tool-call budget and leaves warmed docs unread).
+    if (returnTexts && this.db) {
+      const processedIds = docs.map(d => d.doc_id);
+      result.documents = await this.buildKeySectionExcerpts(processedIds, snippetChars);
+    }
+
     return this.wrapResponse(result);
+  }
+
+  /**
+   * For each doc_id, fetch metadata + full_text and extract the substantive
+   * sections (застосовані норми + мотивувальна + резолютивна частини), which
+   * carry the holding and the applied norms. The procedural header/facts at the
+   * start of a decision are deliberately dropped as low-signal. Falls back to a
+   * head-truncated full_text only when the sectionizer yields nothing.
+   */
+  private async buildKeySectionExcerpts(docIds: number[], snippetChars: number): Promise<any[]> {
+    if (!this.db || docIds.length === 0) return [];
+
+    const rows = (await this.db.query(`
+      SELECT d.doc_id, d.cause_num, d.judge, d.adjudication_date, f.full_text
+      FROM edrsr_documents d
+      LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
+      WHERE d.doc_id = ANY($1)
+    `, [docIds])).rows;
+
+    // Preserve caller ordering and cover fulltext-only docs missing from edrsr_documents.
+    const byId = new Map<number, any>(rows.map((r: any) => [Number(r.doc_id), r]));
+    const missing = docIds.filter(id => !byId.has(id));
+    if (missing.length > 0) {
+      const ftRows = (await this.db.query(
+        `SELECT doc_id, full_text FROM edrsr_fulltext WHERE doc_id = ANY($1)`, [missing]
+      )).rows;
+      for (const r of ftRows) byId.set(Number(r.doc_id), { doc_id: r.doc_id, full_text: r.full_text });
+    }
+
+    // Priority order: applied norms first, then court reasoning, then the operative part.
+    const KEY_SECTION_ORDER = [
+      SectionType.LAW_REFERENCES,
+      SectionType.MOTIVES,
+      SectionType.COURT_REASONING,
+      SectionType.DECISION,
+    ];
+
+    const out: any[] = [];
+    for (const docId of docIds) {
+      const row = byId.get(docId);
+      if (!row) {
+        out.push({ doc_id: docId, error: 'Текст не знайдено в базі' });
+        continue;
+      }
+      const fullText: string = row.full_text || '';
+      const url = `https://reyestr.court.gov.ua/Review/${row.doc_id}`;
+
+      let excerpt = '';
+      let source: 'sections' | 'truncated' | 'empty' = 'empty';
+
+      if (fullText) {
+        const sections = await this.sectionizer.extractSections(fullText, false);
+        const keyParts: string[] = [];
+        for (const t of KEY_SECTION_ORDER) {
+          for (const s of sections) {
+            if (s && s.type === t && typeof s.text === 'string' && s.text.trim()) {
+              keyParts.push(`[${t}]\n${s.text.trim()}`);
+            }
+          }
+        }
+        if (keyParts.length > 0) {
+          excerpt = keyParts.join('\n\n');
+          source = 'sections';
+        } else {
+          // Fallback: sectionizer produced nothing (short ruling / atypical structure).
+          excerpt = fullText;
+          source = 'truncated';
+        }
+      }
+
+      const truncated = excerpt.length > snippetChars;
+      out.push({
+        doc_id: row.doc_id,
+        case_number: row.cause_num || undefined,
+        judge: row.judge || undefined,
+        adjudication_date: row.adjudication_date || undefined,
+        url,
+        full_text_length: fullText.length,
+        excerpt_source: source,
+        truncated,
+        text: truncated ? excerpt.slice(0, snippetChars) : excerpt,
+      });
+    }
+    return out;
   }
 
   private async bulkIngestCourtDecisions(args: any): Promise<ToolResult> {
@@ -871,7 +1175,7 @@ export class CourtDecisionTools extends BaseToolHandler {
     const ids = [...new Set(codes.filter((c): c is number => typeof c === 'number'))];
     if (ids.length === 0 || !this.db) return map;
     try {
-      const res = await this.db.query(`SELECT court_code, name FROM edrsr_courts WHERE court_code = ANY($1)`, [ids]);
+      const res = await this.edrsrDb().query(`SELECT court_code, name FROM edrsr_courts WHERE court_code = ANY($1)`, [ids]);
       for (const row of res.rows) map.set(row.court_code, row.name);
     } catch { /* non-critical */ }
     return map;

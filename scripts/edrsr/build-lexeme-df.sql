@@ -4,10 +4,13 @@
 -- OFF-PEAK on the local DB-proxy, then export the table to prod (local->prod
 -- pattern). Idempotent — safe to re-run; refreshed by the EDRSR cron.
 --
--- Sample size: 0.3% of ~296M rows ~= 900k docs — enough to rank "податок"
--- (almost everywhere) below "донецьк" (rare). REPEATABLE makes the count and
--- the ts_stat see the SAME sample, so sample_docs matches the df corpus.
--- If ts_stat runs too long, drop the sample to SYSTEM (0.1).
+-- Sample size: 3% of ~99.5M rows ~= 3.0M docs. Raised from 0.3% (~298k) so the
+-- table reliably resolves terms down to ~300-1000 corpus-docs — closing the
+-- "unknown lexeme" gap that let colloquial junk (ВПО/ДРРП/сумувати, df≈0) sit
+-- next to real-but-rare legal terms when building/relaxing the FTS query.
+-- "податок" (almost everywhere) still ranks below "донецьк" (rare). REPEATABLE
+-- makes the count and the ts_stat see the SAME sample, so sample_docs matches
+-- the df corpus. If ts_stat runs too long / OOMs, drop the sample to SYSTEM (1).
 --
 -- Usage:
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f scripts/edrsr/build-lexeme-df.sql
@@ -23,10 +26,10 @@ SELECT
   s.word,
   s.ndoc,
   (SELECT count(*)::bigint
-     FROM edrsr_fulltext TABLESAMPLE SYSTEM (0.3) REPEATABLE (42)),
+     FROM edrsr_fulltext TABLESAMPLE SYSTEM (3) REPEATABLE (42)),
   NOW()
 FROM ts_stat(
-  $$SELECT tsv FROM edrsr_fulltext TABLESAMPLE SYSTEM (0.3) REPEATABLE (42)$$
+  $$SELECT tsv FROM edrsr_fulltext TABLESAMPLE SYSTEM (3) REPEATABLE (42)$$
 ) AS s(word, ndoc, nentry)
 WHERE s.ndoc >= 3;   -- drop hapax/OCR noise
 

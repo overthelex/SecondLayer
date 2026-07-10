@@ -138,3 +138,42 @@ groups:
         annotations:
           summary: "Node.js heap usage > 90% on {{ $labels.job }}"
           description: "Heap utilization is {{ $value | humanizePercentage }}. Possible memory leak."
+
+  - name: chat_quality_alerts
+    rules:
+      - alert: ChatToolThrashingHigh
+        expr: histogram_quantile(0.95, sum(rate(chat_tool_repeat_max_bucket[10m])) by (le)) > 14
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chat tool thrashing (repeat-max p95 approaching cap)"
+          description: "P95 max-repeats-on-a-single-tool is {{ $value }} for 10+ minutes (TOOL_REPEAT_CAP=15). Normal deep analysis runs ~11-12; sustained >14 means requests are about to be clipped by the repeat cap — check for runaway tool loops."
+
+      - alert: ChatCapHitsHigh
+        expr: >
+          sum(rate(chat_cap_hit_requests_total{kind="any"}[10m])) / sum(rate(chat_tool_calls_per_request_count[10m])) > 0.2
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chat truncated requests > 20%"
+          description: "{{ $value | humanizePercentage }} of chat requests hit a safety cap (repeat/total) for 10+ minutes. Many requests are being truncated mid-loop."
+
+      - alert: ChatAgenticIterationsHigh
+        expr: histogram_quantile(0.95, sum(rate(chat_agentic_iterations_bucket[10m])) by (le)) > 16
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chat agentic iterations p95 > 16"
+          description: "P95 agentic-loop iterations is {{ $value }} for 10+ minutes. Possible runaway / non-converging reasoning loops."
+
+      - alert: ChatGroundingScoreLow
+        expr: histogram_quantile(0.5, sum(rate(chat_grounding_score_bucket[10m])) by (le)) < 70
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Chat grounding score p50 < 70"
+          description: "Median grounding score is {{ $value }} (target >= 85) for 15+ minutes. More fabricated/ungrounded citations than usual."

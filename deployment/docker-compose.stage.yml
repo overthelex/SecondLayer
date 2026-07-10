@@ -311,6 +311,14 @@ services:
       OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
       OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-openai-first}
+      # Bedrock model tiers - match prod (deep = Sonnet 4.6, NOT the Opus code
+      # default). Without these stage falls back to opus-4-6 for "deep" -> ~5x cost.
+      BEDROCK_MODEL_QUICK: ${BEDROCK_MODEL_QUICK:-eu.anthropic.claude-haiku-4-5-20251001-v1:0}
+      BEDROCK_MODEL_STANDARD: ${BEDROCK_MODEL_STANDARD:-eu.anthropic.claude-sonnet-4-6}
+      BEDROCK_MODEL_DEEP: ${BEDROCK_MODEL_DEEP:-eu.anthropic.claude-sonnet-4-6}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
       SECONDLAYER_URL: http://app-stage:3000
       SECONDLAYER_API_KEY: ${SECONDARY_LAYER_KEYS:-}
       RADA_API_KEYS: ${RADA_API_KEYS:-}
@@ -517,6 +525,14 @@ services:
       OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
       OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-openai-first}
+      # Bedrock model tiers - match prod (deep = Sonnet 4.6, NOT the Opus code
+      # default). Without these stage falls back to opus-4-6 for "deep" -> ~5x cost.
+      BEDROCK_MODEL_QUICK: ${BEDROCK_MODEL_QUICK:-eu.anthropic.claude-haiku-4-5-20251001-v1:0}
+      BEDROCK_MODEL_STANDARD: ${BEDROCK_MODEL_STANDARD:-eu.anthropic.claude-sonnet-4-6}
+      BEDROCK_MODEL_DEEP: ${BEDROCK_MODEL_DEEP:-eu.anthropic.claude-sonnet-4-6}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
       VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY:-}
       VOYAGEAI_API_KEY_2: ${VOYAGEAI_API_KEY_2:-}
       VOYAGEAI_EMBEDDING_MODEL: ${VOYAGEAI_EMBEDDING_MODEL:-voyage-multilingual-2}
@@ -595,6 +611,32 @@ services:
 
       LOG_LEVEL: ${LOG_LEVEL:-info}
       TZ: Europe/Kiev
+      # EDRSR full-text search: when set, EdsrFtsService opens a dedicated pool
+      # to the Brev host edrsr_local DB, reached via a host-network socat relay
+      # (:6432 -> 127.0.0.1:5432). Empty = fall back to the main stage DB.
+      EDRSR_DATABASE_URL: ${EDRSR_DATABASE_URL:-}
+      EDRSR_POOL_MAX: ${EDRSR_POOL_MAX:-10}
+      # EDRSR semantic/hybrid search: bge-m3 query embedder (Brev tei-bge-leg,
+      # attached to this network) + read-only queries against the Brev
+      # qdrant-revec edrsr_decisions collection. SKIP_INIT=true so stage never
+      # (re)configures that live, actively-indexed collection.
+      BGE_M3_URL: ${BGE_M3_URL:-}
+      QDRANT_EDRSR_URL: ${QDRANT_EDRSR_URL:-}
+      QDRANT_EDRSR_COLLECTION: ${QDRANT_EDRSR_COLLECTION:-}
+      QDRANT_EDRSR_API_KEY: ${QDRANT_EDRSR_API_KEY:-}
+      QDRANT_EDRSR_SKIP_INIT: ${QDRANT_EDRSR_SKIP_INIT:-true}
+      QDRANT_EDRSR_MAX_CONCURRENCY: ${QDRANT_EDRSR_MAX_CONCURRENCY:-6}
+      QDRANT_EDRSR_TIMEOUT_MS: ${QDRANT_EDRSR_TIMEOUT_MS:-20000}
+      # EDRSR citation graph — Brev neo4j-citation, reached over WG (same URI
+      # prod uses). Read-only queries from the citation-graph tools.
+      NEO4J_URI: ${NEO4J_URI:-}
+      NEO4J_USER: ${NEO4J_USER:-neo4j}
+      NEO4J_PASSWORD: ${NEO4J_PASSWORD:-}
+      NEO4J_DATABASE: ${NEO4J_DATABASE:-neo4j}
+    # host.docker.internal -> host gateway, so the container can reach the
+    # edrsr-pg-relay socat listener bound on the host.
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
     - "127.0.0.1:3004:3000"
     depends_on:
@@ -689,6 +731,14 @@ services:
 
       # LLM Provider Strategy (OpenAI-only pipeline)
       LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-openai-first}
+      # Bedrock model tiers - match prod (deep = Sonnet 4.6, NOT the Opus code
+      # default). Without these stage falls back to opus-4-6 for "deep" -> ~5x cost.
+      BEDROCK_MODEL_QUICK: ${BEDROCK_MODEL_QUICK:-eu.anthropic.claude-haiku-4-5-20251001-v1:0}
+      BEDROCK_MODEL_STANDARD: ${BEDROCK_MODEL_STANDARD:-eu.anthropic.claude-sonnet-4-6}
+      BEDROCK_MODEL_DEEP: ${BEDROCK_MODEL_DEEP:-eu.anthropic.claude-sonnet-4-6}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
 
       # Vision/OCR credentials path (inside container)
       VISION_CREDENTIALS_PATH: /app/credentials/vision-credentials.json

@@ -38,6 +38,8 @@ def decode_win1251_byte(match):
 
 def decode_unicode(match):
     code = int(match.group(1))
+    if code < 0:              # RTF \uN is a signed 16-bit value
+        code += 65536
     return chr(code) if 0 <= code <= 0x10FFFF else ''
 
 
@@ -75,7 +77,8 @@ def convert_one(doc_id: int) -> tuple[int, str] | None:
     text = re.sub(r'\\line\b', '\n', text)
     text = re.sub(r'\\tab\b', '\t', text)
     text = re.sub(r"\\'([0-9a-fA-F]{2})", decode_win1251_byte, text)
-    text = re.sub(r'\\u(\d+)\??', decode_unicode, text)
+    text = re.sub(r"\\u(-?\d+) ?(?:\\'[0-9a-fA-F]{2}|[^\\{} \n])?", decode_unicode, text)
+    text = text.replace('\\~', ' ').replace('\\_', '-').replace('\\-', '')  # RTF control symbols
     text = re.sub(r'\\[a-zA-Z]+-?\d*\s?', '', text)
     text = text.replace('{', '').replace('}', '')
     text = text.replace('\x00', '')

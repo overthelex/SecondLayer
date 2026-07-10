@@ -1,7 +1,9 @@
 ##############################################################################
 # EDRSR Daily Sync: data.gov.ua → prod PostgreSQL
-# - Downloads current year ZIP from data.gov.ua (blocked from AWS, accessible from local runner)
-# - Imports new records incrementally (ON CONFLICT DO NOTHING)
+# - Runs on the prod self-hosted runner (prod-deploy); downloads current year ZIP
+#   from data.gov.ua directly on the prod host, then imports into the local
+#   secondlayer-postgres-prod container via docker exec (no SSH round-trip).
+# - Imports new records incrementally (NOT EXISTS dedup on partitioned table)
 # - Runs daily at 4:00 AM Kyiv time (1:00 AM UTC)
 # - Can also be triggered manually with year parameter
 ##############################################################################
@@ -28,7 +30,7 @@ concurrency:
 jobs:
   sync-edrsr:
     name: Sync EDRSR ${{ inputs.year || 'current year' }}
-    runs-on: [self-hosted, workstation]
+    runs-on: [self-hosted, prod-deploy]
     timeout-minutes: 30
     steps:
       - name: Checkout
@@ -36,7 +38,7 @@ jobs:
 
       - name: Run incremental sync
         env:
-          SSH_HOST: prod
+          PG_DOCKER_CONTAINER: secondlayer-postgres-prod
         run: |
           YEAR="${{ inputs.year || '' }}"
           if [ -n "$YEAR" ]; then

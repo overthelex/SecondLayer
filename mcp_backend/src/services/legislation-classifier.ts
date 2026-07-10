@@ -43,6 +43,10 @@ export class LegislationClassifier {
     'ЗУ про статус ветеранів': { rada_id: '3551-12', full_name: 'Закон про статус ветеранів війни' },
     'Дисциплінарний статут': { rada_id: '551-14', full_name: 'Дисциплінарний статут Збройних Сил України' },
     'Статут внутрішньої служби': { rada_id: '548-14', full_name: 'Статут внутрішньої служби Збройних Сил України' },
+    'ЗУ про торговельні марки': { rada_id: '3689-12', full_name: 'Закон про охорону прав на знаки для товарів і послуг (торговельні марки)' },
+    'ЗУ про винаходи': { rada_id: '3687-12', full_name: 'Закон про охорону прав на винаходи і корисні моделі (патенти)' },
+    'ЗУ про промислові зразки': { rada_id: '3688-12', full_name: 'Закон про охорону прав на промислові зразки' },
+    'ЗУ про авторське право': { rada_id: '2811-20', full_name: 'Закон про авторське право і суміжні права' },
   };
 
   constructor(redis?: ICachePort, private readonly llm?: ILLMPort) {
@@ -208,10 +212,19 @@ ${availableCodes}
 
     const result = JSON.parse(content);
 
+    // LLM іноді повертає літеральний рядок "null"/"none" замість JSON null — без
+    // санітизації downstream шукає статтю з номером "null" і термінально фейлиться.
+    const sanitizeField = (value: unknown): string | null => {
+      if (value === null || value === undefined) return null;
+      const s = String(value).trim();
+      if (!s || ['null', 'none', 'undefined'].includes(s.toLowerCase())) return null;
+      return s;
+    };
+
     // Валидация и нормализация результата
     const classification: LegislationClassification = {
-      rada_id: result.rada_id || null,
-      article_number: result.article_number ? String(result.article_number).trim() : null,
+      rada_id: sanitizeField(result.rada_id),
+      article_number: sanitizeField(result.article_number),
       confidence: Math.max(0, Math.min(1, Number(result.confidence) || 0)),
       code_name: result.code_name || undefined,
       reasoning: result.reasoning || undefined,

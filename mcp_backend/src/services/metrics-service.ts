@@ -50,6 +50,14 @@ export class MetricsService {
 
   // Chat tool grouping metrics
   readonly chatToolGroupRequests: Counter;
+  // V3 chat telemetry (CORE-55)
+  readonly chatGroundingScore: Histogram;
+  readonly chatGroundingSignals: Counter;
+  readonly chatAgenticIterations: Histogram;
+  readonly chatToolCallsPerRequest: Histogram;
+  readonly chatToolRepeatMax: Histogram;
+  readonly chatCapHits: Counter;
+  readonly chatCapHitRequests: Counter;
 
   constructor() {
     this.registry = new Registry();
@@ -205,10 +213,66 @@ export class MetricsService {
       registers: [this.registry],
     });
 
+    // V3 chat telemetry (CORE-55) — grounding quality + tool-thrashing per request.
+    this.chatGroundingScore = new Histogram({
+      name: 'chat_grounding_score',
+      help: 'Per-request composite grounding score (0-100; lower = more fabricated/ungrounded citations)',
+      labelNames: ['query_type'] as const,
+      buckets: [0, 25, 50, 70, 85, 95, 100],
+      registers: [this.registry],
+    });
+    this.chatGroundingSignals = new Counter({
+      name: 'chat_grounding_signals_total',
+      help: 'Count of grounding violations by signal type (fabricated_cases, fabricated_articles, low_relevance, subject_mismatch, ungrounded_quotes)',
+      labelNames: ['signal_type'] as const,
+      registers: [this.registry],
+    });
+    this.chatAgenticIterations = new Histogram({
+      name: 'chat_agentic_iterations',
+      help: 'Agentic-loop iterations per chat request (high = thrashing)',
+      labelNames: ['query_type'] as const,
+      buckets: [1, 2, 3, 5, 8, 12, 16, 25],
+      registers: [this.registry],
+    });
+    this.chatToolCallsPerRequest = new Histogram({
+      name: 'chat_tool_calls_per_request',
+      help: 'Total tool calls executed per chat request',
+      labelNames: ['query_type'] as const,
+      buckets: [0, 1, 2, 3, 5, 8, 12, 20, 25, 30],
+      registers: [this.registry],
+    });
+    this.chatToolRepeatMax = new Histogram({
+      name: 'chat_tool_repeat_max',
+      help: 'Max calls to a single tool in one request (repeats with varying params = thrashing)',
+      labelNames: ['query_type'] as const,
+      buckets: [1, 2, 3, 4, 6, 8, 12],
+      registers: [this.registry],
+    });
+    this.chatCapHits = new Counter({
+      name: 'chat_cap_hits_total',
+      help: 'Safety-cap hits per request (kind: repeat = per-tool repeat cap, total = total tool-call cap)',
+      labelNames: ['kind'] as const,
+      registers: [this.registry],
+    });
+    this.chatCapHitRequests = new Counter({
+      name: 'chat_cap_hit_requests_total',
+      help: 'Requests that hit at least one safety cap, counted once per request (kind: repeat, total, any). Divide by chat_tool_calls_per_request_count for the share of truncated requests.',
+      labelNames: ['kind'] as const,
+      registers: [this.registry],
+    });
+
     // Pre-initialize external API counters so Prometheus always has these series
     // (counters don't appear until first .inc() otherwise)
     for (const svc of ['openai', 'anthropic', 'rada', 'diia']) {
       this.externalApiCallsTotal.inc({ service: svc, status: 'success' }, 0);
+    }
+    // Pre-initialize cap-hit counters so the "share of truncated requests"
+    // ratio resolves to 0 (not "no data") before the first cap fires.
+    for (const kind of ['repeat', 'total']) {
+      this.chatCapHits.inc({ kind }, 0);
+    }
+    for (const kind of ['repeat', 'total', 'any']) {
+      this.chatCapHitRequests.inc({ kind }, 0);
     }
 
     logger.info('[Metrics] MetricsService initialized');

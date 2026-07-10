@@ -8,6 +8,7 @@ import { LegalPatternStore } from '../services/legal-pattern-store.js';
 import { CitationValidator } from '../services/citation-validator.js';
 import { HallucinationGuard } from '../services/hallucination-guard.js';
 import { ShepardizationService } from '../services/shepardization-service.js';
+import { CitationGraphService } from '../services/citation-graph-service.js';
 import { MCPQueryAPI } from '../api/mcp-query-api.js';
 import { LegislationTools } from '../api/legislation-tools.js';
 import { LegislationService } from '../services/legislation-service.js';
@@ -31,6 +32,7 @@ export interface BackendCoreServices {
   patternStore: LegalPatternStore;
   shepardizationService: ShepardizationService;
   citationValidator: CitationValidator;
+  citationGraphService: CitationGraphService;
   hallucinationGuard: HallucinationGuard;
   legislationTools: LegislationTools;
   reyestrDownloadService: ReyestrDownloadService;
@@ -54,6 +56,7 @@ export function createBackendCoreServices(): BackendCoreServices {
   const patternStore = new LegalPatternStore(db, embeddingService);
   const shepardizationService = new ShepardizationService(zoAdapter, db);
   const citationValidator = new CitationValidator(db, shepardizationService);
+  const citationGraphService = new CitationGraphService();
   const hallucinationGuard = new HallucinationGuard(db, shepardizationService);
   const legislationService = new LegislationService(db, embeddingService, undefined, llmAdapter);
   const legislationTools = new LegislationTools(legislationService, undefined, patternStore);
@@ -69,7 +72,8 @@ export function createBackendCoreServices(): BackendCoreServices {
     patternStore,
     citationValidator,
     hallucinationGuard,
-    legislationTools
+    legislationTools,
+    citationGraphService
   );
 
   return {
@@ -86,6 +90,7 @@ export function createBackendCoreServices(): BackendCoreServices {
     patternStore,
     shepardizationService,
     citationValidator,
+    citationGraphService,
     hallucinationGuard,
     legislationTools,
     reyestrDownloadService,

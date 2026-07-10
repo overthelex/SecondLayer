@@ -1374,6 +1374,119 @@ export class OpenReyestrTools {
   /**
    * Search RNBO sanctions lists
    */
+  /**
+   * Search datasets of the Ministry of Economy (Мінекономіки) open-data mirror.
+   * Returns dataset slugs so the model can then search rows via searchMeRecords.
+   */
+  async searchMeDatasets(params: { query?: string; limit?: number }): Promise<any[]> {
+    const { query, limit = 30 } = params;
+    const values: any[] = [];
+    let where = '';
+    let orderBy = 'total_rows DESC';
+    const q = (query || '').trim();
+    if (q) {
+      // 'simple' FTS has no Ukrainian stemming, so a phrase/lexeme match misses
+      // morphological variants. Combine three forgiving signals:
+      //  1. per-word substring ILIKE  ("авто" ⊂ "автомобілів")
+      //  2. full FTS lexeme match
+      //  3. pg_trgm word_similarity   ("квоти" ~ "квот", "ліцензія" ~ "ліцензії")
+      // and rank by trigram similarity. Only 69 datasets → cheap.
+      const words = q.split(/\s+/).filter(Boolean);
+      const wordConds = words.map((w) => {
+        values.push(`%${w}%`);
+        return `(d.title ILIKE $${values.length} OR d.notes ILIKE $${values.length})`;
+      });
+      values.push(q);
+      const qi = values.length;
+      const sim = `word_similarity($${qi}, coalesce(d.title, '') || ' ' || coalesce(d.notes, ''))`;
+      const parts: string[] = [];
+      if (wordConds.length) parts.push(`(${wordConds.join(' AND ')})`);
+      parts.push(
+        `to_tsvector('simple', coalesce(d.title, '') || ' ' || coalesce(d.notes, '')) @@ plainto_tsquery('simple', $${qi})`
+      );
+      parts.push(`${sim} >= 0.3`);
+      where = `WHERE ${parts.join(' OR ')}`;
+      orderBy = `${sim} DESC, total_rows DESC`;
+    }
+    values.push(limit);
+
+    const result = await this.pool.query(
+      `SELECT d.slug, d.title, left(d.notes, 300) AS notes, d.num_resources,
+              count(r.*) FILTER (WHERE r.import_status = 'imported') AS imported_resources,
+              coalesce(sum(r.row_count), 0) AS total_rows
+       FROM me_datasets d
+       LEFT JOIN me_resources r ON r.dataset_id = d.id
+       ${where}
+       GROUP BY d.id, d.slug, d.title, d.notes, d.num_resources
+       ORDER BY ${orderBy}
+       LIMIT $${values.length}`,
+      values
+    );
+
+    if (result.rows.length === 0) {
+      return [{ found: false, query, message: 'Датасети Мінекономіки не знайдено' }];
+    }
+    return result.rows;
+  }
+
+  /**
+   * Search rows inside a single Ministry of Economy dataset. The mirrored data
+   * is heterogeneous JSONB, so a dataset scope (slug or resource_id) is required;
+   * the query matches across all fields of a row via data::text ILIKE.
+   */
+  async searchMeRecords(params: { dataset?: string; resource_id?: number; query?: string; limit?: number; offset?: number }): Promise<any> {
+    const { dataset, resource_id, query, limit = 50, offset = 0 } = params;
+    if (!dataset && !resource_id) {
+      return {
+        found: false,
+        message: 'Вкажіть dataset (slug) або resource_id. Спершу знайдіть датасет через search_me_datasets.',
+      };
+    }
+
+    const conditions: string[] = [];
+    const values: any[] = [];
+    let pi = 1;
+    if (resource_id) {
+      conditions.push(`r.resource_id = $${pi++}`);
+      values.push(resource_id);
+    } else {
+      conditions.push(`d.slug = $${pi++}`);
+      values.push(dataset);
+    }
+    if (query && query.trim()) {
+      conditions.push(`rec.data::text ILIKE $${pi++}`);
+      values.push(`%${query.trim()}%`);
+    }
+    const whereClause = `WHERE ${conditions.join(' AND ')}`;
+
+    const countRes = await this.pool.query(
+      `SELECT count(*) FROM me_records rec
+       JOIN me_resources r ON r.id = rec.resource_id
+       JOIN me_datasets d ON d.id = r.dataset_id
+       ${whereClause}`,
+      values
+    );
+    const total = parseInt(countRes.rows[0].count, 10);
+
+    values.push(limit, offset);
+    const result = await this.pool.query(
+      `SELECT d.title AS dataset_title, r.name AS resource_name, r.format,
+              rec.row_index, rec.data
+       FROM me_records rec
+       JOIN me_resources r ON r.id = rec.resource_id
+       JOIN me_datasets d ON d.id = r.dataset_id
+       ${whereClause}
+       ORDER BY rec.resource_id, rec.row_index
+       LIMIT $${pi++} OFFSET $${pi++}`,
+      values
+    );
+
+    if (total === 0) {
+      return { found: false, dataset, resource_id, query, message: 'Рядків не знайдено' };
+    }
+    return { total, count: result.rows.length, rows: result.rows };
+  }
+
   async searchRnboSanctions(params: { query: string; schema_type?: string; country?: string; identifier?: string; limit?: number; offset?: number }): Promise<any[]> {
     const { query, schema_type, country, identifier, limit = 50, offset = 0 } = params;
     const conditions: string[] = [];

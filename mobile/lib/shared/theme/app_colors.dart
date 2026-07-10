@@ -1,46 +1,62 @@
 import 'package:flutter/material.dart';
 
+/// LEX design system — zinc/monochrome palette.
+/// Mirrors the production legal.org.ua web app (Tailwind zinc scale),
+/// adapted from the "LEX Mobile iOS" design.
 class AppColors {
-  // Primary — Claude warm accent (orange)
-  static const primary = Color(0xFFD97757);
-  static const primaryLight = Color(0xFFE8956F);
-  static const primaryDark = Color(0xFFC45D3E);
+  // Primary — ink (near-black). Buttons, send action, active states.
+  static const primary = Color(0xFF18181B); // zinc-900
+  static const primaryLight = Color(0xFF27272A); // zinc-800
+  static const primaryDark = Color(0xFF000000);
 
-  // Surface — warm cream palette
+  // Zinc scale (light)
+  static const zinc50 = Color(0xFFFAFAFA);
+  static const zinc100 = Color(0xFFF4F4F5);
+  static const zinc200 = Color(0xFFE4E4E7);
+  static const zinc300 = Color(0xFFD4D4D8);
+  static const zinc400 = Color(0xFFA1A1AA);
+  static const zinc500 = Color(0xFF71717A);
+  static const zinc600 = Color(0xFF52525B);
+  static const zinc700 = Color(0xFF3F3F46);
+  static const zinc800 = Color(0xFF27272A);
+  static const zinc900 = Color(0xFF18181B);
+
+  // Surface — clean light palette
   static const surface = Color(0xFFFFFFFF);
-  static const surfaceVariant = Color(0xFFF0F0EB);
-  static const background = Color(0xFFF5F5F0);
+  static const surfaceVariant = Color(0xFFF4F4F5); // zinc-100
+  static const background = Color(0xFFFAFAFA); // zinc-50
 
-  // Dark mode
-  static const darkSurface = Color(0xFF1A1A17);
-  static const darkSurfaceVariant = Color(0xFF2D2D28);
-  static const darkBackground = Color(0xFF141412);
+  // Dark mode (drawer / login / dark surfaces)
+  static const darkSurface = Color(0xFF18181B);
+  static const darkSurfaceVariant = Color(0xFF27272A);
+  static const darkBackground = Color(0xFF111111);
 
   // Text
-  static const textPrimary = Color(0xFF2D2D2D);
-  static const textSecondary = Color(0xFF6B6B6B);
+  static const textPrimary = Color(0xFF18181B); // zinc-900
+  static const textSecondary = Color(0xFF71717A); // zinc-500
+  static const textTertiary = Color(0xFFA1A1AA); // zinc-400
   static const textOnPrimary = Color(0xFFFFFFFF);
-  static const darkTextPrimary = Color(0xFFE8E8E3);
-  static const darkTextSecondary = Color(0xFFA0A098);
+  static const darkTextPrimary = Color(0xFFFAFAFA);
+  static const darkTextSecondary = Color(0xFFA1A1AA);
 
   // Borders
-  static const border = Color(0xFFE5E5E0);
-  static const darkBorder = Color(0xFF3D3D38);
+  static const border = Color(0xFFE4E4E7); // zinc-200
+  static const darkBorder = Color(0xFF27272A);
 
   // Semantic
-  static const success = Color(0xFF38A169);
-  static const warning = Color(0xFFD69E2E);
-  static const error = Color(0xFFE53E3E);
-  static const info = Color(0xFF3182CE);
+  static const success = Color(0xFF16A34A);
+  static const warning = Color(0xFFF59E0B);
+  static const error = Color(0xFFDC2626);
+  static const info = Color(0xFF2563EB);
 
-  // Chat
-  static const userBubble = Color(0xFFEAEAE5);
+  // Chat — user bubble is ink (white text); assistant has no bubble
+  static const userBubble = Color(0xFF18181B);
   static const assistantBubble = Color(0xFFFFFFFF);
-  static const darkUserBubble = Color(0xFF3D3D38);
-  static const darkAssistantBubble = Color(0xFF2D2D28);
+  static const darkUserBubble = Color(0xFF27272A);
+  static const darkAssistantBubble = Color(0xFF18181B);
 
   // Evidence status
-  static const statusActive = Color(0xFF38A169);
-  static const statusOverturned = Color(0xFFE53E3E);
-  static const statusModified = Color(0xFFD69E2E);
+  static const statusActive = Color(0xFF16A34A);
+  static const statusOverturned = Color(0xFFDC2626);
+  static const statusModified = Color(0xFFF59E0B);
 }

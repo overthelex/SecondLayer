@@ -2,8 +2,17 @@ import type { IDatabase, IEmbeddingPort } from '../domain/ports/index.js';
 import { RadaLegislationAdapter, LegislationArticle } from '../adapters/rada-legislation-adapter';
 import { logger } from '../utils/logger';
 import { createHash } from 'crypto';
+import { QdrantClient } from '@qdrant/js-client-rest';
+import { BgeM3Client } from '../utils/bge-m3-client.js';
 import { LegislationClassifier } from './legislation-classifier';
 import type { ICachePort, ILLMPort } from '../domain/ports/index.js';
+import {
+  legislationKey,
+  extractArticleNumberTokens,
+  fuseRankLists,
+  applyLegislationBoosts,
+  MIN_VECTOR_SCORE_HYBRID,
+} from './legislation-search-utils';
 
 export interface LegislationReference {
   rada_id: string;
@@ -330,6 +339,26 @@ export class LegislationService {
   private db: IDatabase;
   private classifier: LegislationClassifier | null = null;
 
+  // bge-m3 migration (LEXAI-1807): when LEGISLATION_VECTOR_BACKEND=bge, the vector leg
+  // embeds queries with bge-m3 (TEI) and searches the bge collection. Default 'voyage'
+  // preserves the legacy path so this deploy is behavior-preserving until env is flipped.
+  private readonly legVectorBackend = (process.env.LEGISLATION_VECTOR_BACKEND || 'voyage').toLowerCase();
+  private readonly legBgeCollection = process.env.LEG_BGE_COLLECTION || 'legal_sections_bge';
+  private _bgeClient: BgeM3Client | null = null;
+  private _bgeQdrant: QdrantClient | null = null;
+  private get bgeClient(): BgeM3Client {
+    if (!this._bgeClient) this._bgeClient = new BgeM3Client(process.env.BGE_M3_URL || 'http://tei-bge-m3:80');
+    return this._bgeClient;
+  }
+  private get bgeQdrant(): QdrantClient {
+    if (!this._bgeQdrant) {
+      const url = process.env.QDRANT_URL || 'http://localhost:6333';
+      const apiKey = process.env.QDRANT_API_KEY;
+      this._bgeQdrant = new QdrantClient({ url, ...(apiKey && { apiKey }) });
+    }
+    return this._bgeQdrant;
+  }
+
   constructor(
     db: IDatabase,
     embeddingService: IEmbeddingPort,
@@ -515,8 +544,9 @@ export class LegislationService {
     await this.ensureLegislationExists(radaId);
 
     let article = await this.adapter.getArticleByNumber(radaId, articleNumber, asOfDate);
-    // Fallback: transitional provisions stored as "п.38.6" but LLM may request "38.6"
-    if (!article && /^\d+\.\d/.test(articleNumber)) {
+    // Fallback: transitional provisions stored as "п.38.6" / "п.16-1" but the caller may
+    // request the bare point number ("38.6", "16-1" — dash-indexed units, LEXAI-1821).
+    if (!article && /^\d+[.-]\d/.test(articleNumber)) {
       article = await this.adapter.getArticleByNumber(radaId, `п.${articleNumber}`, asOfDate);
     }
     if (!article) {
@@ -762,6 +792,38 @@ export class LegislationService {
     earliest_version: string | null;
     latest_version: string | null;
   }>> {
+    // Preferred source: clause-level amendment operations parsed from Rada's
+    // inline {…} notes (legislation_article_amendments). version_count here is the
+    // real number of times an article was amended (added/modified/removed), NOT
+    // the number of editions. Article '0' = document-wide notes, excluded.
+    try {
+      const amend = await this.db.query(
+        `SELECT a.article_number,
+                COUNT(*)::int as version_count,
+                to_char(MIN(a.act_date), 'YYYY-MM-DD') as earliest_version,
+                to_char(MAX(a.act_date), 'YYYY-MM-DD') as latest_version
+         FROM legislation_article_amendments a
+         JOIN legislation l ON a.legislation_id = l.id
+         WHERE LOWER(l.rada_id) = LOWER($1) AND a.article_number <> '0'
+         GROUP BY a.article_number
+         ORDER BY COUNT(*) DESC`,
+        [radaId]
+      );
+      if (amend.rows.length > 0) {
+        return amend.rows.map((row: any) => ({
+          article_number: row.article_number,
+          version_count: row.version_count,
+          earliest_version: row.earliest_version,
+          latest_version: row.latest_version,
+        }));
+      }
+    } catch (err) {
+      // Table may not exist in some environments yet — fall back to legacy count.
+      logger.warn(`getAmendmentSummary: amendment metric unavailable, falling back to edition count: ${(err as Error).message}`);
+    }
+
+    // Fallback (legacy): counts edition snapshots in legislation_articles. Used
+    // only for laws not yet covered by the amendment metric (e.g. resolutions).
     const result = await this.db.query(
       `SELECT la.article_number,
               COUNT(*)::int as version_count,
@@ -780,6 +842,82 @@ export class LegislationService {
       earliest_version: row.earliest_version,
       latest_version: row.latest_version,
     }));
+  }
+
+  /**
+   * Real clause-level amendment events for a single article, parsed from Rada's inline
+   * {…} notes (legislation_article_amendments): each row is an actual change (added/
+   * modified/removed) with the act date and the enacting law — not an edition snapshot.
+   */
+  async getArticleAmendments(radaId: string, articleNumber: string): Promise<Array<{
+    act_date: string | null;
+    change_type: string | null;
+    basis_act: string | null;
+    note_text: string | null;
+    source_edition: string | null;
+  }>> {
+    const result = await this.db.query(
+      `SELECT to_char(a.act_date, 'YYYY-MM-DD') AS act_date, a.change_type,
+              a.basis_act, a.note_text, a.source_edition
+       FROM legislation_article_amendments a
+       JOIN legislation l ON a.legislation_id = l.id
+       WHERE LOWER(l.rada_id) = LOWER($1) AND a.article_number = $2
+       ORDER BY a.act_date DESC NULLS LAST, a.id DESC`,
+      [radaId, articleNumber]
+    );
+    return result.rows.map((row: any) => ({
+      act_date: row.act_date,
+      change_type: row.change_type,
+      basis_act: row.basis_act,
+      note_text: row.note_text,
+      source_edition: row.source_edition,
+    }));
+  }
+
+  /**
+   * Distinct text versions of a single article, deduped by full_text (many editions
+   * carry an identical article, so raw per-edition rows over-report). Reads the real
+   * version_date COLUMN (not metadata->>'version_date', which is empty). Returns the
+   * effective date range each distinct text was in force, most recent first.
+   */
+  async getArticleVersions(
+    radaId: string,
+    articleNumber: string,
+    limit = 50
+  ): Promise<{
+    total: number;
+    versions: Array<{ effective_from: string | null; last_seen: string | null; title: string | null; byte_size: number | null }>;
+  }> {
+    const countResult = await this.db.query(
+      `SELECT COUNT(DISTINCT md5(la.full_text))::int AS n
+       FROM legislation_articles la
+       JOIN legislation l ON la.legislation_id = l.id
+       WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.full_text IS NOT NULL`,
+      [radaId, articleNumber]
+    );
+    const total = countResult.rows[0]?.n || 0;
+
+    const result = await this.db.query(
+      `SELECT to_char(MIN(la.version_date), 'YYYY-MM-DD') AS effective_from,
+              to_char(MAX(la.version_date), 'YYYY-MM-DD') AS last_seen,
+              MAX(la.title) AS title, MAX(la.byte_size) AS byte_size
+       FROM legislation_articles la
+       JOIN legislation l ON la.legislation_id = l.id
+       WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.full_text IS NOT NULL
+       GROUP BY md5(la.full_text)
+       ORDER BY MIN(la.version_date) DESC NULLS LAST
+       LIMIT $3`,
+      [radaId, articleNumber, limit]
+    );
+    return {
+      total,
+      versions: result.rows.map((row: any) => ({
+        effective_from: row.effective_from,
+        last_seen: row.last_seen,
+        title: row.title,
+        byte_size: row.byte_size,
+      })),
+    };
   }
 
   async searchLegislation(query: string, radaId?: string, limit: number = 10): Promise<LegislationSearchResult[]> {
@@ -810,7 +948,7 @@ export class LegislationService {
     }));
   }
 
-  async getLegislationStructure(radaId: string, forceRefresh?: boolean): Promise<any> {
+  async getLegislationStructure(radaId: string, forceRefresh?: boolean, tocIncludeArticles = true): Promise<any> {
     radaId = normalizeRadaId(radaId);
 
     if (forceRefresh) {
@@ -839,7 +977,7 @@ export class LegislationService {
              'chapter_title', la.chapter_title,
              'byte_size', la.byte_size,
              'metadata', la.metadata
-           ) ORDER BY (regexp_match(la.article_number, '^\d+'))[1]::integer NULLS LAST, la.article_number
+           ) ORDER BY (regexp_match(la.article_number, '^\\d+'))[1]::integer NULLS LAST, la.article_number
          ) as articles
        FROM legislation l
        LEFT JOIN legislation_articles la ON l.id = la.legislation_id AND la.is_current = true
@@ -861,14 +999,15 @@ export class LegislationService {
       total_articles: data.total_articles,
       structure: data.structure_metadata || {},
       articles: data.articles || [],
-      table_of_contents: this.buildTableOfContents(data.articles || []),
+      table_of_contents: this.buildTableOfContents(data.articles || [], tocIncludeArticles),
     };
   }
 
-  private buildTableOfContents(articles: any[]): any[] {
+  private buildTableOfContents(articles: any[], includeArticles = true): any[] {
     const toc: any[] = [];
     let currentBook: any = null;
     let currentSection: any = null;
+    let currentSectionKey: string | null = null;
     let currentSubsection: any = null;
     let currentChapter: any = null;
     let currentParagraph: any = null;
@@ -887,13 +1026,16 @@ export class LegislationService {
         };
         toc.push(currentBook);
         currentSection = null;
+        currentSectionKey = null;
         currentSubsection = null;
         currentChapter = null;
         currentParagraph = null;
       }
 
-      // Handle section level (section_number may include book prefix like "1.2")
-      if (article.section_number && (!currentSection || currentSection.number !== article.section_number)) {
+      // Handle section level (section_number may include a book prefix like "1.2").
+      // Compare against the FULL section_number — currentSection.number holds the stripped
+      // display number, so comparing to it recreated a section on every article.
+      if (article.section_number && currentSectionKey !== article.section_number) {
         // Extract display number (strip book prefix for display)
         const displayNumber = article.section_number.includes('.')
           ? article.section_number.split('.').pop()
@@ -905,6 +1047,7 @@ export class LegislationService {
           title: article.section_title || undefined,
           articles: [],
         };
+        currentSectionKey = article.section_number;
 
         if (currentBook) {
           currentBook.children.push(currentSection);
@@ -982,25 +1125,27 @@ export class LegislationService {
         }
       }
 
-      const articleEntry = {
-        article_number: article.article_number,
-        title: article.title,
-        byte_size: article.byte_size,
-      };
+      const target =
+        currentParagraph || currentChapter || currentSubsection || currentSection || currentBook || null;
 
-      // Place article in the deepest available container
-      if (currentParagraph) {
-        currentParagraph.articles.push(articleEntry);
-      } else if (currentChapter) {
-        currentChapter.articles.push(articleEntry);
-      } else if (currentSubsection) {
-        currentSubsection.articles.push(articleEntry);
-      } else if (currentSection) {
-        currentSection.articles.push(articleEntry);
-      } else if (currentBook) {
-        currentBook.children.push(articleEntry);
-      } else {
-        toc.push(articleEntry);
+      if (includeArticles) {
+        // Full mode: place each article as a leaf in the deepest container.
+        const articleEntry = {
+          article_number: article.article_number,
+          title: article.title,
+          byte_size: article.byte_size,
+        };
+        if (currentParagraph) currentParagraph.articles.push(articleEntry);
+        else if (currentChapter) currentChapter.articles.push(articleEntry);
+        else if (currentSubsection) currentSubsection.articles.push(articleEntry);
+        else if (currentSection) currentSection.articles.push(articleEntry);
+        else if (currentBook) currentBook.children.push(articleEntry);
+        else toc.push(articleEntry);
+      } else if (target) {
+        // Headings-only mode: just count articles per container + track the number range.
+        target.article_count = (target.article_count || 0) + 1;
+        if (!target.article_range) target.article_range = [article.article_number, article.article_number];
+        else target.article_range[1] = article.article_number;
       }
     }
 
@@ -1083,115 +1228,198 @@ export class LegislationService {
     logger.info(`Indexed ${totalChunks} chunks for ${articles.length} articles in legislation ${radaId}`);
   }
 
-  async findRelevantArticles(query: string, radaId?: string, limit: number = 5): Promise<LegislationReference[]> {
-    try {
+  /**
+   * Vector leg of legislation search. Routed by LEGISLATION_VECTOR_BACKEND:
+   *   - 'voyage' (default/legacy): shared EmbeddingService over legal_sections.
+   *   - 'bge': bge-m3 (TEI) over legal_sections_bge (LEXAI-1807). Supports as_of_date
+   *     time-travel via valid_from_ts/valid_to_ts; without it, filters is_current=true.
+   * Returns hits as { id, score, payload } (same shape as EmbeddingService.searchVectors).
+   */
+  private async legislationVectorSearch(
+    query: string,
+    limit: number,
+    filter: Record<string, any>,
+    asOfDate?: string,
+  ): Promise<any[]> {
+    if (this.legVectorBackend !== 'bge') {
       const queryEmbedding = await this.embeddingService.generateEmbedding(query);
-      
+      return await this.embeddingService.searchVectors(queryEmbedding, limit, filter);
+    }
+    const embedding = await this.bgeClient.generateEmbedding(query);
+    const must: any[] = [{ key: 'document_type', match: { value: 'legislation' } }];
+    if (filter.rada_id) must.push({ key: 'rada_id', match: { value: filter.rada_id } });
+    if (asOfDate) {
+      const ts = parseInt(asOfDate.slice(0, 10).replace(/-/g, ''), 10);
+      if (!Number.isNaN(ts)) {
+        must.push({ key: 'valid_from_ts', range: { lte: ts } });
+        must.push({ key: 'valid_to_ts', range: { gt: ts } });
+      }
+    } else {
+      must.push({ key: 'is_current', match: { value: true } });
+    }
+    const res = await this.bgeQdrant.search(this.legBgeCollection, {
+      vector: embedding,
+      limit,
+      filter: { must },
+      with_payload: true,
+    });
+    return res.map((r) => ({ id: r.id, score: r.score, payload: r.payload }));
+  }
+
+  /**
+   * Hybrid (FTS + vector) discovery of the most relevant articles for a free-text query,
+   * used by get_legislation_section query-mode and search_legislation (LEXAI-1806).
+   *
+   * The legacy implementation ran a bare Qdrant cosine search with a 0.6 floor, which let
+   * the broken ~1M-char ПКУ ст. 346 mega-record dominate and never surfaced the on-point
+   * transitional provisions. This now RRF-fuses two legs (mirroring search_court_decisions):
+   *   1. vector leg — Qdrant cosine over legal_sections, collapsed to best-chunk-per-article;
+   *   2. FTS leg — OR-prefix tsquery + exact article-number match over legislation_articles.
+   * The fused candidates are re-scored with an article-number-token boost, a transitional-
+   * provision nudge, and a mega-record demotion, then the top `limit` are returned.
+   */
+  async findRelevantArticles(query: string, radaId?: string, limit: number = 5, asOfDate?: string): Promise<LegislationReference[]> {
+    const toReference = (row: any): LegislationReference => ({
+      rada_id: row.rada_id,
+      article_number: row.article_number,
+      title: row.title,
+      full_text: row.full_text,
+      full_text_html: row.full_text_html,
+      url: `https://zakon.rada.gov.ua/laws/show/${row.rada_id}#n${row.article_number}`,
+      metadata: row.metadata,
+      npa_title: row.npa_title ?? row.legislation_title,
+      section_number: row.section_number,
+      section_title: row.section_title,
+      chapter_number: row.chapter_number,
+      chapter_title: row.chapter_title,
+    });
+
+    const textFallback = async (): Promise<LegislationReference[]> => {
+      const textResults = await this.searchLegislation(query, radaId, limit);
+      return textResults.flatMap(r => r.articles.map((a: any) => toReference({
+        ...a,
+        rada_id: r.rada_id,
+        npa_title: r.legislation_title,
+      })));
+    };
+
+    try {
+      const candidateLimit = Math.max(limit * 4, 24);
       const filter: any = { document_type: 'legislation' };
-      if (radaId) {
-        filter.rada_id = radaId;
-      }
+      if (radaId) filter.rada_id = radaId;
 
-      const MIN_SCORE = 0.6;
-      const allResults = await this.embeddingService.searchVectors(queryEmbedding, Math.max(limit * 3, 20), filter);
-      const searchResults = allResults.filter((r: any) => (r.score || 0) >= MIN_SCORE);
+      // Both legs run concurrently; either may fail/return empty without sinking the other.
+      const [vectorHits, ftsRows] = await Promise.all([
+        (async () => {
+          try {
+            return await this.legislationVectorSearch(query, candidateLimit, filter, asOfDate);
+          } catch (e: any) {
+            logger.warn('[LegislationService] hybrid vector leg failed', { error: e?.message });
+            return [] as any[];
+          }
+        })(),
+        (async () => {
+          try {
+            return await this.adapter.searchArticlesHybrid(query, radaId, candidateLimit);
+          } catch (e: any) {
+            logger.warn('[LegislationService] hybrid FTS leg failed', { error: e?.message });
+            return [] as any[];
+          }
+        })(),
+      ]);
 
-      if (searchResults.length === 0) {
-        logger.warn('[LegislationService] Vector search returned 0 results, falling back to text search', {
-          query: query.substring(0, 50),
-        });
-        const textResults = await this.searchLegislation(query, radaId, limit);
-        return textResults.flatMap(r => r.articles.map((a: any) => ({
-          rada_id: r.rada_id,
-          article_number: a.article_number,
-          title: a.title,
-          full_text: a.full_text,
-          full_text_html: a.full_text_html,
-          url: `https://zakon.rada.gov.ua/laws/show/${r.rada_id}#n${a.article_number}`,
-          metadata: a.metadata,
-          npa_title: r.legislation_title,
-          section_number: a.section_number,
-          section_title: a.section_title,
-          chapter_number: a.chapter_number,
-          chapter_title: a.chapter_title,
-        })));
-      }
-
-      // Resolve vector results to DB records via integer IDs or payload lookup
-      const integerIds: number[] = [];
-      const payloadLookups: Array<{ rada_id: string; article_number: string }> = [];
-
-      for (const r of searchResults) {
-        if (r.payload?.article_id) {
-          integerIds.push(r.payload.article_id);
-        } else if (typeof r.id === 'number') {
-          integerIds.push(r.id);
-        } else if (r.payload?.rada_id && r.payload?.article_number) {
-          payloadLookups.push({ rada_id: r.payload.rada_id, article_number: r.payload.article_number });
+      // Vector leg: collapse chunk hits to the best-scoring chunk per article, keep score order.
+      const vectorBest = new Map<string, { score: number; articleId?: number; radaId: string; articleNumber: string }>();
+      for (const h of vectorHits as any[]) {
+        const rid = h.payload?.rada_id;
+        const an = h.payload?.article_number;
+        if (!rid || an == null) continue;
+        if ((h.score || 0) < MIN_VECTOR_SCORE_HYBRID) continue;
+        const key = legislationKey(rid, an);
+        const prev = vectorBest.get(key);
+        if (!prev || (h.score || 0) > prev.score) {
+          vectorBest.set(key, { score: h.score || 0, articleId: h.payload?.article_id, radaId: rid, articleNumber: an });
         }
       }
+      const vectorKeys = [...vectorBest.entries()].sort((a, b) => b[1].score - a[1].score).map(([k]) => k);
 
-      const queries: Promise<any>[] = [];
-      if (integerIds.length > 0) {
-        queries.push(this.db.query(
+      // FTS leg: rows already ts_rank-ordered; keep first row per article.
+      const ftsRowByKey = new Map<string, any>();
+      const ftsKeys: string[] = [];
+      for (const row of ftsRows as any[]) {
+        const key = legislationKey(row.rada_id, row.article_number);
+        if (!ftsRowByKey.has(key)) { ftsRowByKey.set(key, row); ftsKeys.push(key); }
+      }
+
+      const fused = fuseRankLists(vectorKeys, ftsKeys);
+      if (fused.size === 0) {
+        logger.warn('[LegislationService] hybrid search returned 0 candidates, falling back to text search', {
+          query: query.substring(0, 50),
+        });
+        return await textFallback();
+      }
+
+      // Resolve a generous candidate pool to full DB rows, then re-score with boosts.
+      const pool = [...fused.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, Math.max(limit * 3, 15));
+
+      // Vector-only winners need a DB fetch (payload lacks full_text/hierarchy); fetch by
+      // article_id where the payload carried one, else by (rada_id, article_number).
+      const fetchIds: number[] = [];
+      const fetchPairs: Array<{ rada_id: string; article_number: string }> = [];
+      for (const [key] of pool) {
+        if (ftsRowByKey.has(key)) continue;
+        const v = vectorBest.get(key);
+        if (v?.articleId) fetchIds.push(v.articleId);
+        else if (v) fetchPairs.push({ rada_id: v.radaId, article_number: v.articleNumber });
+      }
+
+      const fetchedByKey = new Map<string, any>();
+      const fetchQueries: Promise<any>[] = [];
+      if (fetchIds.length > 0) {
+        fetchQueries.push(this.db.query(
           `SELECT la.*, l.rada_id, l.title as npa_title
            FROM legislation_articles la JOIN legislation l ON la.legislation_id = l.id
-           WHERE la.id = ANY($1)`, [[...new Set(integerIds)]]
+           WHERE la.id = ANY($1)`, [[...new Set(fetchIds)]]
         ));
       }
-      for (const pl of payloadLookups.slice(0, limit)) {
-        queries.push(this.db.query(
+      for (const p of fetchPairs) {
+        fetchQueries.push(this.db.query(
           `SELECT la.*, l.rada_id, l.title as npa_title
            FROM legislation_articles la JOIN legislation l ON la.legislation_id = l.id
            WHERE LOWER(l.rada_id) = LOWER($1) AND la.article_number = $2 AND la.is_current = true
-           LIMIT 1`, [pl.rada_id, pl.article_number]
+           LIMIT 1`, [p.rada_id, p.article_number]
         ));
       }
-
-      const queryResults = await Promise.all(queries);
-      const seen = new Set<string>();
-      const allRows: any[] = [];
-      for (const qr of queryResults) {
+      for (const qr of await Promise.all(fetchQueries)) {
         for (const row of qr.rows) {
-          const key = `${row.rada_id}:${row.article_number}`;
-          if (!seen.has(key)) { seen.add(key); allRows.push(row); }
+          fetchedByKey.set(legislationKey(row.rada_id, row.article_number), row);
         }
       }
 
-      // Return all rows above MIN_SCORE threshold, capped at 15 to avoid maxToolCalls exhaustion
-      const result = { rows: allRows.slice(0, 15) };
+      const numberTokens = extractArticleNumberTokens(query);
+      const scored = pool
+        .map(([key, base]) => {
+          const row = ftsRowByKey.get(key) || fetchedByKey.get(key);
+          if (!row) return null;
+          const isTransitional = Boolean(row.metadata?.is_transitional) || /^\s*п\./i.test(row.article_number || '');
+          const score = applyLegislationBoosts(base, {
+            article_number: row.article_number,
+            full_text_length: (row.full_text || '').length,
+            is_transitional: isTransitional,
+          }, numberTokens);
+          return { row, score };
+        })
+        .filter((x): x is { row: any; score: number } => x !== null)
+        .sort((a, b) => b.score - a.score)
+        .slice(0, Math.max(1, Math.min(limit, 15)));
 
-      return result.rows.map((row: any) => ({
-        rada_id: row.rada_id,
-        article_number: row.article_number,
-        title: row.title,
-        full_text: row.full_text,
-        full_text_html: row.full_text_html,
-        url: `https://zakon.rada.gov.ua/laws/show/${row.rada_id}#n${row.article_number}`,
-        metadata: row.metadata,
-        npa_title: row.npa_title,
-        section_number: row.section_number,
-        section_title: row.section_title,
-        chapter_number: row.chapter_number,
-        chapter_title: row.chapter_title,
-      }));
+      if (scored.length === 0) return await textFallback();
+      return scored.map(s => toReference(s.row));
     } catch (error: any) {
-      logger.error('Vector search failed, falling back to text search:', error.message);
-      const results = await this.searchLegislation(query, radaId, limit);
-      return results.flatMap(r => r.articles.map((a: any) => ({
-        rada_id: r.rada_id,
-        article_number: a.article_number,
-        title: a.title,
-        full_text: a.full_text,
-        full_text_html: a.full_text_html,
-        url: `https://zakon.rada.gov.ua/laws/show/${r.rada_id}#n${a.article_number}`,
-        metadata: a.metadata,
-        npa_title: r.legislation_title,
-        section_number: a.section_number,
-        section_title: a.section_title,
-        chapter_number: a.chapter_number,
-        chapter_title: a.chapter_title,
-      })));
+      logger.error('[LegislationService] hybrid search failed, falling back to text search:', error?.message);
+      return await textFallback();
     }
   }
 

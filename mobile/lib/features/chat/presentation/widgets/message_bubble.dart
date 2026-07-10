@@ -124,10 +124,11 @@ class _MessageBubbleState extends State<MessageBubble> {
                       else if (_isUser)
                         Text(
                           widget.message.content,
+                          // User bubble is ink (near-black) in both light
+                          // (userBubble) and dark (darkUserBubble) themes, so
+                          // text is always white for contrast.
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: isDark
-                                ? AppColors.darkTextPrimary
-                                : AppColors.textPrimary,
+                            color: AppColors.textOnPrimary,
                           ),
                         )
                       // Streaming indicator

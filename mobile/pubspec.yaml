@@ -63,6 +63,14 @@ dev_dependencies:
   json_serializable: ^6.8.0
   mockito: ^5.4.4
 
+# Pin the Apple-only path_provider impl to the last release that does NOT depend
+# on `objective_c`. objective_c ships a native build hook that forces Flutter's
+# native-assets pipeline on, which is broken under the snap-distributed Flutter
+# toolchain on Linux desktop (its bundled clang has no linker beside it). This
+# pin is Darwin-only and has zero effect on Android/Linux desktop builds.
+dependency_overrides:
+  path_provider_foundation: 2.4.4
+
 flutter:
   uses-material-design: true
   generate: true

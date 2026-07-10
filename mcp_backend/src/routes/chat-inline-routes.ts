@@ -15,6 +15,21 @@ import { v4 as uuidv4 } from 'uuid';
 import { requestContext } from '../utils/openai-client.js';
 import { runWithABUser } from '../infrastructure/adapters/llm-adapter.js';
 
+/**
+ * Wall-clock timeout for a chat request. ChatService auto-escalates
+ * effectiveBudget up to maxBudget (default: deep) — e.g. plan >= 8 steps or a
+ * queryType budget floor — so the backstop must cover the escalation ceiling,
+ * not the requested budget. Keying it on the requested budget aborted
+ * escalated runs mid-VERIFY at 240s (chat-f6e736b9, 2026-07-03).
+ */
+export function resolveChatTimeoutMs(budget?: string, maxBudget?: string): number {
+  const escalationCeiling = maxBudget || 'deep';
+  // 360s: heavy composite runs vary — chat-a79fffe7 spent 260s in EXECUTE alone
+  // (22 tool calls), leaving VERIFY + LLM repair no room inside 300s. This is a
+  // runaway backstop, not QoS: SSE heartbeats keep proxies alive either way.
+  return escalationCeiling === 'deep' ? 360_000 : 240_000;
+}
+
 export function createChatInlineRoutes(deps: {
   chatService: ChatService;
   billingService: BillingService;
@@ -151,7 +166,7 @@ export function createChatInlineRoutes(deps: {
       const abortController = new AbortController();
 
       // Absolute wall-clock timeout to prevent runaway agentic loops
-      const timeoutMs = (budget === 'deep') ? 300_000 : 240_000;
+      const timeoutMs = resolveChatTimeoutMs(budget, maxBudget);
       const requestTimeout = setTimeout(() => {
         logger.warn('[ChatService] Request timed out', { requestId, timeoutMs, budget });
         abortController.abort();

@@ -194,6 +194,179 @@ export class BillService {
   }
 
   /**
+   * Ukrainian inflectional endings, longest-first. Full-word prefixes break on
+   * inflection under the 'simple' FTS config («патентний:*» does not match
+   * «патентним»), so Cyrillic tokens are truncated to a stem before `:*`.
+   * One suffix is stripped only when the remaining stem keeps >= 4 chars
+   * (LEXAI-1819).
+   */
+  private static readonly UK_SUFFIXES = [
+    'ього', 'ьому', 'ами', 'ями', 'ові', 'еві', 'ого', 'ому', 'ими', 'іми',
+    'ій', 'ий', 'им', 'ім', 'их', 'іх', 'ої', 'ою', 'ею', 'ах', 'ях',
+    'ам', 'ям', 'ів', 'їв', 'ом', 'ем', 'ей',
+    'и', 'і', 'ї', 'а', 'я', 'о', 'е', 'у', 'ю', 'ь',
+  ];
+
+  private static stemPrefix(token: string): string {
+    if (!/^[а-щьюяіїєґ]+$/.test(token)) return token;
+    for (const suffix of BillService.UK_SUFFIXES) {
+      if (token.length - suffix.length >= 4 && token.endsWith(suffix)) {
+        return token.slice(0, token.length - suffix.length);
+      }
+    }
+    return token;
+  }
+
+  /**
+   * Build a `simple`-config prefix tsquery from free text.
+   * The bill_documents FTS indexes use the 'simple' config (no Ukrainian stemmer),
+   * so we match on stem prefixes (`патентн:*`) to tolerate inflected forms.
+   * Returns '' when the input has no usable tokens.
+   */
+  static toPrefixTsQuery(input: string, op: '&' | '|' = '&'): string {
+    const tokens = (input.match(/[\p{L}\p{N}]+/gu) || [])
+      .map(t => t.toLowerCase())
+      .filter(t => t.length > 1);
+    return tokens.map(t => `${BillService.stemPrefix(t)}:*`).join(` ${op} `);
+  }
+
+  /**
+   * Search bill supporting documents (rada.bill_documents): ГНЕУ scientific-expert
+   * conclusions, committee conclusions, legal-office remarks, etc. Full-text over the
+   * verdict summaries (short_review/formal_review/full_text) + bill title, with filters
+   * by document kind, bill number, convocation, initiator and registration date.
+   */
+  async searchBillDocuments(params: {
+    query?: string;
+    bill_number?: string;
+    doc_kind?: 'gneu' | 'committee' | 'legal' | 'all';
+    convocation?: number;
+    initiator?: string;
+    date_from?: string;
+    date_to?: string;
+    limit?: number;
+  }): Promise<{ documents: any[]; total: number; relaxed?: boolean }> {
+    if (params.date_from && !this.validateDateFormat(params.date_from)) {
+      throw new Error(
+        `Invalid date_from format: "${params.date_from}". Expected YYYY-MM-DD (e.g., 2024-01-15)`
+      );
+    }
+    if (params.date_to && !this.validateDateFormat(params.date_to)) {
+      throw new Error(
+        `Invalid date_to format: "${params.date_to}". Expected YYYY-MM-DD (e.g., 2024-12-31)`
+      );
+    }
+
+    let sql = `
+      SELECT doc_id, bill_number, convocation, kind, kind_id,
+             registration_date, publish_date,
+             short_review, formal_review,
+             bill_title, bill_subject, bill_initiators,
+             file_url, file_zip_url
+      FROM bill_documents
+      WHERE 1=1`;
+    const queryParams: any[] = [];
+    let i = 1;
+
+    // Full-text over verdict summaries + bill title
+    let tsqIndex = 0;
+    let andTsq = '';
+    if (params.query) {
+      andTsq = BillService.toPrefixTsQuery(params.query);
+      if (andTsq) {
+        sql += ` AND (
+          to_tsvector('simple', coalesce(short_review,'') || ' ' || coalesce(formal_review,'') || ' ' || coalesce(full_text,'')) @@ to_tsquery('simple', $${i})
+          OR to_tsvector('simple', coalesce(bill_title,'')) @@ to_tsquery('simple', $${i})
+        )`;
+        queryParams.push(andTsq);
+        tsqIndex = i;
+        i++;
+      }
+    }
+
+    if (params.bill_number) {
+      sql += ` AND bill_number = $${i}`;
+      queryParams.push(params.bill_number);
+      i++;
+    }
+
+    // Document kind filter
+    switch (params.doc_kind) {
+      case 'gneu':
+        sql += ` AND (kind_id = 100 OR kind ILIKE '%науково-експерт%')`;
+        break;
+      case 'committee':
+        sql += ` AND kind ILIKE '%комітет%'`;
+        break;
+      case 'legal':
+        sql += ` AND kind ILIKE '%юридичн%'`;
+        break;
+      // 'all' or undefined → no kind filter
+    }
+
+    if (params.convocation) {
+      sql += ` AND convocation = $${i}`;
+      queryParams.push(params.convocation);
+      i++;
+    }
+
+    if (params.initiator) {
+      sql += ` AND bill_initiators ILIKE $${i}`;
+      queryParams.push(`%${params.initiator}%`);
+      i++;
+    }
+
+    if (params.date_from) {
+      sql += ` AND registration_date >= $${i}`;
+      queryParams.push(params.date_from);
+      i++;
+    }
+    if (params.date_to) {
+      sql += ` AND registration_date <= $${i}`;
+      queryParams.push(params.date_to);
+      i++;
+    }
+
+    const limit = Math.min(Math.max(params.limit || 20, 1), 100);
+
+    let result = await this.db.query(
+      sql + ` ORDER BY registration_date DESC NULLS LAST LIMIT ${limit}`,
+      queryParams
+    );
+
+    // Strict AND over all tokens makes multi-word natural queries brittle
+    // (one unmatched word form → 0 rows). Retry with OR semantics, ranked by
+    // relevance so the date ordering doesn't surface loosely-matching noise.
+    let relaxed = false;
+    if (result.rows.length === 0 && tsqIndex > 0 && andTsq.includes(' & ')) {
+      const orParams = [...queryParams];
+      orParams[tsqIndex - 1] = BillService.toPrefixTsQuery(params.query!, '|');
+      result = await this.db.query(
+        sql +
+          ` ORDER BY ts_rank(to_tsvector('simple', coalesce(short_review,'') || ' ' || coalesce(formal_review,'') || ' ' || coalesce(bill_title,'')), to_tsquery('simple', $${tsqIndex})) DESC, registration_date DESC NULLS LAST LIMIT ${limit}`,
+        orParams
+      );
+      relaxed = true;
+      logger.info('Bill documents search relaxed to OR semantics', {
+        query: params.query,
+        found: result.rows.length,
+      });
+    }
+
+    logger.info('Bill documents search completed', {
+      query: params.query,
+      doc_kind: params.doc_kind,
+      found: result.rows.length,
+      relaxed,
+    });
+    return {
+      documents: result.rows,
+      total: result.rows.length,
+      ...(relaxed ? { relaxed: true } : {}),
+    };
+  }
+
+  /**
    * Sync recent bills (last 30 days)
    */
   async syncRecentBills(convocation: number = 9): Promise<number> {

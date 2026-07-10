@@ -11,6 +11,15 @@ describe('MCPService', () => {
   let mockFetch: any;
 
   beforeEach(() => {
+    // getAuthToken() reads localStorage; the local runner (Node 26 + happy-dom) leaves it
+    // unavailable, so stub a minimal Map-backed implementation for the suite.
+    const store = new Map<string, string>();
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store.get(k) ?? null,
+      setItem: (k: string, v: string) => { store.set(k, v); },
+      removeItem: (k: string) => { store.delete(k); },
+      clear: () => store.clear(),
+    });
     mcpService = new MCPService();
     mockFetch = vi.fn();
     global.fetch = mockFetch;
@@ -18,6 +27,7 @@ describe('MCPService', () => {
 
   afterEach(() => {
     vi.clearAllMocks();
+    vi.unstubAllGlobals();
   });
 
   describe('callTool', () => {
@@ -203,6 +213,67 @@ describe('MCPService', () => {
       );
 
       expect(message.content).toContain('unknown');
+    });
+  });
+
+  describe('streamChat — network resilience (blue-green deploy)', () => {
+    const streamFromChunks = (chunks: string[]) => {
+      const read = vi.fn();
+      chunks.forEach((c) =>
+        read.mockResolvedValueOnce({ done: false, value: new TextEncoder().encode(c) }),
+      );
+      read.mockResolvedValueOnce({ done: true });
+      return { ok: true, body: { getReader: () => ({ read, releaseLock: vi.fn() }) } };
+    };
+
+    it('retries transparently when the connection drops before any event, then succeeds', async () => {
+      mockFetch
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+        .mockResolvedValueOnce(streamFromChunks(['event: answer\ndata: {"text":"привіт"}\n\n']));
+
+      const onAnswer = vi.fn();
+      const onError = vi.fn();
+      const onStreamEnd = vi.fn();
+      await mcpService.streamChat('q', [], { onAnswer, onError, onStreamEnd } as any);
+      await new Promise((r) => setTimeout(r, 1000));
+
+      expect(mockFetch).toHaveBeenCalledTimes(2); // initial fail + 1 retry
+      expect(onAnswer).toHaveBeenCalled();
+      expect(onError).not.toHaveBeenCalled();
+      expect(onStreamEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it('surfaces a clear connection-lost message after exhausting retries', async () => {
+      mockFetch.mockRejectedValue(new TypeError('Failed to fetch'));
+
+      const onError = vi.fn();
+      const onStreamEnd = vi.fn();
+      await mcpService.streamChat('q', [], { onError, onStreamEnd } as any);
+      await new Promise((r) => setTimeout(r, 2600)); // wait out 700ms + 1400ms backoff
+
+      expect(mockFetch).toHaveBeenCalledTimes(3); // initial + 2 retries
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onError.mock.calls[0][0].message).toMatch(/перерв/i); // Ukrainian, not "Failed to fetch"
+      expect(onStreamEnd).toHaveBeenCalledTimes(1);
+    });
+
+    it('does NOT retry once an event has been received (avoids duplicate run / double-charge)', async () => {
+      const read = vi.fn()
+        .mockResolvedValueOnce({
+          done: false,
+          value: new TextEncoder().encode('event: thinking\ndata: {"tool":"x"}\n\n'),
+        })
+        .mockRejectedValueOnce(new TypeError('Failed to fetch'));
+      mockFetch.mockResolvedValue({ ok: true, body: { getReader: () => ({ read, releaseLock: vi.fn() }) } });
+
+      const onError = vi.fn();
+      const onStreamEnd = vi.fn();
+      await mcpService.streamChat('q', [], { onThinking: vi.fn(), onError, onStreamEnd } as any);
+      await new Promise((r) => setTimeout(r, 300));
+
+      expect(mockFetch).toHaveBeenCalledTimes(1); // no retry after a real event arrived
+      expect(onError).toHaveBeenCalledTimes(1);
+      expect(onStreamEnd).toHaveBeenCalledTimes(1);
     });
   });
 

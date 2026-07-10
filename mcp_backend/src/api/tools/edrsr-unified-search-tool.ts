@@ -12,14 +12,14 @@
  */
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
-import { buildWhere, type FieldDef } from '@secondlayer/shared';
+import { buildWhere, parseEdsrSearchArgs, type FieldDef } from '@secondlayer/shared';
 import { logger } from '../../utils/logger.js';
 import { EDRSR_METADATA_SEARCH_ORDER } from '../../services/search-ranking-config.js';
 import type { SearchResultFilter } from '../../services/search-result-filter.js';
 import { STRICT_MIN_SCORE } from '../../services/search-result-filter.js';
 import type { QueryReformulator } from '../../services/query-reformulator.js';
 import type { EdsrFtsService, EdsrFtsFilters, EdsrFtsSearchResponse } from '../../services/edrsr-fts-service.js';
-import { selectFtsTerms } from '../../services/edrsr-fts-service.js';
+import { selectFtsTerms, sanitizeFtsToken, buildPrefixTsquery, isStatusVocabToken } from '../../services/edrsr-fts-service.js';
 import type { EdsrVectorizerService, EdrsrSearchFilters, EdrsrSearchResult } from '../../services/edrsr-vectorizer-service.js';
 
 const DEFAULT_RRF_K = 60;
@@ -104,19 +104,41 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     this.queryReformulator = reformulator;
   }
 
+  // instance_code → court_code[] (cached; instances are static). The vector leg can only filter
+  // by court_code (no instance_code in the Qdrant payload), so an instance/court_level filter is
+  // translated to its set of court_codes before being pushed to the vector leg. Fail-safe: on a
+  // DB error returns [] so the caller skips the vector court filter (no crash, just unfiltered).
+  private readonly instanceCourtCodeCache = new Map<number, number[]>();
+  private async resolveInstanceCourtCodes(instanceCode: number): Promise<number[]> {
+    const cached = this.instanceCourtCodeCache.get(instanceCode);
+    if (cached) return cached;
+    try {
+      const res = await this.db.query(
+        `SELECT court_code FROM edrsr_courts WHERE instance_code = $1`, [instanceCode],
+      );
+      const codes = res.rows.map((r: any) => Number(r.court_code)).filter((n: number) => Number.isFinite(n));
+      if (codes.length > 0) this.instanceCourtCodeCache.set(instanceCode, codes);
+      return codes;
+    } catch (err: any) {
+      logger.warn('[EdsrUnifiedSearch] resolveInstanceCourtCodes failed', { instanceCode, error: err.message });
+      return [];
+    }
+  }
+
   getToolDefinitions(): ToolDefinition[] {
     return [{
       name: 'search_court_decisions',
       annotations: { title: 'Пошук судових рішень ЄДРСР', readOnlyHint: true, openWorldHint: true },
       description: `Єдиний інструмент пошуку судових рішень у ЄДРСР (82M+ рішень усіх українських судів з 2006 року).
 
-4 режими пошуку:
+5 режимів пошуку:
 • **structured** — за метаданими: номер справи, суддя, суд, дата, категорія, військові пресети. Найшвидший, коли відомі точні параметри.
-• **fulltext** — повнотекстовий пошук (PostgreSQL tsvector) з підсвіченими фрагментами. Для пошуку за ключовими словами та юридичними термінами.
+• **exact** — детермінований FTS по точному токену/фразі БЕЗ LLM-обробки: без переформулювання запиту, без term-relaxation і без фільтра релевантності та fallback у hybrid. Для пошуку конкретного номера заявки/свідоцтва/реєстру, коду чи будь-якого непрозорого токена в тексті рішення (напр. "m200604929"). Повертає ВСІ збіги. Латиниця/цифри проходять як є.
+• **fulltext** — повнотекстовий пошук (PostgreSQL tsvector) з підсвіченими фрагментами + LLM-дистиляція запиту в ключові терміни. Для пошуку за ключовими словами та юридичними термінами (природномовний запит).
 • **hybrid** — FTS + семантичний пошук (Qdrant BGE-M3) з мерджем через Reciprocal Rank Fusion. Найкращий recall, коли запит містить і семантику, і точні токени. Семантична нога працює для ВСІХ видів судочинства (justice_kind 1-5).
 • **semantic** — чистий семантичний пошук по векторній базі Qdrant (296M чанків, увесь ЄДРСР). Працює для ВСІХ видів судочинства (justice_kind 1-5); justice_kind не обов'язковий (без нього шукає по всіх кодексах). Найкраще для концептуальних/розмовних запитів.
 
-⚠️ Роль сторони (конкретна особа/компанія саме ЯК відповідач або позивач) → передавай party_name + party_role у режимі fulltext/hybrid, а НЕ дописуй слово «відповідач» у query. party_name прив'язується до тексту як фраза, party_role — до рольового слова, тож «де X — відповідач» дасть точніший результат, ніж семантика чи ключові слова. Для точного № справи/статті → structured або fulltext.
+⚠️ Роль сторони (конкретна особа/компанія саме ЯК відповідач або позивач) → передавай party_name + party_role у режимі fulltext/hybrid, а НЕ дописуй слово «відповідач» у query. party_name прив'язується до тексту як фраза, party_role — до рольового слова, тож «де X — відповідач» дасть точніший результат, ніж семантика чи ключові слова. Для точного № справи/статті → structured; для точного токена/номера в ТЕКСТІ рішення → exact.
 
 Фільтри (спільні для всіх режимів): court_code/court_name, judge, justice_kind, judgment_code, category_code, date_from/date_to, party_name, party_role, court_level (SC=Верховний Суд).
 Пресети: military_preset (військові справи), kupap_preset (адмінправопорушення — traffic_dui, traffic_accident, domestic_violence, hooliganism тощо).
@@ -126,12 +148,12 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
         properties: {
           mode: {
             type: 'string',
-            enum: ['structured', 'fulltext', 'hybrid', 'semantic'],
-            description: 'Режим пошуку: structured (метадані), fulltext (FTS), hybrid (FTS+семантика), semantic (семантика)',
+            enum: ['structured', 'exact', 'fulltext', 'hybrid', 'semantic'],
+            description: 'Режим пошуку: structured (метадані), exact (точний FTS-токен без LLM), fulltext (FTS+дистиляція), hybrid (FTS+семантика), semantic (семантика)',
           },
           query: {
             type: 'string',
-            description: 'Пошуковий запит (обов\'язковий для fulltext/hybrid/semantic). Наприклад: "ст. 210-1 КУпАП ТЦК неналежне оповіщення". НЕ додавай сюди роль сторони — для цього є party_name/party_role.',
+            description: 'Пошуковий запит (обов\'язковий для exact/fulltext/hybrid/semantic). Наприклад: "ст. 210-1 КУпАП ТЦК неналежне оповіщення". Для exact — точний токен/фраза як є (напр. "m200604929"). НЕ додавай сюди роль сторони — для цього є party_name/party_role.',
           },
           party_name: {
             type: 'string',
@@ -233,6 +255,21 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
   async executeTool(name: string, args: any): Promise<ToolResult | null> {
     if (name !== 'search_court_decisions') return null;
 
+    // Safe-input boundary (LEXAI-1771 / CORE-54): validate raw model-produced
+    // arguments against the canonical Zod schema before any handler logic.
+    // Unknown (injected) fields are stripped; invalid enum/date/range values are
+    // rejected with a clean, model-actionable message instead of silently
+    // producing wrong filters. SQL stays parameterized downstream via buildWhere.
+    const parsed = parseEdsrSearchArgs(args);
+    if (!parsed.ok) {
+      const detail = parsed.issues
+        .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+        .join('; ');
+      logger.warn('[search_court_decisions] invalid arguments rejected', { detail });
+      return this.wrapError(`Невалідні параметри пошуку: ${detail || 'перевір mode та фільтри'}`);
+    }
+    args = parsed.value;
+
     // court_level is the cross-tool convention (search_legal_precedents,
     // find_similar_fact_pattern_cases): SC / GrandChamber → cassation instance. Map it onto
     // instance_code so every mode honours it; explicit instance_code wins if both are given.
@@ -242,11 +279,12 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
 
     switch (args.mode) {
       case 'structured': return this.searchStructured(args);
+      case 'exact':      return this.searchExact(args);
       case 'fulltext':   return this.searchFulltext(args);
       case 'hybrid':     return this.searchHybrid(args);
       case 'semantic':   return this.searchSemantic(args);
       default:
-        return this.wrapError('Невідомий режим. Доступні: structured, fulltext, hybrid, semantic');
+        return this.wrapError('Невідомий режим. Доступні: structured, exact, fulltext, hybrid, semantic');
     }
   }
 
@@ -374,15 +412,51 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     // instead of the positional tail. Empty idf map → original order (no regression).
     // noIdf is the A/B baseline arm (P1.eval) — bypass the df lookup to reproduce the old
     // positional behaviour for a controlled before/after.
-    const idf = (this.ftsService && !noIdf) ? await this.ftsService.lexemeDf(rawTokens, this.db) : new Map<string, number>();
-    const tokens = selectFtsTerms(rawTokens, idf);
-    const idfRanked = idf.size > 0;
-    const startTokens = tokens.length;
-    let n = Math.min(startTokens, FULLTEXT_MAX_TOKENS) || 1;
-    const cappedFrom = n; // token count at the first (capped) probe
-    let usedQuery = tokens.slice(0, n).join(' ') || String(topicalQuery).trim();
+    // LEXAI Cause-A: fetch idf + raw df + sample size, so selectFtsTerms can demote
+    // sub-floor junk tokens (сумування/дррп/typos) to the tail instead of letting them
+    // survive IDF-only relaxation and starve the all-AND probe of real anchors.
+    const stats = (this.ftsService && !noIdf)
+      ? await this.ftsService.lexemeStats(rawTokens, this.db)
+      : { idf: new Map<string, number>(), df: new Map<string, number>(), sampleDocs: 0 };
+    const tokens = selectFtsTerms(rawTokens, stats.idf, { df: stats.df, sampleDocs: stats.sampleDocs });
+    const idfRanked = stats.idf.size > 0;
 
-    let result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset);
+    // CORE-106 telemetry: party-status vocabulary in the search query is the marker of
+    // query drift (repro chat-98f8472e/chat-5340fe5c — «ВПО/внутрішньо переміщені» stole
+    // cap slots from operative anchors). selectFtsTerms now demotes it to the tail; log
+    // the occurrence so drift stays visible in metrics, not only in gold-eval runs.
+    const statusTokens = rawTokens.filter(isStatusVocabToken);
+    if (statusTokens.length > 0 && idfRanked) {
+      logger.info('[EdsrUnifiedSearch] status vocabulary in query — demoted from FTS anchors (CORE-106)', {
+        status_tokens: statusTokens, query: String(topicalQuery).slice(0, 160),
+      });
+    }
+
+    // LEXAI Cause-A.2: snap ranked tokens to corpus STEMS (edrsr_lexeme_df) and probe with a
+    // declension-tolerant prefix tsquery (окупован:* …). Fixes the stemless-'simple' recall
+    // hole (query "окупована" missed doc form "окупованій") AND drops junk that has no corpus
+    // stem. Empty stem map (snap off / table empty) → fall back to the plainto token string.
+    const stemMap = (this.ftsService && !noIdf)
+      ? await this.ftsService.snapTokensToStems(rawTokens, this.db)
+      : new Map<string, string>();
+    const stems = [...new Set(
+      tokens.map(t => stemMap.get(sanitizeFtsToken(t))).filter((s): s is string => !!s),
+    )];
+    const usePrefix = stems.length > 0;
+    const units = usePrefix ? stems : tokens;   // what we cap & relax over
+    const startTokens = units.length;
+    let n = Math.min(startTokens, FULLTEXT_MAX_TOKENS) || 1;
+    const cappedFrom = n; // unit count at the first (capped) probe
+
+    const probe = (k: number) => {
+      const slice = units.slice(0, k);
+      const usedQuery = slice.join(' ') || String(topicalQuery).trim();
+      const topicalTsquery = usePrefix ? (buildPrefixTsquery(slice) ?? undefined) : undefined;
+      return { usedQuery, topicalTsquery };
+    };
+
+    let { usedQuery, topicalTsquery } = probe(n);
+    let result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset, undefined, topicalTsquery);
 
     let steps = 0;
     // Relax while near-empty (not just hard 0): dropping the LEAST discriminative AND-term
@@ -390,17 +464,72 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     // clears the floor or we hit the bounds.
     while (result.total < FTS_RELAX_MIN_RESULTS && n > FTS_MIN_TOKENS && steps < FTS_MAX_RELAX_STEPS) {
       n -= 1; steps += 1;
-      usedQuery = tokens.slice(0, n).join(' ');
+      ({ usedQuery, topicalTsquery } = probe(n));
       logger.info('[EdsrUnifiedSearch] FTS relax-on-near-empty', {
-        from_tokens: n + 1, to_tokens: n, prev_total: result.total, query: usedQuery, idf_ranked: idfRanked,
+        from_tokens: n + 1, to_tokens: n, prev_total: result.total, query: topicalTsquery || usedQuery,
+        idf_ranked: idfRanked, prefix: usePrefix,
       });
-      result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset);
+      result = await this.ftsService!.searchFulltext(usedQuery, this.db, filters, limit, offset, undefined, topicalTsquery);
     }
 
     return {
       result, usedQuery, startTokens, usedTokens: n,
       ...(n < cappedFrom ? { relaxedFromTokens: cappedFrom } : {}),
     };
+  }
+
+  // ── Exact FTS (deterministic, no LLM) ────────────────────────────
+
+  /**
+   * Deterministic lexical FTS for an exact token/phrase. Unlike `fulltext`, this mode is a
+   * straight `f.tsv @@ plainto_tsquery('simple', query)` over the year-partitioned GIN index
+   * with the standard metadata filters — and deliberately bypasses EVERY LLM/heuristic layer
+   * that mangles opaque identifiers:
+   *   - NO QueryReformulator (which transliterated Latin→Cyrillic, e.g. m200604929→м200604929)
+   *   - NO IDF term selection / relax-on-empty (an exact query must match verbatim, not a subset)
+   *   - NO relevance gate (Haiku drops bare registration numbers it can't semantically justify)
+   *   - NO hybrid/fulltext_gate fallback (semantic ranking buries the one exact hit)
+   * This is the correct tool for "find all cases whose text contains <code/number/token>"
+   * (registration nos, ЕДРПОУ, internal ids) — where fulltext/hybrid/semantic are unreliable
+   * by construction. plainto_tsquery ANDs multi-word input, so a phrase requires every lexeme
+   * to co-occur. Matching is token-level, not substring (tsvector lexemes), consistent with the
+   * 'simple' config the tsv column was built with.
+   */
+  private async searchExact(args: any): Promise<ToolResult> {
+    if (!args.query) return this.wrapError('query є обов\'язковим для режиму exact');
+    if (!this.ftsService) return this.wrapError('FTS сервіс недоступний');
+
+    try {
+      let courtCode = args.court_code;
+      if (args.court_name && !courtCode) {
+        const courtResult = await this.db.query(
+          `SELECT court_code FROM edrsr_courts WHERE LOWER(name) LIKE LOWER($1) LIMIT 1`,
+          [`%${args.court_name}%`]
+        );
+        if (courtResult.rows.length > 0) courtCode = courtResult.rows[0].court_code;
+      }
+
+      const query = String(args.query).trim();
+      const partyName = typeof args.party_name === 'string' ? args.party_name.trim() || undefined : undefined;
+      const filters: EdsrFtsFilters = {
+        court_code: courtCode, judge: args.judge, date_from: args.date_from, date_to: args.date_to,
+        justice_kind: args.justice_kind, judgment_code: args.judgment_code, category_code: args.category_code,
+        instance_code: args.instance_code,
+        party_name: partyName, party_role: args.party_role as EdsrFtsFilters['party_role'] | undefined,
+      };
+
+      // Raw query straight to plainto_tsquery('simple', $1) — no reformulation, no relaxation.
+      const result = await this.ftsService.searchFulltext(
+        query, this.db, filters, args.limit || 20, args.offset || 0,
+      );
+      const enriched = await this.enrichResults(result.results);
+
+      // No maybeFilter, no fallback: exact means exact.
+      return this.wrapResponse({ mode: 'exact', ...result, results: enriched });
+    } catch (err: any) {
+      logger.error('[EdsrUnifiedSearch] exact failed', { error: err.message });
+      return this.wrapError(`Помилка exact FTS пошуку: ${err.message}`);
+    }
   }
 
   // ── Fulltext search (tsvector FTS) ───────────────────────────────
@@ -428,9 +557,20 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       const partyName = typeof args.party_name === 'string' ? args.party_name.trim() : undefined;
       const partyRole = args.party_role as EdsrFtsFilters['party_role'] | undefined;
 
+      // LLM term-rewrite (v1-style): a verbose natural-language question split on whitespace
+      // becomes a long all-AND tsquery that the stemless 'simple' config can't satisfy → 0 hits.
+      // Reuse QueryReformulator.fts (already used by the hybrid/semantic legs) to distil the
+      // question into key legal terms BEFORE relaxation, so the AND probe starts from real
+      // anchors, not function words. originalQuery is kept for the headline and hybrid fallback.
+      // Fail-safe: reformulator off/erroring → originalQuery (no regression).
+      const reformulated = this.queryReformulator
+        ? await this.queryReformulator.reformulate(originalQuery).catch(() => null)
+        : null;
+      const ftsQuery = reformulated?.fts || originalQuery;
+
       // Term-budget search: cap to the leading tokens and relax downward on an empty hit.
       let fts = await this.ftsWithRelaxation(
-        originalQuery,
+        ftsQuery,
         { ...baseFilters, party_name: partyName || undefined, party_role: partyRole },
         args.limit || 20, args.offset || 0,
       );
@@ -446,7 +586,7 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
           party_name: partyName, party_role: partyRole,
         });
         fts = await this.ftsWithRelaxation(
-          originalQuery, { ...baseFilters, party_name: partyName },
+          ftsQuery, { ...baseFilters, party_name: partyName },
           args.limit || 20, args.offset || 0,
         );
         result = fts.result;
@@ -464,11 +604,24 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       const enriched = await this.enrichResults(result.results);
       const output = await this.maybeFilter(enriched, fts.usedQuery);
 
+      // LEXAI Cause-C: FTS matched lexically (result.total > 0) but the relevance gate
+      // dropped EVERYTHING — the AND of the model's keywords landed in a topically-wrong
+      // cluster (e.g. "переміщені/внутрішньо" → IDP cases instead of the real-estate-tax
+      // line). Lexical co-occurrence can't recover here; fall back to the semantic-bearing
+      // hybrid leg, which ranks by meaning. Guard against re-entry via _fallback_from.
+      if (output.filtered.length === 0 && result.total > 0 && this.vectorizer && !args._fallback_from) {
+        logger.info('[EdsrUnifiedSearch] fulltext gate emptied results, falling back to hybrid', {
+          query: originalQuery, fts_total: result.total, fts_query: fts.usedQuery,
+        });
+        return this.searchHybrid({ ...args, query: originalQuery, _fallback_from: 'fulltext_gate' });
+      }
+
       return this.wrapResponse({
         mode: 'fulltext', ...result,
         ...(fts.usedTokens < fts.startTokens ? { query_truncated: { from_tokens: fts.startTokens, used: fts.usedQuery } } : {}),
         ...(fts.relaxedFromTokens ? { term_relaxed: { from_tokens: fts.relaxedFromTokens, to_tokens: fts.usedTokens } } : {}),
         ...(partyRoleRelaxed ? { party_role_relaxed: true } : {}),
+        ...(reformulated && ftsQuery !== originalQuery ? { reformulated: { fts: reformulated.fts } } : {}),
         results: output.filtered,
         ...(output.original_count !== output.filtered_count
           ? { relevance_filter: { from: output.original_count, to: output.filtered_count } }
@@ -543,6 +696,15 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
       date_from: args.date_from,
       date_to: args.date_to,
     };
+
+    // Translate an instance/court_level filter to a court_code set the vector leg CAN enforce
+    // (instance_code is not in the Qdrant payload). Without this the vector candidates all fail
+    // the post-fusion instance re-check and instance-filtered hybrid searches collapse to the
+    // FTS leg alone. Only when the model didn't pin a single court_code.
+    if (instanceCode && !args.court_code) {
+      const instanceCourtCodes = await this.resolveInstanceCourtCodes(instanceCode);
+      if (instanceCourtCodes.length > 0) vectorFilters.court_codes = instanceCourtCodes;
+    }
 
     const vectorPromise = (this.vectorizer && hasVectors)
       ? this.vectorizer.semanticSearch(semanticQuery, vectorFilters, candidateLimit)
@@ -655,6 +817,14 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
         court_code: args.court_code, justice_kind: justiceKind,
         judge: args.judge, date_from: args.date_from, date_to: args.date_to,
       };
+      // Push an instance/court_level filter onto the vector leg as a court_code set (see
+      // searchHybrid / resolveInstanceCourtCodes): instance_code is not in the Qdrant payload,
+      // so otherwise every semantic hit is dropped by the post-fusion instance re-check.
+      const semInstanceCode = args.instance_code ? Number(args.instance_code) : undefined;
+      if (semInstanceCode && !args.court_code) {
+        const instanceCourtCodes = await this.resolveInstanceCourtCodes(semInstanceCode);
+        if (instanceCourtCodes.length > 0) filters.court_codes = instanceCourtCodes;
+      }
 
       const reformulated = this.queryReformulator
         ? await this.queryReformulator.reformulate(args.query).catch(() => null)

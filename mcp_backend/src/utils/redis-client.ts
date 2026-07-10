@@ -14,7 +14,19 @@ export async function getRedisClient(): Promise<ReturnType<typeof createClient> 
 
   try {
     const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    redisClient = createClient({ url: redisUrl });
+    // keepAlive surfaces a dead TCP connection at the socket layer; pingInterval probes idle
+    // connections from the app so a silently-dropped socket is detected and reconnected before
+    // it stalls a request (see CacheAdapter — these timeouts are the second line of defense).
+    redisClient = createClient({
+      url: redisUrl,
+      socket: {
+        keepAlive: true,
+        keepAliveInitialDelay: 30_000,
+        connectTimeout: 10_000,
+        reconnectStrategy: (retries) => Math.min(retries * 100, 3_000),
+      },
+      pingInterval: 30_000,
+    });
 
     redisClient.on('error', (err) => {
       logger.error('[Redis] Client error:', err);

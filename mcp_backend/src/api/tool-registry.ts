@@ -36,6 +36,11 @@ const TOOL_TIMEOUT_OVERRIDES: Record<string, number> = {
   search_court_decisions: 120_000,
   get_case_documents_chain: 120_000,
   edrsr_court_decisions_by_court: 90_000,
+  // Semantic candidate retrieval (qdrant/HNSW) + a "standard" LLM holding-classification
+  // call, with a keyword-FTS fallback. Intermittent qdrant/Bedrock latency can push the
+  // happy path past 60s; matches the other heavy search tools above.
+  compare_practice_pro_contra: 120_000,
+  find_similar_fact_pattern_cases: 120_000,
   edrsr_get_decision_dispositive: 15_000,
   build_legal_decision: 120_000,
   search_public_spending: 120_000,
@@ -242,9 +247,10 @@ export class ToolRegistry {
     // Backend tool routes are created dynamically by registerHandler().
     // Only remote (proxy) tools need hardcoded routes.
 
-    // ========== RADA Tools (4 tools) - Prefix 'rada_', HTTP proxy ==========
+    // ========== RADA Tools (5 tools) - Prefix 'rada_', HTTP proxy ==========
     const radaTools = [
       { clientName: 'rada_search_parliament_bills', serviceName: 'search_parliament_bills' },
+      { clientName: 'rada_search_bill_documents', serviceName: 'search_bill_documents' },
       { clientName: 'rada_get_deputy_info', serviceName: 'get_deputy_info' },
       { clientName: 'rada_search_legislation_text', serviceName: 'search_legislation_text' },
       { clientName: 'rada_analyze_voting_record', serviceName: 'analyze_voting_record' },
@@ -289,6 +295,8 @@ export class ToolRegistry {
       { clientName: 'openreyestr_search_arma_seized_assets', serviceName: 'search_arma_seized_assets' },
       { clientName: 'openreyestr_search_nazk_declarations', serviceName: 'search_nazk_declarations' },
       { clientName: 'openreyestr_search_exchange_data', serviceName: 'search_exchange_data' },
+      { clientName: 'openreyestr_search_me_datasets', serviceName: 'search_me_datasets' },
+      { clientName: 'openreyestr_search_me_records', serviceName: 'search_me_records' },
     ];
 
     for (const tool of openreyestrTools) {

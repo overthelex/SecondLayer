@@ -35,7 +35,18 @@ from psycopg2.extras import execute_values
 DB_DSN = os.environ.get("DATABASE_URL", "postgresql://secondlayer:local_dev_password@localhost:5432/secondlayer_local")
 
 def get_conn():
-    return psycopg2.connect(DB_DSN)
+    conn = psycopg2.connect(DB_DSN)
+    # Batch workload on a busy shared box: a worker's server-side cursor can sit
+    # idle-in-transaction (CPU-bound extraction between fetches) long enough to
+    # trip the server's idle_in_transaction_session_timeout, and a huge OFFSET
+    # scan can trip statement_timeout. Either kills the worker connection mid-run
+    # and (without retry) takes the whole multi-hour run down. This data is fully
+    # reproducible from edrsr_fulltext, so disabling both for our sessions is safe.
+    with conn.cursor() as c:
+        c.execute("SET idle_in_transaction_session_timeout = 0")
+        c.execute("SET statement_timeout = 0")
+    conn.commit()
+    return conn
 
 # ── Citation patterns ────────────────────────────────────────
 
@@ -56,6 +67,22 @@ PATTERNS = {
         r'([\d,\s\-]{1,50}))\s+'
         r'(ЦК|КК|ГК|ГПК|КПК|КАС|ЦПК|КЗпП|СК|ЗК|ПК|МК|БК|ВК|ЛК|ЖК|КУпАП|КАСУ)'
         r'(?:\s+України)?',
+        re.IGNORECASE | re.UNICODE
+    ),
+    # Transitional provisions of the Tax Code (LEXAI-1817): «підпункту 38.6 пункту 38
+    # підрозділу 10 розділу ХХ «Перехідні положення» ПК України», «п.п. 69.22 п. 69
+    # підрозд. 10 розд. XX ПКУ», «пункту 38.6. Підрозділу «Інших Перехідних положень»
+    # Податкового Кодексу України». Anchored on «підрозділ» + (розділ XX | «Перехідн…»)
+    # so ordinary article sub-points (пп. 14.1.235 … статті 14) never match. NB розділ
+    # number appears both as Latin XX and Cyrillic ХХ in EDRSR texts.
+    "transitional_provision": re.compile(
+        r'(?:підпункт[а-яїіє]{0,3}|пункт[а-яїіє]{0,3}|п\.\s?п\.|пп\.|п\.)\s*'
+        r'(\d{1,3}(?:[.\-]\d{1,3}){1,2})\.?'                       # dotted point: 38.6 / 69.22 / 38.6.1
+        r'(?:\s+(?:пункт[а-яїіє]{0,3}|п\.)\s*\d{1,3})?'            # optional parent «пункту 38»
+        r'\s+підрозд(?:іл[а-яїіє]{0,3}|\.)'
+        r'(?:\s*(\d{1,2}))?'                                        # optional підрозділ number
+        r'(?:\s+розд(?:іл[а-яїіє]{0,3}|\.)\s*[XХxх]{2}(?![XХxх])'  # anchor A: розділ XX (Latin/Cyrillic)
+        r'|[^.\n]{0,40}?Перехідн)',                                 # anchor B: named «…Перехідн…» subdivision
         re.IGNORECASE | re.UNICODE
     ),
     # Constitution: "стаття 124 Конституції України"
@@ -207,8 +234,8 @@ MAX_TEXT_LEN = 10_000
 
 def extract_citations_from_text(doc_id: int, text: str) -> list[Citation]:
     citations = []
-    if len(text) > MAX_TEXT_LEN:
-        text = text[:MAX_TEXT_LEN]
+    if len(text) > _MAX_TEXT_LEN:
+        text = text[:_MAX_TEXT_LEN]
 
     for m in PATTERNS["law_article"].finditer(text):
         articles_raw = m.group(1)
@@ -227,6 +254,18 @@ def extract_citations_from_text(doc_id: int, text: str) -> list[Citation]:
         articles_raw = m.group(1)
         for art in parse_article_numbers(articles_raw):
             citations.append(Citation(doc_id, "constitution", "Конституція України", art, m.group(0)[:200]))
+
+    # Transitional provisions (LEXAI-1817): dotted point numbers must NOT go through
+    # parse_article_numbers (it drops non-integer tokens and range-expands dashes).
+    # LEXAI-1818: keep the point EXACTLY as written — dash-numbered пункти (16-1
+    # військовий збір, 52-1 covid) are a DIFFERENT numbering space from dotted
+    # subpoints (38.6); normalising '-' to '.' collided with main-body point numbering
+    # (16.1 = ст.16 п.16.1) and bound the wrong article. Disambiguation of sloppy court
+    # renderings is the RESOLVER's job (dash→dotted fallback when no dash target exists).
+    for m in PATTERNS["transitional_provision"].finditer(text):
+        point = m.group(1).rstrip(".")
+        citations.append(Citation(
+            doc_id, "transitional_provision", "Податковий кодекс України", point, m.group(0)[:200]))
 
     for m in PATTERNS["case_reference"].finditer(text):
         citations.append(Citation(doc_id, "case_reference", m.group(1), "", m.group(0)[:200]))
@@ -253,9 +292,15 @@ _CASE_TABLE = "case_citation_edges"
 _BULK_LOAD = False
 # Skip the per-year justice_kind enrich UPDATE (defer it to a single end-of-run pass).
 _NO_ENRICH = False
+# Targeted mode (LEXAI-1817): restrict scanned rows to tsv @@ to_tsquery('simple', _TSQUERY).
+# Lets a backfill touch only candidate docs (e.g. '38.6 | 69.22') instead of the whole corpus.
+_TSQUERY = None
+# Effective per-doc scan window; --max-text-len can raise it for targeted backfills
+# where the citation may sit deep in a long decision.
+_MAX_TEXT_LEN = MAX_TEXT_LEN
 
 # case_reference is routed to the separate decision->case edge table, not the statute table
-_STATUTE_TYPES = {"law_article", "codex_article", "constitution", "law_by_number", "supreme_court_ruling"}
+_STATUTE_TYPES = {"law_article", "codex_article", "constitution", "law_by_number", "supreme_court_ruling", "transitional_provision"}
 
 def _check_partitions():
     global _USE_PARTITIONS
@@ -283,18 +328,25 @@ def process_chunk(args: tuple) -> dict:
     # Partitions carry justice_kind per row, so filter/select directly off the partition (no join needed).
     if _check_partitions():
         table = f"edrsr_fulltext_p_{year}"
-        where = "WHERE justice_kind = %s " if _JUSTICE_KIND_FILTER is not None else ""
-        params = ([_JUSTICE_KIND_FILTER] if _JUSTICE_KIND_FILTER is not None else []) + [offset, chunk_size]
+        conds, params = [], []
+        if _JUSTICE_KIND_FILTER is not None:
+            conds.append("justice_kind = %s"); params.append(_JUSTICE_KIND_FILTER)
+        if _TSQUERY is not None:
+            conds.append("tsv @@ to_tsquery('simple', %s)"); params.append(_TSQUERY)
+        where = f"WHERE {' AND '.join(conds)} " if conds else ""
         cur.execute(
             f"SELECT doc_id, full_text, justice_kind FROM {table} {where}OFFSET %s LIMIT %s",
-            tuple(params),
+            tuple(params + [offset, chunk_size]),
         )
     else:
-        where = "AND justice_kind = %s " if _JUSTICE_KIND_FILTER is not None else ""
-        params = [year] + ([_JUSTICE_KIND_FILTER] if _JUSTICE_KIND_FILTER is not None else []) + [offset, chunk_size]
+        conds, params = ["adj_year = %s"], [year]
+        if _JUSTICE_KIND_FILTER is not None:
+            conds.append("justice_kind = %s"); params.append(_JUSTICE_KIND_FILTER)
+        if _TSQUERY is not None:
+            conds.append("tsv @@ to_tsquery('simple', %s)"); params.append(_TSQUERY)
         cur.execute(
-            f"SELECT doc_id, full_text, justice_kind FROM edrsr_fulltext WHERE adj_year = %s {where}OFFSET %s LIMIT %s",
-            tuple(params),
+            f"SELECT doc_id, full_text, justice_kind FROM edrsr_fulltext WHERE {' AND '.join(conds)} OFFSET %s LIMIT %s",
+            tuple(params + [offset, chunk_size]),
         )
 
     statute_data = []   # (doc_id, citation_type, law_ref, article_ref, raw_match, justice_kind)
@@ -398,15 +450,20 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
     cur = conn.cursor()
     if _check_partitions():
         table = f"edrsr_fulltext_p_{year}"
+        conds, params = [], []
         if _JUSTICE_KIND_FILTER is not None:
-            cur.execute(f"SELECT COUNT(*) FROM {table} WHERE justice_kind = %s", (_JUSTICE_KIND_FILTER,))
-        else:
-            cur.execute(f"SELECT COUNT(*) FROM {table}")
+            conds.append("justice_kind = %s"); params.append(_JUSTICE_KIND_FILTER)
+        if _TSQUERY is not None:
+            conds.append("tsv @@ to_tsquery('simple', %s)"); params.append(_TSQUERY)
+        where = f" WHERE {' AND '.join(conds)}" if conds else ""
+        cur.execute(f"SELECT COUNT(*) FROM {table}{where}", tuple(params))
     else:
+        conds, params = ["adj_year = %s"], [year]
         if _JUSTICE_KIND_FILTER is not None:
-            cur.execute("SELECT COUNT(*) FROM edrsr_fulltext WHERE adj_year = %s AND justice_kind = %s", (year, _JUSTICE_KIND_FILTER))
-        else:
-            cur.execute("SELECT COUNT(*) FROM edrsr_fulltext WHERE adj_year = %s", (year,))
+            conds.append("justice_kind = %s"); params.append(_JUSTICE_KIND_FILTER)
+        if _TSQUERY is not None:
+            conds.append("tsv @@ to_tsquery('simple', %s)"); params.append(_TSQUERY)
+        cur.execute(f"SELECT COUNT(*) FROM edrsr_fulltext WHERE {' AND '.join(conds)}", tuple(params))
     total = cur.fetchone()[0]
     cur.close()
     conn.close()
@@ -422,20 +479,42 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
     chunks = [(year, offset, chunk_size, dry_run) for offset in range(0, total, chunk_size)]
     print(f"  Year {year}: {total:,} rows, {len(chunks)} chunks, {workers} workers")
 
+    def _accumulate(result):
+        stats.rows_processed += result["rows"]
+        stats.citations_found += result["citations"]
+        for k, v in result["type_counts"].items():
+            stats.by_type[k] += v
+
+    failed = []
     with ProcessPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(process_chunk, c): c for c in chunks}
 
         for i, future in enumerate(as_completed(futures)):
-            result = future.result()
-            stats.rows_processed += result["rows"]
-            stats.citations_found += result["citations"]
-            for k, v in result["type_counts"].items():
-                stats.by_type[k] += v
+            # A single chunk losing its DB connection must NOT kill the whole
+            # multi-hour run. Queue it for a serial retry pass instead.
+            try:
+                result = future.result()
+            except Exception as e:
+                ch = futures[future]
+                print(f"    ! chunk offset={ch[1]} failed ({type(e).__name__}: {e}); queued for retry")
+                failed.append(ch)
+                continue
+            _accumulate(result)
 
             if (i + 1) % 10 == 0 or i == len(futures) - 1:
                 elapsed = time.time() - t0
                 rate = stats.rows_processed / elapsed if elapsed > 0 else 0
                 print(f"    [{i+1}/{len(chunks)}] {stats.rows_processed:,} rows, {stats.citations_found:,} citations, {rate:,.0f} rows/sec")
+
+    # Serial retry pass for any chunks whose worker connection dropped. Re-running
+    # a chunk under --bulk-load may re-insert rows it partially wrote; that is
+    # harmless because finalize dedups via DISTINCT ON the unique key.
+    for ch in failed:
+        try:
+            _accumulate(process_chunk(ch))
+            print(f"    ✓ retry ok offset={ch[1]}")
+        except Exception as e:
+            print(f"    ✗ chunk offset={ch[1]} PERMANENTLY failed ({type(e).__name__}: {e})")
 
     if not dry_run and not _NO_ENRICH:
         enrich_justice_kind(year)
@@ -458,17 +537,21 @@ def main():
     parser.add_argument("--limit", type=int, default=None, help="Cap rows processed per year (for piloting)")
     parser.add_argument("--bulk-load", action="store_true", help="Plain INSERT, no ON CONFLICT (deferred index: target tables must have NO unique index; dedup+index built afterwards)")
     parser.add_argument("--no-enrich", action="store_true", help="Skip per-year justice_kind enrich UPDATE (defer to a single end-of-run pass)")
+    parser.add_argument("--tsquery", type=str, default=None, help="Targeted mode: only rows matching to_tsquery('simple', TSQUERY), e.g. '38.6 | 69.22' (LEXAI-1817)")
+    parser.add_argument("--max-text-len", type=int, default=MAX_TEXT_LEN, help=f"Per-doc scan window in chars (default {MAX_TEXT_LEN}); raise for targeted backfills")
     args = parser.parse_args()
 
     if not args.year and not args.all:
         parser.error("Specify --year YYYY or --all")
 
-    global _JUSTICE_KIND_FILTER, _TARGET_TABLE, _CASE_TABLE, _BULK_LOAD, _NO_ENRICH
+    global _JUSTICE_KIND_FILTER, _TARGET_TABLE, _CASE_TABLE, _BULK_LOAD, _NO_ENRICH, _TSQUERY, _MAX_TEXT_LEN
     _JUSTICE_KIND_FILTER = args.justice_kind
     _TARGET_TABLE = args.target_table
     _CASE_TABLE = args.case_table
     _BULK_LOAD = args.bulk_load
     _NO_ENRICH = args.no_enrich
+    _TSQUERY = args.tsquery
+    _MAX_TEXT_LEN = args.max_text_len
 
     years = list(range(args.years_from, args.years_to + 1)) if args.all else [args.year]
 

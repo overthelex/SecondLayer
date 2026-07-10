@@ -163,8 +163,14 @@ export function createAppServices(
     coreServices.db,
     coreServices.documentService
   );
-  uploadQueueService.startWorker();
-  logger.info('BullMQ upload queue service initialized');
+  // Consume the (Redis/BullMQ) upload queue on the scheduler instance only; web replicas
+  // still enqueue jobs but don't process them (heavy OCR/doc work stays off web) (LEXAI-1802).
+  if (process.env.RUN_SCHEDULER !== 'false') {
+    uploadQueueService.startWorker();
+    logger.info('BullMQ upload queue worker started (scheduler instance)');
+  } else {
+    logger.info('BullMQ upload queue service initialized (worker disabled: RUN_SCHEDULER=false)');
+  }
 
   // Prometheus metrics service + wiring
   const metricsService = new MetricsService();
@@ -198,6 +204,26 @@ export function createAppServices(
   // Wire ChatService tool group metrics
   chatService.setToolGroupMetricsCallback((groups) => {
     metricsService.chatToolGroupRequests.inc({ groups });
+  });
+
+  // V3 chat telemetry (CORE-55): grounding quality + tool-thrashing per request.
+  chatService.setChatTelemetryCallback((t) => {
+    const qt = t.queryType || 'unknown';
+    metricsService.chatGroundingScore.observe({ query_type: qt }, t.groundingScore);
+    metricsService.chatAgenticIterations.observe({ query_type: qt }, t.iterations);
+    metricsService.chatToolCallsPerRequest.observe({ query_type: qt }, t.toolCalls);
+    metricsService.chatToolRepeatMax.observe({ query_type: qt }, t.toolRepeatMax);
+    for (const [k, v] of Object.entries(t.signals)) {
+      if (v > 0) metricsService.chatGroundingSignals.inc({ signal_type: k }, v);
+    }
+    const repeatHits = t.capHits?.repeat ?? 0;
+    const totalHits = t.capHits?.total ?? 0;
+    if (repeatHits > 0) metricsService.chatCapHits.inc({ kind: 'repeat' }, repeatHits);
+    if (totalHits > 0) metricsService.chatCapHits.inc({ kind: 'total' }, totalHits);
+    // Once-per-request cap-hit flags → true share of truncated requests.
+    if (repeatHits > 0) metricsService.chatCapHitRequests.inc({ kind: 'repeat' });
+    if (totalHits > 0) metricsService.chatCapHitRequests.inc({ kind: 'total' });
+    if (repeatHits > 0 || totalHits > 0) metricsService.chatCapHitRequests.inc({ kind: 'any' });
   });
 
   logger.info('Prometheus metrics service initialized');

@@ -10,11 +10,13 @@
 export type MatchType =
   | 'ilike'          // col ILIKE $N  (%val%)
   | 'exact'          // col = $N
+  | 'exact_ci'       // col ILIKE $N  (val verbatim, no wildcards) — case-insensitive exact match for categorical enums
   | 'ilike_multi'    // (col1 ILIKE $N OR col2 ILIKE $N ...)  (%val%)
   | 'exact_multi'    // (col1 = $N OR col2 = $N ...)
   | 'gte'            // col >= $N
   | 'lte'            // col <= $N
   | 'array_contains' // $N = ANY(col)         — col is an array column, val is scalar
+  | 'array_contains_text' // $N::text = ANY(col) — text[] array column, val cast to text (LLM may send a number)
   | 'eq_any'         // col = ANY($N)          — col is scalar, val is an array of allowed values
   | 'ilike_cast'     // col::text ILIKE $N  (%val%)
   | 'fts'            // to_tsvector('english', col) @@ plainto_tsquery('english', $N)
