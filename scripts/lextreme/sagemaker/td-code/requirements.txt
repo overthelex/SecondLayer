@@ -1,5 +1,5 @@
 # Do NOT include torch -- use the version pre-installed in the SageMaker image (CUDA-compatible)
-transformers>=4.36.0,<4.52.0
+transformers>=5.5.0  # CVE-2026-5241: patched in 5.5.0 (LightGlue RCE, GHSA-fgcw-684q-jj6r)
 accelerate>=1.0.0
 datasets>=2.14.0
 numpy>=1.26.0
