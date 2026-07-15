@@ -249,4 +249,53 @@ describe('CitationGraphService', () => {
       expect(mockDriverClose).toHaveBeenCalled();
     });
   });
+
+  // The driver is mocked, so nothing here can catch a query that is valid Cypher but
+  // reads properties the loaded graph does not have — which is exactly how the
+  // Article.article_number / Law.title mismatch shipped and returned "null ст.null"
+  // in prod. These assert the query text against the schema documented at the top of
+  // citation-graph-service.ts; if the graph is reloaded under different property
+  // names, update both together.
+  describe('Cypher matches the loaded graph schema', () => {
+    const cypherOf = (call: number) => mockRun.mock.calls[call][0] as string;
+
+    it('reads Article.law_article and Law.law_number, never the pre-rebuild names', async () => {
+      mockRun.mockResolvedValue({ records: [] });
+      const svc = new CitationGraphService();
+
+      await svc.getDecisionCitations('1');
+      await svc.getArticleStats('ЦПК України', '175');
+      await svc.getArticleCitedBy('ЦПК України', '175');
+      await svc.getCocitedArticles('ЦПК України', '175');
+
+      const queries = mockRun.mock.calls.map((c) => c[0] as string);
+      expect(queries.length).toBeGreaterThan(0);
+      for (const q of queries) {
+        expect(q).not.toMatch(/\barticle_number\b/);
+        expect(q).not.toMatch(/\.title\b/);
+        expect(q).not.toMatch(/Law\s*\{\s*title\s*:/);
+      }
+    });
+
+    it('projects the law name and article number through the OF_LAW hop', async () => {
+      mockRun.mockResolvedValue({ records: [] });
+      await new CitationGraphService().getDecisionCitations('1');
+
+      const q = cypherOf(0);
+      expect(q).toContain('l.law_number AS law');
+      expect(q).toContain('a.law_article AS article');
+      expect(q).toContain('[:OF_LAW]->(l:Law)');
+    });
+
+    it('keys the article lookup by law_number/law_article', async () => {
+      mockRun.mockResolvedValue({ records: [] });
+      await new CitationGraphService().getArticleCitedBy('ЦПК України', '175');
+
+      // list + count queries both traverse Law <- Article
+      for (const q of mockRun.mock.calls.map((c) => c[0] as string)) {
+        expect(q).toContain('Law {law_number: $law}');
+        expect(q).toContain('Article {law_article: $article}');
+      }
+    });
+  });
 });
