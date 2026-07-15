@@ -92,6 +92,21 @@ INSERT INTO edrsr_documents (doc_id, court_code, judgment_code, justice_kind, ca
   SELECT doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ
   FROM edrsr_import ei
   ON CONFLICT DO NOTHING;
+-- Backfill doc_url on rows we already have. data.gov.ua publishes a decision first
+-- with an empty doc_url and fills it in a later re-publication of the same doc_id,
+-- so ON CONFLICT DO NOTHING alone discards every URL that arrives after first sight
+-- and the row stays URL-less forever — which silently starves the fulltext scraper
+-- (it only fetches docs that have a doc_url). Observed 2026-07-15: 2,356,007 of
+-- 5,018,483 2026 rows had no URL while the dump carried one for 98% of them.
+-- Only ever fills a blank; never overwrites a URL we already hold. Matching on
+-- adjudication_date as well as doc_id keeps this a partition-wise join.
+UPDATE edrsr_documents d
+  SET doc_url = ei.doc_url
+  FROM edrsr_import ei
+  WHERE d.doc_id = ei.doc_id
+    AND d.adjudication_date = ei.adjudication_date
+    AND (d.doc_url IS NULL OR d.doc_url = '')
+    AND coalesce(ei.doc_url, '') <> '';
 DROP TABLE edrsr_import;
 SQLEOF
     docker exec "$PG_DOCKER_CONTAINER" rm -f /tmp/import.csv
@@ -125,6 +140,21 @@ INSERT INTO edrsr_documents (doc_id, court_code, judgment_code, justice_kind, ca
   SELECT doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ
   FROM edrsr_import ei
   ON CONFLICT DO NOTHING;
+-- Backfill doc_url on rows we already have. data.gov.ua publishes a decision first
+-- with an empty doc_url and fills it in a later re-publication of the same doc_id,
+-- so ON CONFLICT DO NOTHING alone discards every URL that arrives after first sight
+-- and the row stays URL-less forever — which silently starves the fulltext scraper
+-- (it only fetches docs that have a doc_url). Observed 2026-07-15: 2,356,007 of
+-- 5,018,483 2026 rows had no URL while the dump carried one for 98% of them.
+-- Only ever fills a blank; never overwrites a URL we already hold. Matching on
+-- adjudication_date as well as doc_id keeps this a partition-wise join.
+UPDATE edrsr_documents d
+  SET doc_url = ei.doc_url
+  FROM edrsr_import ei
+  WHERE d.doc_id = ei.doc_id
+    AND d.adjudication_date = ei.adjudication_date
+    AND (d.doc_url IS NULL OR d.doc_url = '')
+    AND coalesce(ei.doc_url, '') <> '';
 DROP TABLE edrsr_import;
 SQLEOF
     ssh -T "$SSH_HOST" "docker cp ${sql_file} secondlayer-postgres-prod:/tmp/import.sql && rm -f ${sql_file}"
@@ -139,6 +169,21 @@ INSERT INTO edrsr_documents (doc_id, court_code, judgment_code, justice_kind, ca
   SELECT doc_id, court_code, judgment_code, justice_kind, category_code, cause_num, adjudication_date, receipt_date, judge, doc_url, status, date_publ
   FROM edrsr_import ei
   ON CONFLICT DO NOTHING;
+-- Backfill doc_url on rows we already have. data.gov.ua publishes a decision first
+-- with an empty doc_url and fills it in a later re-publication of the same doc_id,
+-- so ON CONFLICT DO NOTHING alone discards every URL that arrives after first sight
+-- and the row stays URL-less forever — which silently starves the fulltext scraper
+-- (it only fetches docs that have a doc_url). Observed 2026-07-15: 2,356,007 of
+-- 5,018,483 2026 rows had no URL while the dump carried one for 98% of them.
+-- Only ever fills a blank; never overwrites a URL we already hold. Matching on
+-- adjudication_date as well as doc_id keeps this a partition-wise join.
+UPDATE edrsr_documents d
+  SET doc_url = ei.doc_url
+  FROM edrsr_import ei
+  WHERE d.doc_id = ei.doc_id
+    AND d.adjudication_date = ei.adjudication_date
+    AND (d.doc_url IS NULL OR d.doc_url = '')
+    AND coalesce(ei.doc_url, '') <> '';
 DROP TABLE edrsr_import;
 SQLEOF
   fi
