@@ -4,12 +4,14 @@
  * Neo4j-backed citation graph for EDRSR court decisions.
  *
  * Graph model (loaded via neo4j-admin import, see LEXAI-1770).
- * RESOLVED id-keyed schema (rebuilt from legislation_citation_links — canonical
- * legislation_id/article_number, no phantom articles, no case-number junk):
+ * Schema as actually loaded by the Brev rebuild:
  *   (:Decision {doc_id})-[:CITES_ARTICLE {citation_type, citation_context}]->(:Article)
- *   (:Article {art_id, legislation_id, article_number, title, total_citations, unique_decisions})-[:OF_LAW]->(:Law {legislation_id, title, short_title})
- * The human-readable law name comes from (:Law).title, reached via the OF_LAW hop.
- * (COCITED was dropped in the resolved rebuild; getCocitedArticles degrades to empty.)
+ *   (:Article {art_id, law_number, law_article, total_citations, unique_decisions})-[:OF_LAW]->(:Law {law_number})
+ * The human-readable law name comes from (:Law).law_number, reached via the OF_LAW hop.
+ * That property is overloaded: usually a title ("Господарський процесуальний кодекс
+ * України"), sometimes a bare date or a "№1961 від 01.07.2004" form — so it is a
+ * display value, not a canonical key.
+ * (COCITED was dropped in the rebuild; getCocitedArticles degrades to empty.)
  *
  * Gated behind the CITATION_BACKEND feature flag (postgres | neo4j). When set to
  * `neo4j`, isEnabled() returns true and the driver connects to NEO4J_URI. The
@@ -189,7 +191,7 @@ export class CitationGraphService {
   async getDecisionCitations(docId: string | number, limit = 200): Promise<ArticleCitation[]> {
     return this.run(
       `MATCH (d:Decision {doc_id: $docId})-[c:CITES_ARTICLE]->(a:Article)-[:OF_LAW]->(l:Law)
-       RETURN l.title AS law, a.article_number AS article,
+       RETURN l.law_number AS law, a.law_article AS article,
               c.citation_type AS ct, c.citation_context AS ctx
        LIMIT $limit`,
       { docId: String(docId), limit: neo4j.int(limit) },
@@ -213,7 +215,7 @@ export class CitationGraphService {
     const [articles, countRows] = await Promise.all([
       this.run(
         `MATCH (d:Decision {doc_id: $docId})-[c:CITES_ARTICLE]->(a:Article)-[:OF_LAW]->(l:Law)
-         RETURN l.title AS law, a.article_number AS article,
+         RETURN l.law_number AS law, a.law_article AS article,
                 c.citation_type AS ct, a.total_citations AS pop
          ORDER BY coalesce(a.total_citations, 0) DESC
          LIMIT $limit`,
@@ -242,13 +244,13 @@ export class CitationGraphService {
   ): Promise<{ count: number; decisions: string[] }> {
     const [decisions, countRows] = await Promise.all([
       this.run(
-        `MATCH (:Law {title: $law})<-[:OF_LAW]-(a:Article {article_number: $article})<-[:CITES_ARTICLE]-(d:Decision)
+        `MATCH (:Law {law_number: $law})<-[:OF_LAW]-(a:Article {law_article: $article})<-[:CITES_ARTICLE]-(d:Decision)
          RETURN d.doc_id AS docId LIMIT $limit`,
         { law, article, limit: neo4j.int(limit) },
         (r) => r.get('docId') as string
       ),
       this.run(
-        `MATCH (:Law {title: $law})<-[:OF_LAW]-(a:Article {article_number: $article})<-[c:CITES_ARTICLE]-()
+        `MATCH (:Law {law_number: $law})<-[:OF_LAW]-(a:Article {law_article: $article})<-[c:CITES_ARTICLE]-()
          RETURN count(c) AS c`,
         { law, article },
         (r) => toNum(r.get('c'))
@@ -260,8 +262,8 @@ export class CitationGraphService {
   /** Precomputed citation stats for an article (from the Article node). */
   async getArticleStats(law: string, article: string): Promise<CitedArticleStat | null> {
     const rows = await this.run(
-      `MATCH (l:Law {title: $law})<-[:OF_LAW]-(a:Article {article_number: $article})
-       RETURN l.title AS law, a.article_number AS article,
+      `MATCH (l:Law {law_number: $law})<-[:OF_LAW]-(a:Article {law_article: $article})
+       RETURN l.law_number AS law, a.law_article AS article,
               a.total_citations AS tc, a.unique_decisions AS ud
        LIMIT 1`,
       { law, article },
@@ -336,8 +338,8 @@ export class CitationGraphService {
    */
   async getCocitedArticles(law: string, article: string, limit = 20): Promise<CocitedArticle[]> {
     return this.run(
-      `MATCH (:Law {title: $law})<-[:OF_LAW]-(a:Article {article_number: $article})-[co:COCITED]-(b:Article)-[:OF_LAW]->(bl:Law)
-       RETURN bl.title AS law, b.article_number AS article, co.weight AS weight
+      `MATCH (:Law {law_number: $law})<-[:OF_LAW]-(a:Article {law_article: $article})-[co:COCITED]-(b:Article)-[:OF_LAW]->(bl:Law)
+       RETURN bl.law_number AS law, b.law_article AS article, co.weight AS weight
        ORDER BY co.weight DESC
        LIMIT $limit`,
       { law, article, limit: neo4j.int(limit) },
