@@ -118,7 +118,10 @@ export async function importCsv(
   let savedIndexes: IndexDef[] = [];
   if (isHuge) {
     console.log(`  TRUNCATE ${config.tableName}...`);
-    await pool.query(`TRUNCATE ${config.tableName}`);
+    // RESTART IDENTITY bounds sequence growth to a single run. Without it each
+    // daily reimport permanently consumed ~N sequence values and the id
+    // sequence eventually overflowed its type (see migration 017).
+    await pool.query(`TRUNCATE ${config.tableName} RESTART IDENTITY`);
     savedIndexes = await dropIndexes(pool, config.tableName);
 
     // Disable autovacuum during bulk load
@@ -253,6 +256,16 @@ export async function importCsv(
 
   const elapsed = (Date.now() - start) / 1000;
   console.log(`\n  CSV import complete: ${totalRows} rows, ${totalImported} imported, ${totalErrors} errors (${elapsed.toFixed(1)}s)`);
+
+  // Batch failures are swallowed per-batch so one bad batch can't abort the run.
+  // But a huge import that read rows and inserted none has already TRUNCATEd the
+  // table, so "success" here would leave the registry empty and report OK.
+  if (isHuge && totalRows > 0 && totalImported === 0) {
+    throw new Error(
+      `${config.name}: read ${totalRows} rows but imported 0 (${totalErrors} errors) — ` +
+      `table was truncated and is now empty. Refusing to report success.`
+    );
+  }
 
   return { registry: config.name, imported: totalImported, errors: totalErrors, elapsed, totalRows };
 }
