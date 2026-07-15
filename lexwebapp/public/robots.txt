@@ -56,5 +56,6 @@ Disallow: /legislation/*
 Disallow: /analysis/*
 Disallow: /decisions
 Disallow: /case-analysis
+Disallow: /partner-onepager.html
 
 Sitemap: https://legal.org.ua/sitemap.xml
