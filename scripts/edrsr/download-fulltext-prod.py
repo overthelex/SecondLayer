@@ -25,6 +25,7 @@ import sys
 import time
 from pathlib import Path
 from collections import defaultdict
+from multiprocessing import Pool
 
 # ── Config ──
 # Prod ENI secondary private IPs, each with its own EIP. Verified 2026-07-15:
@@ -294,8 +295,18 @@ async def download_all(items, threads_per_ip):
     return stats
 
 
+def _convert_one(doc_id):
+    """Pool worker: RTF file → (doc_id, text), or None if it yielded nothing.
+
+    Reads RTF_DIR as a module global — set in main() before the Pool is created, so
+    fork start method carries it into the children.
+    """
+    text = rtf_to_text(RTF_DIR / f"{doc_id}.rtf")
+    return (doc_id, text) if text else None
+
+
 # ── Import to DB ──
-def import_to_db(date_from, date_to, batch_size=2000):
+def import_to_db(date_from, date_to, batch_size=2000, workers=None):
     print("[3/4] Importing RTFs to edrsr_fulltext...", flush=True)
 
     downloaded = set()
@@ -325,25 +336,27 @@ def import_to_db(date_from, date_to, batch_size=2000):
     total_batches = (len(to_import) + batch_size - 1) // batch_size
     start = time.time()
 
-    for batch_idx in range(total_batches):
-        batch_start = batch_idx * batch_size
-        batch_ids = to_import[batch_start: batch_start + batch_size]
+    # RTF→text is pure CPU and by far the slower half of the import (measured at
+    # 77 docs/s serial, with the parser pegging one core and the box's other 7 idle),
+    # so fan it out. The COPY stays serial — one writer keeps the GIN index churn on
+    # edrsr_fulltext predictable while prod is serving live traffic.
+    with Pool(processes=workers) as pool:
+        for batch_idx in range(total_batches):
+            batch_start = batch_idx * batch_size
+            batch_ids = to_import[batch_start: batch_start + batch_size]
 
-        rows = []
-        for doc_id in batch_ids:
-            filepath = RTF_DIR / f"{doc_id}.rtf"
-            text = rtf_to_text(filepath)
-            if text:
-                rows.append((doc_id, text))
+            rows = [r for r in pool.map(_convert_one, batch_ids, chunksize=32) if r]
 
-        if rows:
-            if psql_copy_rows(rows, date_from, date_to):
-                total_imported += len(rows)
+            if rows:
+                if psql_copy_rows(rows, date_from, date_to):
+                    total_imported += len(rows)
 
-        if (batch_idx + 1) % 10 == 0 or batch_idx == total_batches - 1:
-            elapsed = time.time() - start
-            rate = total_imported / elapsed if elapsed > 0 else 0
-            print(f"  Batch {batch_idx + 1}/{total_batches}: {total_imported} imported, {rate:.0f}/s", flush=True)
+            if (batch_idx + 1) % 10 == 0 or batch_idx == total_batches - 1:
+                elapsed = time.time() - start
+                rate = total_imported / elapsed if elapsed > 0 else 0
+                eta = (len(to_import) - total_imported) / rate if rate > 0 else 0
+                print(f"  Batch {batch_idx + 1}/{total_batches}: {total_imported} imported, "
+                      f"{rate:.0f}/s | ETA {eta/60:.0f}m", flush=True)
 
     print(f"  Import complete: {total_imported} records", flush=True)
 
@@ -386,6 +399,8 @@ def main():
     parser.add_argument('--skip-download', action='store_true', help='Skip RTF download, only import to DB')
     parser.add_argument('--threads', type=int, default=THREADS_PER_IP, help='Threads per IP (default 5)')
     parser.add_argument('--batch', type=int, default=2000, help='DB import batch size')
+    parser.add_argument('--workers', type=int, default=max(1, (os.cpu_count() or 2) - 1),
+                        help='CPU workers for RTF→text parsing (default: cores-1)')
     args = parser.parse_args()
 
     for d in (args.date_from, args.date_to):
@@ -406,6 +421,7 @@ def main():
     print(f"  ЄДРСР Fulltext — PROD multi-IP download", flush=True)
     print(f"  Range: {args.date_from} .. {args.date_to} (adjudication_date)", flush=True)
     print(f"  IPs: {len(SOURCE_IPS)} × {threads_per_ip} threads = {total_workers} workers", flush=True)
+    print(f"  RTF parse workers: {args.workers}", flush=True)
     print(f"  RTF dir: {RTF_DIR}", flush=True)
     print("=" * 60, flush=True)
 
@@ -445,7 +461,7 @@ def main():
     else:
         print("[1-2/4] Skipped download", flush=True)
 
-    import_to_db(args.date_from, args.date_to, args.batch)
+    import_to_db(args.date_from, args.date_to, args.batch, args.workers)
     verify(args.date_from, args.date_to)
     print("\n=== Done! ===", flush=True)
 
