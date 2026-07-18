@@ -135,11 +135,18 @@ async function extractOdt(buf: Buffer): Promise<string | null> {
     const entry = new AdmZip(buf).getEntry('content.xml');
     if (!entry) return null;
     const xml = entry.getData().toString('utf8');
-    const text = xml
+    let stripped = xml
       .replace(/<\/text:(?:p|h)>/g, '\n')     // paragraph/heading breaks
       .replace(/<text:tab\/?>/g, '\t')
-      .replace(/<text:line-break\/?>/g, '\n')
-      .replace(/<[^>]+>/g, '')                 // drop remaining tags
+      .replace(/<text:line-break\/?>/g, '\n');
+    // Drop remaining tags, looping until stable so overlapping constructs
+    // (e.g. `<<a>a>`) cannot reconstitute a tag after a single pass.
+    let prev: string;
+    do {
+      prev = stripped;
+      stripped = stripped.replace(/<[^>]+>/g, '');
+    } while (stripped !== prev);
+    const text = stripped
       .replace(/&apos;/g, "'").replace(/&quot;/g, '"')
       .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&')
       .replace(/[ \t]+\n/g, '\n')
