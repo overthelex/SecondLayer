@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
+  "overrides": {
+    "ws": "^8.21.0"
+  },
   "scripts": {
     "dev": "npx vite",
     "build": "tsc --noEmit && npx vite build",

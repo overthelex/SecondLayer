@@ -84,6 +84,20 @@ export class RadaLegislationAdapter {
   // cut the main scan at 53%, and a «Про споживче кредитування» reference cut ПКУ
   // at 2% — nearly the whole main body went through the transitional extractor,
   // producing thousands of bogus 'п.*' rows).
+  /**
+   * Strip HTML/XML tags to plain text, looping until stable so overlapping
+   * constructs (e.g. `<<a>script>`) cannot reconstitute a tag after one pass.
+   */
+  private static stripTags(input: string): string {
+    let out = input;
+    let prev: string;
+    do {
+      prev = out;
+      out = out.replace(/<[^>]+>/g, '');
+    } while (out !== prev);
+    return out;
+  }
+
   private static readonly TRANSITIONAL_HEADER_PATTERNS = [
     /<span\s+class=["']?rvts(?:15|23)["']?>[^<]{0,120}?ПРИКІНЦЕВІ\s+ТА\s+ПЕРЕХІДНІ\s+ПОЛОЖЕННЯ/i,
     /<span\s+class=["']?rvts(?:15|23)["']?>[^<]{0,120}?ПЕРЕХІДНІ\s+ТА\s+ПРИКІНЦЕВІ\s+ПОЛОЖЕННЯ/i,
@@ -522,7 +536,7 @@ export class RadaLegislationAdapter {
       const m = pat.exec(bodyHtml);
       if (m) {
         sectionStart = m.index;
-        sectionTitle = m[0].replace(/<[^>]*>/g, '').trim();
+        sectionTitle = RadaLegislationAdapter.stripTags(m[0]).trim();
         break;
       }
     }
