@@ -92,6 +92,17 @@ export function useAIChatStream(options: UseAIChatStreamOptions = {}) {
           responseIdRef.current = data.response_id;
         },
 
+        onConversation: (data) => {
+          // Adopt the id as soon as the backend creates the conversation. Waiting for
+          // `complete` meant a run that timed out left the chat unreachable from the
+          // sidebar even though the backend had saved it.
+          if (data.conversationId && !useChatStore.getState().conversationId) {
+            const store = useChatStore.getState();
+            useChatStore.setState({ conversationId: data.conversationId });
+            store.loadConversations();
+          }
+        },
+
         onPlan: (data) => {
           // Plan implies tool calls will follow — any preamble buffered so far is discarded
           if (preambleTimerRef.current) {

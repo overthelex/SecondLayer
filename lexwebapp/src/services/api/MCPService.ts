@@ -69,6 +69,8 @@ export interface EvidenceEnvelope {
 
 export interface ChatStreamCallbacks {
   onResponseId?: (data: { response_id: string }) => void;
+  /** Conversation id, emitted up front — do not wait for `complete` to learn it. */
+  onConversation?: (data: { conversationId: string; requestId?: string }) => void;
   onPlan?: (data: { goal: string; steps: Array<{ id: number; tool: string; params: Record<string, unknown>; purpose: string; depends_on?: number[] }>; expected_iterations: number }) => void;
   onThinking?: (data: { step: number; tool: string; params: Record<string, unknown>; description?: string; cost_usd?: number }) => void;
   onToolResult?: (data: { tool: string; result: unknown; evidence?: EvidenceEnvelope; cost_usd?: number }) => void;
@@ -313,6 +315,7 @@ export class MCPService extends BaseService {
   private dispatchChatEvent(event: string, data: Record<string, any>, callbacks: ChatStreamCallbacks) {
     switch (event) {
       case 'response_id': callbacks.onResponseId?.(data as { response_id: string }); break;
+      case 'conversation': callbacks.onConversation?.(data as { conversationId: string; requestId?: string }); break;
       case 'plan': callbacks.onPlan?.(data as Parameters<NonNullable<ChatStreamCallbacks['onPlan']>>[0]); break;
       case 'thinking': callbacks.onThinking?.(data as Parameters<NonNullable<ChatStreamCallbacks['onThinking']>>[0]); break;
       case 'tool_result': callbacks.onToolResult?.(data as Parameters<NonNullable<ChatStreamCallbacks['onToolResult']>>[0]); break;

@@ -30,6 +30,15 @@ export function resolveChatTimeoutMs(budget?: string, maxBudget?: string): numbe
   return escalationCeiling === 'deep' ? 360_000 : 240_000;
 }
 
+/**
+ * After the wall-clock timeout fires (or the client disconnects) the pipeline gets
+ * this long to wind down: emit the verified answer, `complete` and `cost_summary`,
+ * persist the turn, close the cost record. Sized for the slowest tail stage — an
+ * unsupported-citation repair took 96s in chat-e26df847 (2026-07-20). Past it the
+ * generator is dropped, which is a leak backstop, not a normal path.
+ */
+export const FINALIZE_GRACE_MS = 150_000;
+
 export function createChatInlineRoutes(deps: {
   chatService: ChatService;
   billingService: BillingService;
@@ -165,11 +174,25 @@ export function createChatInlineRoutes(deps: {
       // Abort controller for cancellation propagation
       const abortController = new AbortController();
 
+      // Timing out is not the same as the client going away: on timeout the socket
+      // is still open, so the run must be allowed to wind down (verify → citation
+      // repair → `complete` → cost_summary) and the user must still get the answer,
+      // the chat id and the cost. Only a real disconnect stops us writing.
+      let clientGone = false;
+      let hardStop = false;
+      let hardStopTimer: NodeJS.Timeout | undefined;
+
       // Absolute wall-clock timeout to prevent runaway agentic loops
       const timeoutMs = resolveChatTimeoutMs(budget, maxBudget);
       const requestTimeout = setTimeout(() => {
-        logger.warn('[ChatService] Request timed out', { requestId, timeoutMs, budget });
+        logger.warn('[ChatService] Request timed out — winding down', { requestId, timeoutMs, budget });
+        // The signal stops the agentic loop from starting new work; the pipeline is
+        // then given FINALIZE_GRACE_MS to finish what it already has in hand.
         abortController.abort();
+        hardStopTimer = setTimeout(() => {
+          logger.warn('[ChatService] Finalization grace expired — dropping stream', { requestId });
+          hardStop = true;
+        }, FINALIZE_GRACE_MS);
       }, timeoutMs);
 
       // SSE heartbeat to prevent proxy timeouts during long tool calls
@@ -178,9 +201,14 @@ export function createChatInlineRoutes(deps: {
       }, 15000);
 
       req.on('close', () => {
-        clearTimeout(requestTimeout);
+        clientGone = true;
         clearInterval(heartbeat);
         abortController.abort();
+        // Do NOT stop iterating here — the generator persists the turn and closes
+        // the billing record on its way out, and only gets there if it is drained.
+        if (!hardStopTimer) {
+          hardStopTimer = setTimeout(() => { hardStop = true; }, FINALIZE_GRACE_MS);
+        }
       });
 
       let chatCompleted = false;
@@ -218,7 +246,10 @@ export function createChatInlineRoutes(deps: {
       try {
         await runWithABUser(userId || '', async () => {
           for await (const event of deps.chatService.chat(chatRequest)) {
-            if (abortController.signal.aborted) break;
+            // Only a hard stop breaks the loop. Breaking calls generator.return(),
+            // which skips the pipeline's persistence + cost-record closure — that is
+            // how chat-e26df847 lost its answer and stayed `pending` forever.
+            if (hardStop) break;
 
             if (event.type === 'thinking') {
               tallySearch(event.data?.tool, event.data?.params?.mode);
@@ -234,25 +265,33 @@ export function createChatInlineRoutes(deps: {
               if (chatRequest.conversationId && chatRequest.conversationId !== conversationId) {
                 event.data.conversationId = chatRequest.conversationId;
               }
+              if (abortController.signal.aborted) {
+                // Answer is real but the run was cut short — let the UI say so.
+                event.data.truncated = true;
+              }
             }
+
+            // Client hung up: keep draining so the generator finalizes, just stop writing.
+            if (clientGone || res.writableEnded) continue;
 
             res.write(`event: ${event.type}\n`);
             res.write(`data: ${JSON.stringify(event.data)}\n\n`);
           }
         });
 
-        if (abortController.signal.aborted && !chatCompleted && !res.writableEnded) {
+        if (abortController.signal.aborted && !chatCompleted && !clientGone && !res.writableEnded) {
           logger.warn('[ChatService] Sending timeout error to client', { requestId });
           res.write(`event: error\n`);
           res.write(`data: ${JSON.stringify({ message: 'Час очікування вичерпано. Спробуйте уточнити запит.' })}\n\n`);
         }
       } finally {
         clearTimeout(requestTimeout);
+        if (hardStopTimer) clearTimeout(hardStopTimer);
         clearInterval(heartbeat);
       }
 
       // Emit cost_summary SSE event — billing was already handled by CostTracker.onTrackingComplete()
-      if (chatCompleted && userId && chatTotalCostUsd > 0 && !res.writableEnded) {
+      if (chatCompleted && userId && chatTotalCostUsd > 0 && !clientGone && !res.writableEnded) {
         try {
           const [summary, trackingRow] = await Promise.all([
             deps.billingService.getBillingSummary(userId),
@@ -282,7 +321,10 @@ export function createChatInlineRoutes(deps: {
           // Persist charged_usd + search_stats back to conversation_messages so reload
           // shows correct cost and the FTS/Qdrant breakdown. Merge into the existing
           // cost_summary JSONB so already-saved fields (e.g. tools_used) are preserved.
-          if (conversationId) {
+          // Use the effective id — ChatService fills chatRequest.conversationId in
+          // when it auto-creates the conversation, and those turns need the cost too.
+          const effectiveConversationId = chatRequest.conversationId || conversationId;
+          if (effectiveConversationId) {
             deps.db.query(
               `UPDATE conversation_messages
                SET cost_summary = COALESCE(cost_summary, '{}'::jsonb) || $1::jsonb
@@ -291,7 +333,7 @@ export function createChatInlineRoutes(deps: {
                  WHERE conversation_id = $2 AND role = 'assistant'
                  ORDER BY created_at DESC LIMIT 1
                )`,
-              [JSON.stringify(costSummaryFull), conversationId]
+              [JSON.stringify(costSummaryFull), effectiveConversationId]
             ).catch(e => logger.warn('[ChatService] Failed to persist charged_usd', { error: e.message }));
           }
         } catch (e: any) {
