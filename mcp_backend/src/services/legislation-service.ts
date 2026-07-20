@@ -343,7 +343,7 @@ export class LegislationService {
   // embeds queries with bge-m3 (TEI) and searches the bge collection. Default 'voyage'
   // preserves the legacy path so this deploy is behavior-preserving until env is flipped.
   private readonly legVectorBackend = (process.env.LEGISLATION_VECTOR_BACKEND || 'voyage').toLowerCase();
-  private readonly legBgeCollection = process.env.LEG_BGE_COLLECTION || 'legal_sections_bge';
+  private readonly legBgeCollection = process.env.LEG_BGE_COLLECTION || 'legislation_full_bge';
   private _bgeClient: BgeM3Client | null = null;
   private _bgeQdrant: QdrantClient | null = null;
   private get bgeClient(): BgeM3Client {
@@ -1231,7 +1231,7 @@ export class LegislationService {
   /**
    * Vector leg of legislation search. Routed by LEGISLATION_VECTOR_BACKEND:
    *   - 'voyage' (default/legacy): shared EmbeddingService over legal_sections.
-   *   - 'bge': bge-m3 (TEI) over legal_sections_bge (LEXAI-1807). Supports as_of_date
+   *   - 'bge': bge-m3 (TEI) over legislation_full_bge (LEXAI-1807). Supports as_of_date
    *     time-travel via valid_from_ts/valid_to_ts; without it, filters is_current=true.
    * Returns hits as { id, score, payload } (same shape as EmbeddingService.searchVectors).
    */
