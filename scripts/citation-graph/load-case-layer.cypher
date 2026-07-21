@@ -37,10 +37,23 @@ CALL { WITH row
   MERGE (d)-[:CITES_CASE]->(c)
 } IN TRANSACTIONS OF 10000 ROWS;
 
-// 4. Sanity checks.
+// 4. Materialize the inbound precedent degree onto the Case nodes. REQUIRED: the
+//    serving path (CitationGraphService.getCaseStats) reads c.cited_by_count and
+//    never counts these edges at query time -- skipping this step leaves precedent
+//    weight silently stuck at its previous value. Canonical statement lives in
+//    backfill-case-cited-by-count.cypher; keep the two identical.
+//    Needs db.transaction.timeout >= ~10min: the aggregation scans every CITES_CASE.
+MATCH (:Decision)-[r:CITES_CASE]->(c:Case)
+WITH c, count(r) AS n
+CALL { WITH c, n
+  SET c.cited_by_count = n
+} IN TRANSACTIONS OF 10000 ROWS;
+
+// 5. Sanity checks.
 MATCH (c:Case) RETURN count(c) AS case_nodes;
 MATCH ()-[r:CITES_CASE]->() RETURN count(r) AS cites_case_edges;
-// Top-cited precedent cases (inbound CITES_CASE):
-MATCH (d:Decision)-[:CITES_CASE]->(c:Case)
-RETURN c.cause_num AS cause_num, c.member_count AS members, count(d) AS cited_by
+// Top-cited precedent cases, read off the materialized property (step 4). Also
+// doubles as the check that step 4 actually ran -- an empty result means it did not.
+MATCH (c:Case) WHERE c.cited_by_count IS NOT NULL
+RETURN c.cause_num AS cause_num, c.member_count AS members, c.cited_by_count AS cited_by
 ORDER BY cited_by DESC LIMIT 15;
