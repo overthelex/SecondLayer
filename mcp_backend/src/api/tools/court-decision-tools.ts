@@ -14,6 +14,7 @@
 
 import { EdsrLocalAdapter } from '../../adapters/edrsr-local-adapter.js';
 import type { EdsrFtsService } from '../../services/edrsr-fts-service.js';
+import { cleanEdrsrTextSql } from '../../services/edrsr-fts-service.js';
 import { SemanticSectionizer } from '../../services/semantic-sectionizer.js';
 import type { IEmbeddingPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
@@ -426,7 +427,7 @@ total_resolved_links=0 означає відсутність даних граф
           d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
           d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
           d.doc_url, d.status, d.date_publ,
-          f.full_text
+          ${cleanEdrsrTextSql('f.full_text')} AS full_text
         FROM edrsr_documents d
         LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
         WHERE d.doc_id = $1
@@ -437,7 +438,7 @@ total_resolved_links=0 означає відсутність даних граф
       } else {
         // Try fulltext-only
         const ftResult = await this.edrsrDb().query(
-          `SELECT doc_id, full_text FROM edrsr_fulltext WHERE doc_id = $1`, [docId]
+          `SELECT doc_id, ${cleanEdrsrTextSql('full_text')} AS full_text FROM edrsr_fulltext WHERE doc_id = $1`, [docId]
         );
         if (ftResult.rows.length > 0) {
           row = { doc_id: docId, full_text: ftResult.rows[0].full_text };
@@ -459,7 +460,7 @@ total_resolved_links=0 означає відсутність даних граф
           FROM edrsr_documents d
           WHERE d.cause_num = $1
         )
-        SELECT d.*, f.full_text
+        SELECT d.*, ${cleanEdrsrTextSql('f.full_text')} AS full_text
         FROM docs d
         LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
         ORDER BY d.adjudication_date DESC NULLS LAST
@@ -469,7 +470,7 @@ total_resolved_links=0 означає відсутність даних граф
           d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
           d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
           d.doc_url, d.status, d.date_publ,
-          f.full_text
+          ${cleanEdrsrTextSql('f.full_text')} AS full_text
         FROM edrsr_documents d
         LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
         WHERE d.cause_num = $1
@@ -894,7 +895,7 @@ total_resolved_links=0 означає відсутність даних граф
     if (!this.db || docIds.length === 0) return [];
 
     const rows = (await this.db.query(`
-      SELECT d.doc_id, d.cause_num, d.judge, d.adjudication_date, f.full_text
+      SELECT d.doc_id, d.cause_num, d.judge, d.adjudication_date, ${cleanEdrsrTextSql('f.full_text')} AS full_text
       FROM edrsr_documents d
       LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id
       WHERE d.doc_id = ANY($1)
@@ -905,7 +906,7 @@ total_resolved_links=0 означає відсутність даних граф
     const missing = docIds.filter(id => !byId.has(id));
     if (missing.length > 0) {
       const ftRows = (await this.db.query(
-        `SELECT doc_id, full_text FROM edrsr_fulltext WHERE doc_id = ANY($1)`, [missing]
+        `SELECT doc_id, ${cleanEdrsrTextSql('full_text')} AS full_text FROM edrsr_fulltext WHERE doc_id = ANY($1)`, [missing]
       )).rows;
       for (const r of ftRows) byId.set(Number(r.doc_id), { doc_id: r.doc_id, full_text: r.full_text });
     }

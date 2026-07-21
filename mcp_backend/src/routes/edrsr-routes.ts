@@ -9,6 +9,7 @@ import { Router, type Response } from 'express';
 import type { AuthenticatedRequest as DualAuthRequest } from '../middleware/dual-auth.js';
 import type { IDatabase } from '../domain/ports/index.js';
 import { logger } from '../utils/logger.js';
+import { cleanEdrsrTextSql } from '../services/edrsr-fts-service.js';
 
 export function createEdsrRoutes(db: IDatabase): Router {
   const router = Router();
@@ -40,7 +41,7 @@ export function createEdsrRoutes(db: IDatabase): Router {
 
       // Fetch fulltext
       const textResult = await db.query(
-        `SELECT full_text FROM edrsr_fulltext WHERE doc_id = $1 LIMIT 1`,
+        `SELECT ${cleanEdrsrTextSql('full_text')} AS full_text FROM edrsr_fulltext WHERE doc_id = $1 LIMIT 1`,
         [Number(docId)]
       );
 
