@@ -7,6 +7,11 @@
  * Schema as actually loaded by the Brev rebuild:
  *   (:Decision {doc_id})-[:CITES_ARTICLE {citation_type, citation_context}]->(:Article)
  *   (:Article {art_id, law_number, law_article, total_citations, unique_decisions})-[:OF_LAW]->(:Law {law_number})
+ *   (:Decision)-[:CITES_CASE]->(:Case {cause_num, member_count, latest_doc_id, cited_by_count})
+ * Case.cited_by_count is the materialized inbound CITES_CASE degree, written by the
+ * loader (scripts/citation-graph/backfill-case-cited-by-count.cypher) and only present
+ * on cases with at least one inbound edge — read it via coalesce(..., 0), never by
+ * counting the edges at query time.
  * The human-readable law name comes from (:Law).law_number, reached via the OF_LAW hop.
  * That property is overloaded: usually a title ("Господарський процесуальний кодекс
  * України"), sometimes a bare date or a "№1961 від 01.07.2004" form — so it is a
@@ -281,12 +286,21 @@ export class CitationGraphService {
    * Precedent stats for a case (decision↔case layer, LEXAI-1777). Accepts the
    * case-number variations and picks the most-cited matching Case node. Returns
    * how many decisions cite the case + how many documents the case spans.
+   *
+   * `citing` reads the materialized Case.cited_by_count, it does NOT count the
+   * inbound edges at query time. The store is ~168G against a 12G page cache, so
+   * a live `COUNT { (c)<-[:CITES_CASE]-() }` on a hot case degenerates into tens
+   * of thousands of random disk reads (measured up to 97s). The property is
+   * maintained by the case-layer loader; see
+   * scripts/citation-graph/backfill-case-cited-by-count.cypher.
+   * coalesce() because the loader only writes the property on cases that have at
+   * least one inbound precedent edge — an absent property means zero.
    */
   async getCaseStats(causeNums: string[]): Promise<CaseStat | null> {
     if (!causeNums || causeNums.length === 0) return null;
     const rows = await this.run(
       `MATCH (c:Case) WHERE c.cause_num IN $cns
-       WITH c, COUNT { (c)<-[:CITES_CASE]-(:Decision) } AS citing
+       WITH c, coalesce(c.cited_by_count, 0) AS citing
        ORDER BY citing DESC LIMIT 1
        OPTIONAL MATCH (c)<-[df:DEPARTS_FROM]-(gc:Decision)
        WITH c, citing, gc, df ORDER BY df.departed_on DESC

@@ -287,6 +287,18 @@ describe('CitationGraphService', () => {
       expect(q).toContain('[:OF_LAW]->(l:Law)');
     });
 
+    it('reads the materialized Case.cited_by_count instead of counting edges', async () => {
+      mockRun.mockResolvedValue({ records: [] });
+      await new CitationGraphService().getCaseStats(['910/123/20']);
+
+      const q = cypherOf(0);
+      expect(q).toContain('coalesce(c.cited_by_count, 0) AS citing');
+      // A live in-degree count here is the 97s prod regression: 168G store, 12G page
+      // cache, so counting inbound CITES_CASE on a hot case hits disk tens of
+      // thousands of times. The count is materialized by the case-layer loader.
+      expect(q).not.toMatch(/COUNT\s*\{[^}]*CITES_CASE/i);
+    });
+
     it('keys the article lookup by law_number/law_article', async () => {
       mockRun.mockResolvedValue({ records: [] });
       await new CitationGraphService().getArticleCitedBy('ЦПК України', '175');
