@@ -13,6 +13,7 @@
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { logger } from '../../utils/logger.js';
 import { extractDispositiveFromText } from '../../utils/dispositive.js';
+import { cleanEdrsrTextSql } from '../../services/edrsr-fts-service.js';
 
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
@@ -244,7 +245,7 @@ export class EdsrExtendedTools extends BaseToolHandler {
 
     try {
       const result = await this.db.query(
-        `SELECT full_text, text_length FROM edrsr_fulltext WHERE doc_id = $1`,
+        `SELECT ${cleanEdrsrTextSql('full_text')} AS full_text, text_length FROM edrsr_fulltext WHERE doc_id = $1`,
         [docId]
       );
 

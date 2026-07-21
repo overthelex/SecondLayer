@@ -284,6 +284,22 @@ const FTS_CANDIDATE_CAP = 2000;
 // already-supported path). Must comfortably clear the capped query (sub-second on prod).
 const FTS_STATEMENT_TIMEOUT_MS = 8000;
 
+/**
+ * Historical RTF imports (2007-2025) left the RTF control word `\~` (non-breaking
+ * space) in full_text; 2026+ arrives clean, so this is a fixed-size backlog, not a
+ * growing one. Cosmetic only: to_tsvector is byte-identical with and without it, so
+ * the FTS index is unaffected and needs no rebuild.
+ *
+ * Stripping the marker and collapsing the space runs it leaves behind reproduces the
+ * reference (already-cleaned) copy exactly - verified by md5 of both texts with all
+ * whitespace removed.
+ *
+ * Applied on read at the paths whose text a user actually reads. Drop this once the
+ * historical partitions are cleaned in place, after which it is a no-op.
+ */
+export const cleanEdrsrTextSql = (col: string) =>
+  `regexp_replace(replace(${col}, '\\~', ''), '[ ]{2,}', ' ', 'g')`;
+
 export class EdsrFtsService {
   private edsrCache: EdsrCacheService | null = null;
 
@@ -727,7 +743,7 @@ export class EdsrFtsService {
 
     const buildSelectFields = (withHeadline: boolean) => {
       const headlineExpr = withHeadline
-        ? `safe_ts_headline('simple'::regconfig, f.full_text, ${headlineFn},
+        ? `safe_ts_headline('simple'::regconfig, ${cleanEdrsrTextSql('f.full_text')}, ${headlineFn},
            'MaxWords=${FTS_HEADLINE_MAX_WORDS}, MinWords=${FTS_HEADLINE_MIN_WORDS}, StartSel=**, StopSel=**') AS headline`
         : `NULL AS headline`;
 
