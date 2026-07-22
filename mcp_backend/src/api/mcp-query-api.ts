@@ -230,6 +230,8 @@ export class MCPQueryAPI extends BaseToolHandler {
   private async checkPrecedentStatus(args: any) {
     const caseId = args.case_id || args.doc_id || '';
     const caseNumber = args.case_number || '';
+    // A ЄДРСР doc_id is all-digits; case numbers contain slashes (e.g. 922/989/18).
+    const docId = args.doc_id || (/^\d+$/.test(String(caseId)) ? String(caseId) : '');
 
     const status = await this.citationValidator.validatePrecedentStatus(caseId, caseNumber || undefined);
 
@@ -266,6 +268,39 @@ export class MCPQueryAPI extends BaseToolHandler {
       }
     }
 
+    // Instance-status layer (LEXAI-1861): if a specific doc_id was overruled/modified by a
+    // higher court (SUPERSEDED_BY) or is a dissent, surface it. Gated by CITATION_BACKEND=neo4j;
+    // non-fatal. This is the direct answer to "чи не скасовано вищою інстанцією".
+    let supersession: any = undefined;
+    if (this.citationGraphService?.isEnabled() && docId) {
+      try {
+        const sup = await this.citationGraphService.getDecisionSupersession(docId);
+        if (sup && (sup.status || sup.supersededBy)) {
+          supersession = sup;
+          citationGraph = citationGraph || { backend: 'neo4j' };
+          if (sup.supersededBy) {
+            citationGraph.superseded_by = {
+              by_decision: sup.supersededBy.docId,
+              disposition: sup.supersededBy.disposition, // reversed | modified
+              on: sup.supersededBy.on || undefined,
+              note:
+                sup.supersededBy.disposition === 'modified'
+                  ? 'Це рішення змінено вищою інстанцією — застосовувати з урахуванням внесених змін.'
+                  : 'Це рішення скасовано вищою інстанцією — не є чинним прецедентом.',
+            };
+          }
+          if (sup.status === 'dissent') {
+            citationGraph.is_dissent = true;
+          }
+        }
+      } catch (error: any) {
+        logger.warn('[check_precedent_status] supersession enrichment failed (non-fatal)', {
+          docId,
+          error: error?.message,
+        });
+      }
+    }
+
     // If the Grand Chamber formally departed from this case's legal position (Neo4j
     // DEPARTS_FROM), the precedent is no longer fully good law — downgrade an otherwise
     // valid/unknown status to "limited" so the top-level status reflects it.
@@ -279,6 +314,20 @@ export class MCPQueryAPI extends BaseToolHandler {
         status: 'limited',
         departed_note:
           'Правову позицію у цій справі відступлено Великою Палатою ВС — прецедент обмежено чинний (див. citation_graph.position_departed_from).',
+      };
+    }
+
+    // A SUPERSEDED_BY reversal/modification is a hard fact (higher court overturned this
+    // decision). Override an otherwise valid/limited/unknown status: reversed → explicitly
+    // overruled, modified → limited. Never weakens an already explicitly_overruled status.
+    if (supersession?.status === 'overruled' && effectiveStatus?.status !== 'explicitly_overruled') {
+      const modified = supersession.supersededBy?.disposition === 'modified';
+      effectiveStatus = {
+        ...effectiveStatus,
+        status: modified ? 'limited' : 'explicitly_overruled',
+        superseded_note: modified
+          ? 'Рішення змінено вищою інстанцією (див. citation_graph.superseded_by).'
+          : 'Рішення скасовано вищою інстанцією (див. citation_graph.superseded_by).',
       };
     }
 
@@ -348,7 +397,7 @@ export class MCPQueryAPI extends BaseToolHandler {
       {
         name: 'check_precedent_status',
         annotations: { title: 'Статус прецеденту', readOnlyHint: true, idempotentHint: true },
-        description: `Перевіряє актуальність судового рішення: чи не скасовано вищою інстанцією. Реконструює ланцюг інстанцій з локального реєстру ЄДРСР (перша → апеляція → касація → ВП) і визначає статус: valid, explicitly_overruled, limited, unknown. Додатково враховує відступ від правової позиції Великою Палатою (граф цитувань Neo4j).
+        description: `Перевіряє актуальність судового рішення: чи не скасовано вищою інстанцією. Реконструює ланцюг інстанцій з локального реєстру ЄДРСР (перша → апеляція → касація → ВП) і визначає статус: valid, explicitly_overruled, limited, unknown. Для конкретного doc_id перевіряє граф інстанцій (SUPERSEDED_BY): чи скасовано/змінено це рішення вищою інстанцією та яким рішенням. Додатково враховує відступ від правової позиції Великою Палатою (граф цитувань Neo4j).
 
 Приймає: case_number (номер справи, наприклад 922/989/18) або doc_id (ЄДРСР doc_id).
 
