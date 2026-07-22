@@ -192,6 +192,45 @@ describe('CitationGraphService', () => {
     });
   });
 
+  describe('getDecisionSupersession (instance-status layer, LEXAI-1861)', () => {
+    it('reports an overruled decision with its superseding decision', async () => {
+      mockRun.mockResolvedValueOnce({
+        records: [
+          rec({ status: 'overruled', sup: { docId: '137945904', disposition: 'reversed', on: '2025-06-01' } }),
+        ],
+      });
+      const out = await new CitationGraphService().getDecisionSupersession('131667638');
+      expect(out).toEqual({
+        status: 'overruled',
+        supersededBy: { docId: '137945904', disposition: 'reversed', on: '2025-06-01' },
+      });
+      // doc_id is coerced to string for the Decision key lookup
+      expect(mockRun.mock.calls[0][1]).toMatchObject({ docId: '131667638' });
+      // matches the loaded graph schema: Decision.doc_id + SUPERSEDED_BY + Decision.status
+      const q = mockRun.mock.calls[0][0] as string;
+      expect(q).toContain('Decision {doc_id: $docId}');
+      expect(q).toContain('[r:SUPERSEDED_BY]->');
+      expect(q).toContain('d.status AS status');
+    });
+
+    it('returns null marks for a decision that exists but is good law', async () => {
+      mockRun.mockResolvedValueOnce({ records: [rec({ status: null, sup: null })] });
+      const out = await new CitationGraphService().getDecisionSupersession('999');
+      expect(out).toEqual({ status: null, supersededBy: null });
+    });
+
+    it('flags a dissent (окрема думка) with no supersession', async () => {
+      mockRun.mockResolvedValueOnce({ records: [rec({ status: 'dissent', sup: null })] });
+      const out = await new CitationGraphService().getDecisionSupersession('42');
+      expect(out).toEqual({ status: 'dissent', supersededBy: null });
+    });
+
+    it('returns null when the doc_id is not a node in the graph', async () => {
+      mockRun.mockResolvedValueOnce({ records: [] });
+      expect(await new CitationGraphService().getDecisionSupersession('0')).toBeNull();
+    });
+  });
+
   describe('healthCheck', () => {
     it('returns ok with node-label counts', async () => {
       mockRun.mockResolvedValueOnce({

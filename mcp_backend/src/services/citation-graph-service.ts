@@ -82,6 +82,17 @@ export interface CaseStat {
   departedOn: string | null;
 }
 
+/**
+ * Instance-status layer (LEXAI-1861): whether a specific decision was overruled/modified
+ * by a higher court, or is a dissent (окрема думка).
+ */
+export interface DecisionSupersession {
+  /** Decision.status: 'overruled' | 'dissent' | null (null = no mark = good law / not covered). */
+  status: string | null;
+  /** The higher-court decision that reversed/modified it, via SUPERSEDED_BY; null if none. */
+  supersededBy: { docId: string; disposition: string | null; on: string | null } | null;
+}
+
 /** A case cited by a decision (precedent outbound). */
 export interface CitedCaseRef {
   causeNum: string;
@@ -315,6 +326,36 @@ export class CitationGraphService {
         departedByDecision: r.get('depBy') != null ? String(r.get('depBy')) : null,
         departedOn: r.get('depOn') != null ? String(r.get('depOn')) : null,
       })
+    );
+    return rows[0] ?? null;
+  }
+
+  /**
+   * Instance-status (LEXAI-1861): whether a specific decision was overruled/modified by a
+   * higher court (SUPERSEDED_BY) or is a dissent. Returns null when the doc_id is not a
+   * node in the graph; {status:null, supersededBy:null} when it exists but carries no mark.
+   */
+  async getDecisionSupersession(docId: string | number): Promise<DecisionSupersession | null> {
+    const rows = await this.run(
+      `MATCH (d:Decision {doc_id: $docId})
+       OPTIONAL MATCH (d)-[r:SUPERSEDED_BY]->(s:Decision)
+       RETURN d.status AS status,
+              head(collect(CASE WHEN s IS NULL THEN null
+                ELSE {docId: s.doc_id, disposition: r.disposition, on: r.reversed_date} END)) AS sup`,
+      { docId: String(docId) },
+      (r) => {
+        const sup = r.get('sup');
+        return {
+          status: r.get('status') != null ? String(r.get('status')) : null,
+          supersededBy: sup
+            ? {
+                docId: String(sup.docId),
+                disposition: sup.disposition != null ? String(sup.disposition) : null,
+                on: sup.on != null ? String(sup.on) : null,
+              }
+            : null,
+        };
+      }
     );
     return rows[0] ?? null;
   }
