@@ -420,6 +420,7 @@ class HTTPMCPServer {
       apiKeyService: this.billing.apiKeyService,
       costTracker: this.billing.costTracker,
       creditService: this.billing.creditService,
+      billingService: this.billing.billingService,
       mcpSseSessions: this.mcpSseSessions,
     }));
 

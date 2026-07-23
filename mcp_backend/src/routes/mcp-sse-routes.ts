@@ -23,6 +23,7 @@ import { OAuthService } from '../services/oauth-service.js';
 import { ApiKeyService } from '../services/api-key-service.js';
 import { CostTracker } from '../services/cost-tracker.js';
 import { CreditService } from '../services/credit-service.js';
+import { BillingService } from '../services/billing-service.js';
 import { Server } from '@modelcontextprotocol/sdk/server/index.js';
 import { SSEServerTransport } from '@modelcontextprotocol/sdk/server/sse.js';
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
@@ -36,6 +37,7 @@ export function createMCPSSERoutes(deps: {
   apiKeyService: ApiKeyService;
   costTracker: CostTracker;
   creditService: CreditService;
+  billingService: BillingService;
   mcpSseSessions: Map<string, SSEServerTransport>;
 }): Router {
   const router = Router();
@@ -154,7 +156,7 @@ export function createMCPSSERoutes(deps: {
   function buildMcpServer(
     userId: string | undefined,
     clientKey: string | undefined,
-    opts?: { allowedTools?: Set<string>; version?: string }
+    opts?: { allowedTools?: Set<string>; version?: string; usageBilling?: boolean }
   ): Server {
     const safeUserId = sanitizeId(userId || 'anonymous');
     const mcpServer = new Server(
@@ -202,17 +204,46 @@ export function createMCPSSERoutes(deps: {
           };
         }
 
-        // Phase 2 Billing: Check credits BEFORE execution
-        if (userId && deps.creditService) {
-          const creditsRequired = await deps.creditService.calculateCreditsForTool(toolName, userId);
-          if (creditsRequired > 0) {
-            const balance = await deps.creditService.checkBalance(userId, creditsRequired);
-            if (!balance.hasCredits) {
-              logger.warn('[MCP] Insufficient credits', { userId: safeUserId, tool: toolName, creditsRequired });
-              return {
-                content: [{ type: 'text', text: `Error: Insufficient credits. Required: ${creditsRequired}, Current balance: ${balance.currentBalance}` }],
-                isError: true,
-              };
+        // Billing gate BEFORE execution.
+        //  • usageBilling (v2): charge the ₴/$ balance (user_billing) by actual cost + tier
+        //    markup, exactly like the chat pipeline. Pre-flight checks the same balance; the
+        //    charge itself happens in costTracker.completeTrackingRecord → billingService.chargeUser.
+        //  • legacy (v1): flat per-call deduction from the separate user_credits pool.
+        if (userId) {
+          if (opts?.usageBilling && deps.billingService) {
+            try {
+              const billing = await deps.billingService.getOrCreateUserBilling(userId);
+              if (billing.billing_enabled) {
+                const estimate = await deps.costTracker.estimateCost({
+                  toolName,
+                  queryLength: JSON.stringify(args).length,
+                  reasoningBudget: 'quick',
+                });
+                const estimatedCostUsd = estimate.total_estimated_cost_usd;
+                const balance = await deps.billingService.checkBalance(userId, estimatedCostUsd);
+                if (!balance.hasBalance) {
+                  logger.warn('[MCP] Insufficient balance', { userId: safeUserId, tool: toolName, estimatedCostUsd });
+                  return {
+                    content: [{ type: 'text', text: `Error: Insufficient balance. Required: $${estimatedCostUsd.toFixed(2)}, Current balance: $${balance.currentBalance.toFixed(2)}` }],
+                    isError: true,
+                  };
+                }
+              }
+            } catch (billingErr: any) {
+              // Never let a billing-estimate hiccup block a (near-zero-cost) tool call.
+              logger.warn('[MCP] Pre-flight balance check failed, allowing call', { userId: safeUserId, tool: toolName, error: billingErr.message });
+            }
+          } else if (deps.creditService) {
+            const creditsRequired = await deps.creditService.calculateCreditsForTool(toolName, userId);
+            if (creditsRequired > 0) {
+              const balance = await deps.creditService.checkBalance(userId, creditsRequired);
+              if (!balance.hasCredits) {
+                logger.warn('[MCP] Insufficient credits', { userId: safeUserId, tool: toolName, creditsRequired });
+                return {
+                  content: [{ type: 'text', text: `Error: Insufficient credits. Required: ${creditsRequired}, Current balance: ${balance.currentBalance}` }],
+                  isError: true,
+                };
+              }
             }
           }
         }
@@ -243,7 +274,9 @@ export function createMCPSSERoutes(deps: {
         const executionTime = Date.now() - startTime;
         await deps.costTracker.completeTrackingRecord({ requestId, executionTimeMs: executionTime, status: 'completed' });
 
-        if (userId && deps.creditService) {
+        // Legacy flat-credit deduction (v1 only). v2 (usageBilling) is already charged against
+        // the ₴/$ balance by costTracker.completeTrackingRecord → billingService.chargeUser above.
+        if (userId && !opts?.usageBilling && deps.creditService) {
           const creditsRequired = await deps.creditService.calculateCreditsForTool(toolName, userId);
           if (creditsRequired > 0) {
             const deduction = await deps.creditService.deductCredits(userId, creditsRequired, toolName, requestId, `Tool execution: ${toolName}`);
@@ -282,7 +315,7 @@ export function createMCPSSERoutes(deps: {
   // Build an MCP Server exposing only the curated v2 subset. Reuses the fully-wired v1
   // builder (tools/list + tools/call with billing) with the whitelist applied.
   function buildMcpServerV2(userId: string | undefined, clientKey: string | undefined): Server {
-    return buildMcpServer(userId, clientKey, { allowedTools: V2_TOOL_NAMES, version: '2.0.0' });
+    return buildMcpServer(userId, clientKey, { allowedTools: V2_TOOL_NAMES, version: '2.0.0', usageBilling: true });
   }
 
   // ========================= /sse endpoints =========================
