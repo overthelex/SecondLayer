@@ -107,11 +107,13 @@ export function createMCPSSERoutes(deps: {
         userId = String(decoded.userId);
         logger.debug(`${logTag} Authenticated with JWT`, { userId: sanitizeId(userId) });
       } else {
-        // OAuth access token first, then API key
-        const oauthToken = await deps.oauthService.verifyAccessToken(token);
-        if (oauthToken) {
-          userId = String(oauthToken.userId);
-          clientKey = oauthToken.clientId;
+        // OAuth access token first, then API key.
+        // verifyAccessToken returns the *grant record* ({ userId, clientId, scope }) — it
+        // carries no token material, so nothing here may be mistaken for a credential.
+        const oauthGrant = await deps.oauthService.verifyAccessToken(token);
+        if (oauthGrant) {
+          userId = String(oauthGrant.userId);
+          clientKey = oauthGrant.clientId;
           logger.debug(`${logTag} Authenticated with OAuth token`);
         } else {
           clientKey = token;
@@ -129,7 +131,7 @@ export function createMCPSSERoutes(deps: {
             return null;
           }
           userId = keyInfo.userId;
-          logger.debug(`${logTag} Authenticated with API key`, { userId, keyId: keyInfo.id });
+          logger.debug(`${logTag} Authenticated with API key`, { userId: sanitizeId(userId), keyId: keyInfo.id });
           deps.apiKeyService.updateUsage(token).catch((err) => {
             logger.error(`${logTag} Failed to update API key usage`, { error: err.message });
           });
@@ -439,13 +441,14 @@ export function createMCPSSERoutes(deps: {
           const jwtSecret = process.env.JWT_SECRET;
           if (!jwtSecret) throw new Error('JWT_SECRET not configured');
           const decoded = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as any;
-          userId = decoded.userId;
-          logger.debug('[MCP SSE] Authenticated with JWT', { userId });
+          userId = String(decoded.userId);
+          logger.debug('[MCP SSE] Authenticated with JWT', { userId: sanitizeId(userId) });
         } else if (token.startsWith('mcp_token_')) {
-          // OAuth 2.0 access token - verify with OAuth service
-          const tokenData = await deps.oauthService.verifyAccessToken(token);
+          // OAuth 2.0 access token - verify with OAuth service.
+          // Returns the grant record ({ userId, clientId, scope }), never the token itself.
+          const oauthGrant = await deps.oauthService.verifyAccessToken(token);
 
-          if (!tokenData) {
+          if (!oauthGrant) {
             logger.warn('[MCP SSE] Invalid OAuth token', {
               tokenPrefix: maskSensitive(token, 15),
             });
@@ -460,12 +463,12 @@ export function createMCPSSERoutes(deps: {
             });
           }
 
-          userId = tokenData.userId;
-          clientKey = tokenData.clientId;
+          userId = oauthGrant.userId;
+          clientKey = oauthGrant.clientId;
           logger.debug('[MCP SSE] Authenticated with OAuth token', {
-            userId,
-            clientId: tokenData.clientId,
-            scope: tokenData.scope,
+            userId: sanitizeId(userId),
+            clientId: oauthGrant.clientId,
+            scope: oauthGrant.scope,
           });
         } else {
           // API key - validate: try Phase 2 (DB) first, then legacy env keys
