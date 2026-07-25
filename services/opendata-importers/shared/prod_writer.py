@@ -90,6 +90,12 @@ def copy_into(table: str, columns: list[str], rows: Iterable[tuple],
 
     The temp table mirrors the target's column types so PostgreSQL casts
     text-format COPY inputs into DATE / JSONB / etc. natively.
+
+    on_conflict:
+      do_nothing            skip rows whose key already exists
+      do_update             overwrite every non-key column, NULLs included
+      do_update_prefer_new  incoming value wins, stored value kept where the
+                            incoming one is NULL; jsonb columns merged key-wise
     Returns the number of rows inserted (0 if all conflicted with DO NOTHING).
     Raises subprocess.CalledProcessError on psql failure.
     """
@@ -110,6 +116,25 @@ def copy_into(table: str, columns: list[str], rows: Iterable[tuple],
         elif on_conflict == "do_update":
             updates = ", ".join(f"{c}=EXCLUDED.{c}" for c in columns if c not in pk_columns)
             conflict_clause = f"ON CONFLICT ({', '.join(pk_columns)}) DO UPDATE SET {updates}"
+        elif on_conflict == "do_update_prefer_new":
+            # The incoming value wins; a stored value survives only where the new
+            # row has NULL. Use this for re-fetch passes where the source is the
+            # authority and the stored copy may be stale or badly parsed.
+            # jsonb columns are merged key-wise instead, so a re-fetch can add
+            # source fields without dropping markers a previous load left.
+            setters = []
+            for c in columns:
+                if c in pk_columns:
+                    continue
+                if types.get(c, "").lower() == "jsonb":
+                    setters.append(f"{c}=COALESCE({table}.{c}, '{{}}'::jsonb) "
+                                   f"|| COALESCE(EXCLUDED.{c}, '{{}}'::jsonb)")
+                else:
+                    setters.append(f"{c}=COALESCE(EXCLUDED.{c}, {table}.{c})")
+            if "updated_at" in types and "updated_at" not in columns:
+                setters.append("updated_at=now()")
+            conflict_clause = (f"ON CONFLICT ({', '.join(pk_columns)}) "
+                               f"DO UPDATE SET {', '.join(setters)}")
 
     sql = f"""
 BEGIN;

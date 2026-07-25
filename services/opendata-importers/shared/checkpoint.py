@@ -40,6 +40,13 @@ class Checkpoint:
         if item not in done:
             done.append(item)
 
+    def delete(self, key: str):
+        """Drop a key entirely. Used when an importer migrates to a different
+        progress unit and the old one would keep bloating the file."""
+        if key in self._state:
+            del self._state[key]
+            self.flush()
+
     def is_done(self, item: str) -> bool:
         return item in self._state.get("done", [])
 
