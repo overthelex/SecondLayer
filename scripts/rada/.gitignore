@@ -1,7 +1,0 @@
-data/
-*.log
-all-rada-ids*.json
-download-progress*.json
-download-errors*.json
-import-errors.json
-index-errors.json
