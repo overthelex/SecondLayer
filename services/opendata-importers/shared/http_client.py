@@ -1,6 +1,8 @@
 """Multi-IP aiohttp connector pool with round-robin scheduling."""
 import asyncio
 import logging
+import time
+from collections import deque
 
 import aiohttp
 
@@ -10,11 +12,38 @@ log = logging.getLogger(__name__)
 DEFAULT_UA = "SecondLayer-Legal-Platform/2.0 (legal.org.ua; opendata-importer)"
 
 
+class RateLimiter:
+    """Sliding-window limiter: at most `max_per_sec` acquire()s complete per rolling
+    second, enforced across ALL callers regardless of how many workers/IPs share it.
+
+    Use this instead of guessing a "safe" worker count — low per-request latency can
+    push a fixed-concurrency pool's real throughput above a documented limit even when
+    the worker count looks conservative.
+    """
+
+    def __init__(self, max_per_sec: float):
+        self.max_per_sec = max_per_sec
+        self._times: deque[float] = deque()
+        self._lock = asyncio.Lock()
+
+    async def acquire(self):
+        async with self._lock:
+            while True:
+                now = time.monotonic()
+                while self._times and now - self._times[0] > 1.0:
+                    self._times.popleft()
+                if len(self._times) < self.max_per_sec:
+                    self._times.append(now)
+                    return
+                sleep_for = 1.0 - (now - self._times[0])
+                await asyncio.sleep(max(sleep_for, 0.01))
+
+
 class MultiIPSessionPool:
     """One aiohttp session per source IP, round-robin handed out by index."""
 
     def __init__(self, ips: list[str], workers_per_ip: int, user_agent: str = DEFAULT_UA,
-                 timeout_total: int = 120):
+                 timeout_total: int = 120, rate_limit_per_sec: float | None = None):
         if not ips:
             ips = [""]  # empty string = system default routing
         self.ips = ips
@@ -23,6 +52,7 @@ class MultiIPSessionPool:
         self._sessions: list[aiohttp.ClientSession] = []
         self._semaphores: list[asyncio.Semaphore] = []
         self._workers_per_ip = workers_per_ip
+        self._rate_limiter = RateLimiter(rate_limit_per_sec) if rate_limit_per_sec else None
 
     async def __aenter__(self):
         for ip in self.ips:
@@ -57,6 +87,8 @@ class MultiIPSessionPool:
         last_exc = None
         async with sem:
             for attempt in range(retries):
+                if self._rate_limiter:
+                    await self._rate_limiter.acquire()
                 try:
                     async with session.get(url, **kwargs) as r:
                         return r.status, await r.text()
@@ -72,6 +104,8 @@ class MultiIPSessionPool:
         last_exc = None
         async with sem:
             for attempt in range(retries):
+                if self._rate_limiter:
+                    await self._rate_limiter.acquire()
                 try:
                     async with session.get(url, **kwargs) as r:
                         return r.status, await r.read()
