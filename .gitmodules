@@ -1,0 +1,3 @@
+[submodule "docs/papers"]
+	path = docs/papers
+	url = https://github.com/overthelex/secondlayer-papers.git

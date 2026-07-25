@@ -1,0 +1,47 @@
+{
+  "name": "@secondlayer/legal",
+  "version": "0.1.0",
+  "description": "CLI для роботи з legal.org.ua — судові рішення, законодавство, реєстри",
+  "type": "module",
+  "bin": {
+    "legal": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx src/cli.ts",
+    "start": "node dist/cli.js",
+    "build:bin:linux": "bun build ./src/cli.ts --compile --target=bun-linux-x64 --outfile=bin/legal-linux-x64",
+    "build:bin:mac-arm": "bun build ./src/cli.ts --compile --target=bun-darwin-arm64 --outfile=bin/legal-darwin-arm64",
+    "build:bin:mac-intel": "bun build ./src/cli.ts --compile --target=bun-darwin-x64 --outfile=bin/legal-darwin-x64",
+    "build:bin:all": "npm run build:bin:linux && npm run build:bin:mac-arm && npm run build:bin:mac-intel",
+    "build:deb": "bash scripts/build-deb.sh"
+  },
+  "files": [
+    "dist/"
+  ],
+  "keywords": ["legal", "ukraine", "court", "legislation", "cli"],
+  "author": "SecondLayer <info@legal.org.ua>",
+  "license": "BUSL-1.1",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/overthelex/SecondLayer.git",
+    "directory": "legalua"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "commander": "^13.1.0",
+    "chalk": "^5.4.1",
+    "ora": "^8.2.0",
+    "conf": "^13.1.0",
+    "node-fetch": "^3.3.2",
+    "cli-table3": "^0.6.5",
+    "form-data": "^4.0.2"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "@types/node": "^22.0.0",
+    "tsx": "^4.19.0"
+  }
+}

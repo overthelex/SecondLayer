@@ -1,0 +1,173 @@
+# Dependencies
+node_modules/
+*/node_modules/
+
+# Build output
+dist/
+*/dist/
+build/
+*/build/
+.proprietary-dist-backup/
+
+# Environment
+.env
+.env.local
+.env.production
+.env.*
+!.env.example
+# Env files without dot prefix (deployment/env, deployment/env.local, etc.)
+**/env
+**/env.local
+env
+env.local
+
+# Secrets & Credentials
+google_OAUTH2.json
+vision-ocr-credentials.json
+*-credentials.json
+*-credentials*.txt
+*-service-account.json
+*.pem
+*.key
+*.p12
+
+# Password scripts (contain hardcoded credentials)
+set-*-password*
+**/set-*-password*
+**/set-password-*
+create-*-user*
+**/create-*-user*
+create-*-remote*
+**/create-*-remote*
+
+# Test scripts with embedded secrets
+test-mcp-stdio.sh
+
+# Personal legal documents
+tck/
+
+# Logs
+logs/
+packages/**/logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE & Editor
+.idea/
+.vscode/
+.cursor/
+.cursorrules
+*.swp
+*.swo
+*~
+
+# Test
+coverage/
+.nyc_output/
+test-results/
+tests/
+test_data/
+
+# Temp files
+*.tmp
+*.temp
+.cache/
+
+# Archives
+*.tar.gz
+*.zip
+*.tar
+*.rar
+
+# Docker
+docker-compose.override.yml
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+postgres_data/
+qdrant_data/
+redis_data/
+
+# Scratch/temp notes with credentials
+1
+
+# MCP client configs (may contain tokens)
+config/jan-chat-mcp-config.json
+.mcp.json
+
+# Claude Code
+.claude/
+
+# Cleanup backups (temporary)
+.cleanup_backup/
+vulnerability-fix-backup/
+pip
+
+# Deployment secrets
+deployment/nginx/certs/
+deployment/.env.wireguard
+
+# Internal planning docs & operational guides
+docs/IGOR_LINEAR_TASKS.md
+docs/LEG-*_IMPLEMENTATION_PLAN.md
+docs/linear-task-*
+docs/linear_vsi_taski_*
+docs/security/LEGAL_TECH_COMPLIANCE_AUDIT.md
+docs/PROD_SSH_ACCESS.md
+
+# Sensitive scripts and configs
+scripts/edrsr/copy-*-to-prod*
+scripts/edrsr/upload-remaining-chunks.py
+
+# Compiled binaries
+scripts/edrsr/bulk-downloader/bulk-downloader
+mobile/android/app/google-services.json
+deployment/wireguard/*.conf
+mcp_backend/start-mcp-container.sh
+
+# Lock files (managed per workspace)
+package-lock.json
+!platform/package-lock.json
+
+# Data downloads (large binary files)
+scripts/judges/downloads/
+scripts/nsdc-sanctions/data/
+
+# Demo output
+demo-output/
+
+# Python cache
+__pycache__/
+**/__pycache__/
+*.pyc
+
+# Linear exports (internal project data)
+linear-export.csv
+
+# Archived docs with screenshots
+docs/archived/
+
+# Marketing materials (store externally)
+docs/*.pdf
+docs/linkedin-*.png
+
+# Large data files (>100MB)
+scripts/hudoc/court-sessions-clean.csv
+scripts/hudoc/court-sessions-sample.csv
+scripts/hudoc/*.zip
+scripts/opendata/rnbo/ua_nsdc_sanctions.json
+
+# Nested projects with their own git repos
+mcplane/
+rlhf-signals/
+
+# Opendata importer runtime state (resume checkpoints, temp data)
+services/opendata-importers/_data/

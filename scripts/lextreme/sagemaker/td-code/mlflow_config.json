@@ -1,0 +1,4 @@
+{
+  "mlflow_tracking_uri": "http://35.84.222.41:5000",
+  "artifact_bucket": "secondlayer-mlflow-artifacts"
+}

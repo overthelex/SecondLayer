@@ -1,0 +1,76 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install tzdata for timezone support
+RUN apk add --no-cache tzdata
+
+# Set timezone to EET (Europe/Kiev)
+ENV TZ=Europe/Kiev
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Copy manifests first for better caching
+COPY mcp_openreyestr/package.json mcp_openreyestr/package.json
+COPY mcp_openreyestr/package-lock.json* mcp_openreyestr/
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/shared/package-lock.json* packages/shared/
+COPY packages/shared/tsconfig.json packages/shared/tsconfig.json
+
+# Install shared deps and build shared first (it is a file: dependency of mcp_openreyestr)
+COPY packages/shared/src packages/shared/src
+RUN cd packages/shared \
+  && if [ -f package-lock.json ]; then npm ci; else npm install; fi \
+  && npm run build \
+  && npm prune --omit=dev
+
+# Install openreyestr deps (will resolve @secondlayer/shared from ../packages/shared)
+RUN cd mcp_openreyestr \
+  && npm install
+
+# Copy openreyestr source and build
+COPY mcp_openreyestr/tsconfig.json mcp_openreyestr/tsconfig.json
+COPY mcp_openreyestr/tsconfig.scripts.json mcp_openreyestr/tsconfig.scripts.json
+COPY mcp_openreyestr/src mcp_openreyestr/src
+
+RUN cd mcp_openreyestr \
+  && npm run build \
+  && npm prune --omit=dev
+
+# Replace file: symlink for @secondlayer/shared with a real directory so runtime doesn't need ../packages/shared
+# Must be done AFTER npm prune to prevent symlink recreation
+RUN cd mcp_openreyestr \
+  && rm -rf node_modules/@secondlayer/shared \
+  && mkdir -p node_modules/@secondlayer \
+  && cp -R ../packages/shared node_modules/@secondlayer/shared
+
+# Runtime image
+FROM node:20-alpine
+
+WORKDIR /app/mcp_openreyestr
+
+# Install tzdata for timezone support
+RUN apk add --no-cache tzdata
+
+# Set timezone to EET (Europe/Kiev)
+ENV TZ=Europe/Kiev
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001
+
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_openreyestr/package.json ./package.json
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_openreyestr/package-lock.json* ./
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_openreyestr/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_openreyestr/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_openreyestr/src/migrations ./src/migrations
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_openreyestr/src/migrations/*.sql ./dist/migrations/
+
+USER nodejs
+
+EXPOSE 3004
+
+# Health check — uses /health/ready to verify DB connectivity, outputs error details to stderr
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3004/health/ready', (r) => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); })"
+
+CMD ["node", "dist/http-server.js"]

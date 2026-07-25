@@ -1,0 +1,115 @@
+FROM node:20-alpine AS builder
+
+WORKDIR /app
+
+# Install build dependencies for native modules (playwright, node-pty)
+# node-pty requires python3, make, g++ to compile native bindings
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    tzdata \
+    python3 \
+    make \
+    g++ \
+    linux-headers
+
+# Set timezone to EET (Europe/Kiev)
+ENV TZ=Europe/Kiev
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Tell Playwright to use installed chromium
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+# Copy manifests first for better caching
+COPY mcp_backend/package.json mcp_backend/package.json
+COPY mcp_backend/package-lock.json* mcp_backend/
+COPY packages/shared/package.json packages/shared/package.json
+COPY packages/shared/package-lock.json* packages/shared/
+COPY packages/shared/tsconfig.json packages/shared/tsconfig.json
+
+# Install shared deps and build shared first (it is a file: dependency of mcp_backend)
+COPY packages/shared/src packages/shared/src
+RUN cd packages/shared \
+  && if [ -f package-lock.json ]; then npm ci; else npm install; fi \
+  && npm run build \
+  && npm prune --omit=dev
+
+# Install backend deps (will resolve @secondlayer/shared from ../packages/shared)
+# PYTHON env var needed for node-gyp v10 on Alpine to find python3
+ENV PYTHON=/usr/bin/python3
+RUN cd mcp_backend \
+  && npm install
+
+# Copy backend source and build
+COPY mcp_backend/tsconfig.json mcp_backend/tsconfig.json
+COPY mcp_backend/src mcp_backend/src
+COPY mcp_backend/scripts mcp_backend/scripts
+COPY mcp_backend/assets mcp_backend/assets
+RUN cd mcp_backend \
+  && npm run build \
+  && npm prune --omit=dev
+
+# NOTE: CI overlays proprietary .ts sources into mcp_backend/src/ BEFORE
+# Docker build, so tsc above already compiles real implementations.
+# No need to copy host dist/ — that caused stale files to overwrite fresh builds.
+
+# Replace file: symlink for @secondlayer/shared with a real directory so runtime doesn't need ../packages/shared
+# Must be done AFTER npm prune to prevent symlink recreation
+RUN cd mcp_backend \
+  && rm -rf node_modules/@secondlayer/shared \
+  && mkdir -p node_modules/@secondlayer \
+  && cp -R ../packages/shared node_modules/@secondlayer/shared
+
+# Runtime image
+FROM node:20-alpine
+
+WORKDIR /app/mcp_backend
+
+# Install runtime dependencies for Playwright + PDF tools + terminal PTY
+RUN apk add --no-cache \
+    chromium \
+    nss \
+    freetype \
+    harfbuzz \
+    ca-certificates \
+    ttf-freefont \
+    tzdata \
+    poppler-utils \
+    bash
+
+# Set timezone to EET (Europe/Kiev)
+ENV TZ=Europe/Kiev
+RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+# Tell Playwright to use installed chromium
+ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1 \
+    PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/usr/bin/chromium-browser
+
+RUN apk add --no-cache su-exec && \
+    addgroup -g 1001 -S nodejs && \
+    adduser -S nodejs -u 1001 && \
+    mkdir -p /app/data /app/data/uploads /app/data/uploads/multer-tmp && \
+    chown -R nodejs:nodejs /app/data
+
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/package.json ./package.json
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/package-lock.json* ./
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/node_modules ./node_modules
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/dist ./dist
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/scripts ./scripts
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/assets ./assets
+COPY --from=builder --chown=nodejs:nodejs /app/mcp_backend/src/migrations ./src/migrations
+
+COPY --chmod=755 deployment/scripts/backend-entrypoint.sh /usr/local/bin/entrypoint.sh
+
+EXPOSE 3000
+
+HEALTHCHECK --interval=15s --timeout=5s --start-period=30s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:3000/health/ready', (r) => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); })"
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
+CMD ["node", "--max-old-space-size=2048", "dist/http-server.js"]

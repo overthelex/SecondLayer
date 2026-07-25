@@ -1,0 +1,63 @@
+# Git
+.git
+.gitignore
+
+# Dependencies (each Dockerfile installs its own)
+node_modules
+*/node_modules
+*/*/node_modules
+
+# Build artifacts (multi-stage Dockerfiles build from source)
+# NOTE: mcp_backend/dist and packages/shared/dist are NOT excluded —
+# Dockerfile.document-service copies them directly (no builder stage)
+mcp_rada/dist
+mcp_openreyestr/dist
+lexwebapp/dist
+lexwebapp/dist-staging
+
+# Test files
+tests
+test_data
+test-results
+coverage
+**/coverage
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+.nyc_output
+
+# Environment files
+.env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+
+# IDE and OS
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+mcp_backend/logs
+**/*.log
+
+# Legacy and docs (not needed for builds)
+legacy
+docs
+examples
+config
+
+# Docker and deployment artifacts
+deployment/backups
+deployment/nginx/certs
+deployment/hudoc-storage
+deployment/hudoc-storage/**
+deployment/hudoc-storage/pgdata
+
+# Misc
+*.md
+!packages/shared/README.md
