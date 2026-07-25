@@ -1,1 +1,0 @@
-<!-- Proprietary implementation: @secondlayer/core (private repo) -->
