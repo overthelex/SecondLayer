@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="UTF-8">
+<title>Овчаров Володимир Валентинович — Resume</title>
+<style>
+  @page {
+    size: A4;
+    margin: 15mm 18mm;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.45;
+    color: #1a1a1a;
+    background: #fff;
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 15mm 18mm;
+  }
+  h1 {
+    font-size: 22pt;
+    font-weight: 700;
+    color: #0d1b2a;
+    margin-bottom: 2pt;
+    letter-spacing: -0.5px;
+  }
+  .subtitle {
+    font-size: 11pt;
+    color: #415a77;
+    font-weight: 600;
+    margin-bottom: 4pt;
+  }
+  .contacts {
+    font-size: 9.5pt;
+    color: #555;
+    margin-bottom: 14pt;
+  }
+  .contacts a { color: #415a77; text-decoration: none; }
+  hr {
+    border: none;
+    border-top: 2px solid #0d1b2a;
+    margin: 10pt 0;
+  }
+  hr.thin {
+    border-top: 1px solid #ccc;
+    margin: 8pt 0;
+  }
+  h2 {
+    font-size: 12pt;
+    font-weight: 700;
+    color: #0d1b2a;
+    text-transform: uppercase;
+    letter-spacing: 1.5px;
+    margin-bottom: 6pt;
+    margin-top: 2pt;
+  }
+  h3 {
+    font-size: 11pt;
+    font-weight: 700;
+    color: #1b263b;
+    margin-bottom: 3pt;
+    margin-top: 8pt;
+  }
+  .category-title {
+    font-weight: 700;
+    color: #415a77;
+    font-size: 10pt;
+    margin-top: 6pt;
+    margin-bottom: 2pt;
+  }
+  ul {
+    padding-left: 16pt;
+    margin-bottom: 4pt;
+  }
+  li {
+    margin-bottom: 1.5pt;
+  }
+  .motivation {
+    font-size: 10pt;
+    color: #333;
+    line-height: 1.5;
+    margin-bottom: 4pt;
+  }
+  .two-col {
+    display: flex;
+    gap: 24pt;
+  }
+  .two-col > div { flex: 1; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 9.5pt;
+    margin-top: 4pt;
+  }
+  table th {
+    background: #0d1b2a;
+    color: #fff;
+    padding: 5pt 8pt;
+    text-align: left;
+    font-weight: 600;
+    font-size: 9pt;
+  }
+  table td {
+    padding: 4pt 8pt;
+    border-bottom: 1px solid #e0e0e0;
+    vertical-align: top;
+  }
+  table tr:nth-child(even) td { background: #f8f9fa; }
+  .tech-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4pt 16pt;
+    font-size: 9.5pt;
+    margin-top: 4pt;
+  }
+  .tech-stack div { min-width: 45%; }
+  .tech-stack strong { color: #415a77; }
+  .closing {
+    text-align: center;
+    font-style: italic;
+    color: #415a77;
+    margin-top: 12pt;
+    font-size: 10pt;
+  }
+  .project-block { margin-bottom: 6pt; }
+  .project-block .proj-name { font-weight: 700; color: #1b263b; }
+  .project-block .proj-desc { color: #555; font-style: italic; font-size: 9.5pt; }
+  .data-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1pt 16pt;
+    font-size: 9.5pt;
+    margin-top: 2pt;
+    margin-bottom: 4pt;
+  }
+  .data-grid span { color: #333; }
+  strong { color: #1b263b; }
+  @media print {
+    body { padding: 0; }
+  }
+</style>
+</head>
+<body>
+
+<h1>Овчаров Володимир Валентинович</h1>
+<div class="subtitle">AI/ML & Full-Stack Engineer | CTO & Co-Founder, SecondLayer</div>
+<div class="contacts">
+  <a href="mailto:volodymyr@legal.org.ua">volodymyr@legal.org.ua</a> &nbsp;|&nbsp;
+  <a href="tel:+380965904460">+380 96 590 44 60</a><br>
+  Київ, 04213, вул. Прирічна, 17
+</div>
+<hr>
+
+<h2>Мотивація</h2>
+<p class="motivation">
+  15+ років досвіду побудови масштабних data-платформ, AI/ML-систем та OSINT-інфраструктури. Міжнародний досвід CTO у Південній Кореї (Paxnet), Гонконгу/Швейцарії (RioDefi) та Україні (SecondLayer). Створив з нуля платформу, що обробляє 120M+ записів через 118 AI-інструментів з LLM fine-tuning (RLHF, LoRA), автономними мульти-агентними системами та векторним пошуком. Досвід у побудові систем аналізу даних, прогнозування та автономних рішень напряму відповідає завданням Defense AI Center «A1» — від аналізу бойових даних до розвитку автономних систем та інструментів управління.
+</p>
+<hr class="thin">
+
+<h2>Ключові компетенції</h2>
+<div class="two-col">
+  <div>
+    <div class="category-title">AI/ML & Data Science</div>
+    <ul>
+      <li><strong>Fine-tuning LLM:</strong> RLHF з конституційним reward signal, LoRA-адаптери для інстанційної спеціалізації, adversarial training на GCP A3/H100</li>
+      <li><strong>Мульти-агентні системи:</strong> 3 спеціалізовані моделі (Advocate, Prosecutor, Judge) з інформаційною ізоляцією та змагальним навчанням</li>
+      <li>RAG-пайплайни з векторним пошуком (Qdrant, VoyageAI, Titan Embed v2)</li>
+      <li>LLM-оркестрація: multi-provider (GPT-4o, Claude, Bedrock, Llama, Mistral, DeepSeek, Nova)</li>
+      <li>OSINT-платформа: паралельний аналіз 20+ реєстрів</li>
+      <li>NLP для українськомовних текстів, OCR, STT, hallucination guard</li>
+    </ul>
+    <div class="category-title">Security & Cryptography</div>
+    <ul>
+      <li>E2EE (X25519 + AES-256-GCM)</li>
+      <li>WebAuthn/FIDO2, OAuth 2.0, OIDC, Дія.Підпис</li>
+      <li>GDPR compliance pipeline</li>
+    </ul>
+  </div>
+  <div>
+    <div class="category-title">Full-Stack Engineering</div>
+    <ul>
+      <li>TypeScript/Node.js (15+ років), React 19, Express.js 5, Python/FastAPI</li>
+      <li>PostgreSQL (82M+ записів, FTS), Redis, Qdrant</li>
+      <li>MCP Protocol — native MCP-сервери для Claude, ChatGPT</li>
+      <li>WebSocket, SSE streaming, BullMQ job queues</li>
+    </ul>
+    <div class="category-title">AWS</div>
+    <ul>
+      <li><strong>Bedrock:</strong> LLM inference (Converse API, streaming), batch embedding 21M+ записів (Titan Embed v2), multi-model routing (Claude, Nova, Llama, Mistral, DeepSeek)</li>
+      <li><strong>S3 + SQS:</strong> data pipelines, batch job I/O, distributed scraping з DLQ</li>
+      <li><strong>IAM:</strong> role-based access для Bedrock batch jobs</li>
+    </ul>
+    <div class="category-title">GCP</div>
+    <ul>
+      <li><strong>Cloud Vision API:</strong> OCR для скановааних документів</li>
+      <li><strong>GCP europe-west4 (A3/H100):</strong> fine-tuning LLM, RLHF-навчання, adversarial training 3 спеціалізованих моделей</li>
+      <li><strong>Google OAuth 2.0:</strong> автентифікація користувачів</li>
+    </ul>
+    <div class="category-title">Infrastructure & DevOps</div>
+    <ul>
+      <li>Blue-green deployment (GitHub Actions, self-hosted runner)</li>
+      <li>Docker Compose, multi-service orchestration, Cloudflare WAF</li>
+      <li>CPU-adaptive concurrency (5–100 workers), Prometheus</li>
+    </ul>
+  </div>
+</div>
+<hr class="thin">
+
+<h2>Професійний досвід</h2>
+<h3>CTO & Co-Founder — SecondLayer <span style="font-weight:400; color:#777; font-size:10pt;">(2023 – теперішній час)</span></h3>
+
+<div class="project-block">
+  <span class="proj-name">LEX (legal.org.ua)</span> — <span class="proj-desc">AI Legal Analytics Platform</span>
+  <ul>
+    <li>Платформа з <strong>118 MCP AI-інструментами</strong> для аналізу правових даних</li>
+    <li>Semantic search та RAG по <strong>120M+ судових рішень</strong> (з 2006 року)</li>
+    <li>Автономний агент: QueryPlanner, WorkflowGenerator/Executor — LLM генерує 3-7 паралельних аналітичних workflows</li>
+    <li>Citation graph, Shepardization, аналітика суддів, моніторинг законодавства з word-level diff</li>
+  </ul>
+</div>
+
+<div class="project-block">
+  <span class="proj-name">Fine-tuning LLM та Експериментальний AI-Суд</span> — <span class="proj-desc">RLHF, LoRA, adversarial multi-agent training на GCP</span>
+  <ul>
+    <li><strong>Конституційне RLHF:</strong> розробив Constitutional Reward Model де статті Конституції України використовуються як формалізований reward signal — 8 конституційних класифікаторів (презумпція невинуватості, пропорційність приватності, рівність, доступ до правосуддя)</li>
+    <li><strong>Експериментальний AI-суд:</strong> 3 спеціалізовані fine-tuned моделі (LEX Advocate, LEX Prosecutor, LEX Judge) з інформаційною ізоляцією в окремих контейнерах — adversarial training через тисячі симульованих судових процесів</li>
+    <li><strong>LoRA-адаптери:</strong> інстанційна спеціалізація LEX Judge — окремі адаптери для першої інстанції, апеляції, касації (ВС) та воєнних справ, кожен навчений на відповідному корпусі рішень</li>
+    <li><strong>Інфраструктура:</strong> навчання на GCP europe-west4, A3 інстанси з H100 GPU, 6-місячний цикл (базове навчання → RLHF → adversarial → red teaming → валідація)</li>
+    <li><strong>Benchmark:</strong> 500+ тестових сценаріїв конституційної відповідності, валідація на реальних справах з відомим результатом через усі інстанції</li>
+  </ul>
+</div>
+
+<div class="project-block">
+  <span class="proj-name">Panoptic (panoptic.com.ua)</span> — <span class="proj-desc">Due Diligence & Threat Intelligence</span>
+  <ul>
+    <li><strong>4M+</strong> санкційних записів (OFAC, EU, UN, UK, РНБО — 346 datasets)</li>
+    <li><strong>15B+</strong> записів витоків даних з Dark Web (100+ Tor-інстансів)</li>
+    <li><strong>810K+</strong> offshore entities (ICIJ/Panama/Paradise Papers)</li>
+    <li>FastAPI async pipeline: паралельні запити до 12+ джерел за &lt;200ms</li>
+  </ul>
+</div>
+
+<div class="project-block">
+  <span class="proj-name">Інтегровані бази відкритих даних (OSINT)</span>
+  <div class="data-grid">
+    <span>19.5M реєстрацій транспортних засобів</span>
+    <span>12.6M+ записів публічних витрат</span>
+    <span>3.1M записів недійсних паспортів</span>
+    <span>1.08M громадських організацій</span>
+    <span>504K фінансових звітів</span>
+    <span>417K записів суддів</span>
+    <span>Реєстри корупції, санкцій, розшуку, люстрації</span>
+    <span>264K платників ПДВ, 182K товарних знаків</span>
+  </div>
+</div>
+
+<div class="project-block">
+  <span class="proj-name">selected.highfunk.uk</span> — <span class="proj-desc">AI-driven content curation та рекомендаційна система</span><br>
+  <span class="proj-name">aishield.highfunk.uk</span> — <span class="proj-desc">Платформа захисту AI-систем від adversarial attacks</span>
+</div>
+
+<h3>CTO — RioDefi, Hong Kong SAR <span style="font-weight:400; color:#777; font-size:10pt;">(2022 – 2024, базування: Швейцарія)</span></h3>
+<ul>
+  <li>Технічне керівництво DeFi-платформою: архітектура блокчейн-інфраструктури, смарт-контракти, інтеграція з мультичейн-екосистемою</li>
+  <li>Управління розподіленою міжнародною командою розробників</li>
+</ul>
+
+<h3>CTO — Paxnet, Сеул, Південна Корея <span style="font-weight:400; color:#777; font-size:10pt;">(2019 – 2020)</span></h3>
+<ul>
+  <li>Технічне керівництво фінтех-платформою на корейському ринку</li>
+  <li>Розробка high-load систем для фінансових даних та аналітики</li>
+</ul>
+
+<hr class="thin">
+
+<h2>Освіта та мови</h2>
+<p><strong>Спеціаліст з прикладної математики</strong> — НТУУ «Київський політехнічний інститут» (КПІ)</p>
+<p><strong>Аспірантура (PhD candidate)</strong> — Інститут кібернетики ім. В.М. Глушкова, НАН України</p>
+<p style="margin-top:6pt;"><strong>Мови:</strong> Англійська — Professional/C1 (робочий досвід CTO у Південній Кореї, Гонконгу та Швейцарії)</p>
+
+<hr class="thin">
+
+<h2>Релевантність для Defense AI Center «A1»</h2>
+<table>
+  <thead>
+    <tr><th>Завдання центру</th><th>Мій досвід</th></tr>
+  </thead>
+  <tbody>
+    <tr><td><strong>Аналіз бойових даних</strong></td><td>Системи аналізу 120M+ записів з semantic search, pattern detection, автоматична класифікація. OSINT з 20+ джерел</td></tr>
+    <tr><td><strong>Прогнозування дій ворога</strong></td><td>Експериментальний AI-суд: мульти-агентне моделювання з adversarial training. LLM query planning, intent classification, scenario tree generation</td></tr>
+    <tr><td><strong>Автономні системи</strong></td><td>3 автономні fine-tuned моделі з інформаційною ізоляцією. Tool-calling, workflow generation/execution, hallucination guard</td></tr>
+    <tr><td><strong>Інструменти управління</strong></td><td>Real-time dashboards, SSE streaming, WebSocket, session management, RBAC</td></tr>
+    <tr><td><strong>Швидкий цикл інновацій</strong></td><td>Blue-green CI/CD, automated deployment, self-healing pipelines, testing (unit/integration/E2E)</td></tr>
+    <tr><td><strong>Великі масиви даних</strong></td><td>CPU-adaptive concurrency, batch processing, circuit breakers, PostgreSQL на 82M+ записах</td></tr>
+    <tr><td><strong>Безпека</strong></td><td>E2EE (X25519 + AES-256-GCM), FIDO2/WebAuthn, інтеграція з Дія</td></tr>
+  </tbody>
+</table>
+
+<hr class="thin">
+
+<h2>Технічний стек</h2>
+<div class="tech-stack">
+  <div><strong>AI/ML:</strong> RLHF, LoRA fine-tuning, Constitutional AI, adversarial training, RAG, LLM orchestration, NLP, OCR (Cloud Vision), STT (Deepgram)</div>
+  <div><strong>Models:</strong> GPT-4o, Claude Opus/Sonnet, Amazon Nova, Llama 4, Mistral, DeepSeek, Titan Embed v2, VoyageAI, Qdrant</div>
+  <div><strong>AWS:</strong> Bedrock (inference + batch), S3, SQS, IAM — multi-model routing, 21M+ batch embeddings</div>
+  <div><strong>GCP:</strong> A3/H100 (LLM training), Cloud Vision API, OAuth 2.0, europe-west4 region</div>
+  <div><strong>Backend:</strong> TypeScript, Node.js, Express.js, Python/FastAPI, MCP Protocol, BullMQ</div>
+  <div><strong>Frontend:</strong> React 19, Vite, TailwindCSS, Zustand, TanStack Query</div>
+  <div><strong>Data:</strong> PostgreSQL (82M+), Redis, Qdrant, MinIO (S3), Full-Text Search</div>
+  <div><strong>Infra:</strong> Docker, Nginx, GitHub Actions CI/CD, Cloudflare WAF, Prometheus</div>
+  <div><strong>Security:</strong> E2EE (X25519+AES-256-GCM), WebAuthn/FIDO2, OIDC, JWT, Дія.Підпис</div>
+</div>
+
+<div class="closing">
+  Готовий долучитися до команди Defense AI Center «A1» та застосувати досвід побудови<br>
+  масштабних AI-систем для зміцнення обороноздатності України.
+</div>
+
+</body>
+</html>

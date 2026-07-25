@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#09090b"/>
+      <stop offset="100%" stop-color="#0d0d12"/>
+    </linearGradient>
+    <linearGradient id="bar" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#0d9488"/>
+      <stop offset="33%" stop-color="#f97316"/>
+      <stop offset="66%" stop-color="#f0a830"/>
+      <stop offset="100%" stop-color="#ef4444"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect x="0" y="0" width="1200" height="3" fill="url(#bar)" opacity="0.9"/>
+
+  <!-- Company name -->
+  <text x="80" y="120" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#fafafa" letter-spacing="-0.3">LEX AI <tspan fill="#71717a" font-weight="400">LLC</tspan></text>
+  <text x="80" y="145" font-family="system-ui, sans-serif" font-size="11" fill="#71717a" letter-spacing="2" font-weight="600">UKRAINIAN AI COMPANY</text>
+
+  <!-- Headline -->
+  <text x="80" y="210" font-family="system-ui, sans-serif" font-size="40" font-weight="700" fill="#fafafa" letter-spacing="-1">AI products that protect,</text>
+  <text x="80" y="258" font-family="system-ui, sans-serif" font-size="40" font-weight="700" fill="#71717a" letter-spacing="-1">analyze, and scale.</text>
+
+  <!-- Product cards row -->
+  <!-- LEX -->
+  <rect x="80" y="300" width="240" height="140" rx="8" fill="#18181b" stroke="#27272a" stroke-width="0.8"/>
+  <rect x="80" y="300" width="240" height="2" rx="1" fill="#0d9488"/>
+  <text x="100" y="335" font-family="system-ui, sans-serif" font-size="9" font-weight="700" fill="#0d9488" letter-spacing="1.5">LEGAL TECHNOLOGY</text>
+  <text x="100" y="360" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#fafafa">LEX</text>
+  <text x="100" y="380" font-family="system-ui, sans-serif" font-size="11" fill="#71717a">legal.org.ua</text>
+  <text x="100" y="400" font-family="system-ui, sans-serif" font-size="11" fill="#a1a1aa">110M+ court decisions</text>
+  <text x="100" y="416" font-family="system-ui, sans-serif" font-size="11" fill="#a1a1aa">27 jurisdictions</text>
+  <text x="100" y="432" font-family="system-ui, sans-serif" font-size="9" fill="#52525b">AWS Bedrock + EC2</text>
+
+  <!-- Panoptic -->
+  <rect x="340" y="300" width="240" height="140" rx="8" fill="#18181b" stroke="#27272a" stroke-width="0.8"/>
+  <rect x="340" y="300" width="240" height="2" rx="1" fill="#f97316"/>
+  <text x="360" y="335" font-family="system-ui, sans-serif" font-size="9" font-weight="700" fill="#f97316" letter-spacing="1.5">CYBERSECURITY &amp; OSINT</text>
+  <text x="360" y="360" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#fafafa">Panoptic</text>
+  <text x="360" y="380" font-family="system-ui, sans-serif" font-size="11" fill="#71717a">panoptic.com.ua</text>
+  <text x="360" y="400" font-family="system-ui, sans-serif" font-size="11" fill="#a1a1aa">15B+ breach records</text>
+  <text x="360" y="416" font-family="system-ui, sans-serif" font-size="11" fill="#a1a1aa">4M+ sanctions entities</text>
+  <text x="360" y="432" font-family="system-ui, sans-serif" font-size="9" fill="#52525b">GCP Cloud Run</text>
+
+  <!-- selected.ai -->
+  <rect x="600" y="300" width="240" height="140" rx="8" fill="#18181b" stroke="#27272a" stroke-width="0.8"/>
+  <rect x="600" y="300" width="240" height="2" rx="1" fill="#f0a830"/>
+  <text x="620" y="335" font-family="system-ui, sans-serif" font-size="9" font-weight="700" fill="#f0a830" letter-spacing="1.5">SALES AUTOMATION</text>
+  <text x="620" y="360" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#fafafa">selected.ai</text>
+  <text x="620" y="380" font-family="system-ui, sans-serif" font-size="11" fill="#71717a">selected.highfunk.uk</text>
+  <text x="620" y="400" font-family="system-ui, sans-serif" font-size="11" fill="#a1a1aa">AI-powered LinkedIn outreach</text>
+  <text x="620" y="416" font-family="system-ui, sans-serif" font-size="11" fill="#a1a1aa">Claude / AWS Bedrock</text>
+  <text x="620" y="432" font-family="system-ui, sans-serif" font-size="9" fill="#52525b">GCP + AWS Bedrock</text>
+
+  <!-- AIShield -->
+  <rect x="860" y="300" width="260" height="140" rx="8" fill="#18181b" stroke="#27272a" stroke-width="0.8"/>
+  <rect x="860" y="300" width="260" height="2" rx="1" fill="#ef4444"/>
+  <text x="880" y="335" font-family="system-ui, sans-serif" font-size="9" font-weight="700" fill="#ef4444" letter-spacing="1.5">DEFENSE TECHNOLOGY</text>
+  <text x="880" y="360" font-family="system-ui, sans-serif" font-size="18" font-weight="700" fill="#fafafa">AIShield</text>
+  <text x="880" y="380" font-family="system-ui, sans-serif" font-size="11" fill="#71717a">Counter-UAS System</text>
+  <text x="880" y="400" font-family="system-ui, sans-serif" font-size="11" fill="#a1a1aa">Anti-FPV drone defense</text>
+  <text x="880" y="416" font-family="system-ui, sans-serif" font-size="11" fill="#a1a1aa">AI detection + net launcher</text>
+  <text x="880" y="432" font-family="system-ui, sans-serif" font-size="9" fill="#52525b">NVIDIA Jetson + Radar</text>
+
+  <!-- Bottom -->
+  <rect x="0" y="570" width="1200" height="60" fill="#06060a" fill-opacity="0.5"/>
+  <line x1="0" y1="570" x2="1200" y2="570" stroke="#27272a" stroke-width="0.5"/>
+  <text x="80" y="605" font-family="system-ui, sans-serif" font-size="13" fill="#52525b">opendata.legal.org.ua</text>
+
+  <g font-family="system-ui, sans-serif" font-size="11" fill="#3f3f46" letter-spacing="0.3">
+    <text x="660" y="605">4 Products</text>
+    <circle cx="728" cy="602" r="1.5" fill="#27272a"/>
+    <text x="740" y="605">3 Clouds</text>
+    <circle cx="800" cy="602" r="1.5" fill="#27272a"/>
+    <text x="812" y="605">AWS + GCP + Edge</text>
+    <circle cx="915" cy="602" r="1.5" fill="#27272a"/>
+    <text x="928" y="605">Kyiv, Ukraine</text>
+  </g>
+</svg>

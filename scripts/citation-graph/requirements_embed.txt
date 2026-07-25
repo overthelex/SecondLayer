@@ -1,0 +1,9 @@
+# torch>=2.6 base image (pytorch-training 2.8.0) lifts the torch.load(.bin)
+# restriction added in transformers>=4.50 (CVE-2025-32434), so bge-m3's
+# pytorch_model.bin loads fine. >=5.3.0 clears the config.json RCE
+# (CVE-2026-4372, GHSA-29pf-2h5f-8g72).
+transformers>=5.3.0,<6
+mlflow>=2.10
+pyarrow>=15
+sentencepiece
+protobuf

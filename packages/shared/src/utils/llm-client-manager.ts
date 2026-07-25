@@ -1,0 +1,1303 @@
+import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+import type {
+  ContentBlock,
+  SystemContentBlock,
+  ConverseCommandInput,
+  ConverseStreamCommandInput,
+  ToolSpecification,
+  ToolConfiguration,
+  Message as BedrockMessage,
+} from '@aws-sdk/client-bedrock-runtime';
+import {
+  ConverseCommand,
+  ConverseStreamCommand,
+} from '@aws-sdk/client-bedrock-runtime';
+import { logger } from './logger';
+import { OpenAIClientManager, getOpenAIManager, CostTrackerInterface } from './openai-client';
+import { AnthropicClientManager, getAnthropicManager } from './anthropic-client';
+import { BedrockClientManager, getBedrockManager, isThrottlingError, swapRegionPrefix } from './bedrock-client';
+import { ModelSelector, LLMProvider, BudgetLevel, ModelSelection } from './model-selector';
+
+/** GPT-5 models only support temperature=1 (default) */
+function supportsTemperature(model: string): boolean {
+  return !model.startsWith('gpt-5');
+}
+
+/** Per-chunk timeout for LLM streams — throws if no chunk arrives within timeoutMs */
+const STREAM_CHUNK_TIMEOUT_MS = 90_000; // 90 seconds between chunks
+
+/**
+ * Cross-region hedging threshold for standard-tier Bedrock streams (ms).
+ * When > 0, if the primary region produces no first chunk within this window,
+ * a duplicate stream is started on a fallback region and whichever yields the
+ * first chunk wins (the loser is aborted). 0 = disabled (default). Trims tail
+ * latency at the cost of the loser's input tokens until abort — standard tier
+ * only (Sonnet), never deep (Opus) or quick.
+ */
+const BEDROCK_HEDGE_MS = parseInt(process.env.BEDROCK_HEDGE_MS || '0', 10) || 0;
+
+async function* withChunkTimeout<T>(
+  source: AsyncIterable<T>,
+  timeoutMs: number = STREAM_CHUNK_TIMEOUT_MS,
+  signal?: AbortSignal,
+): AsyncGenerator<T> {
+  const iterator = source[Symbol.asyncIterator]();
+  try {
+    while (true) {
+      if (signal?.aborted) break;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      const result = await Promise.race([
+        iterator.next(),
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => reject(new Error(`LLM stream stalled — no chunk received for ${timeoutMs / 1000}s`)), timeoutMs);
+        }),
+      ]);
+      clearTimeout(timer);
+      if (result.done) break;
+      yield result.value;
+    }
+  } finally {
+    iterator.return?.();
+  }
+}
+
+export interface ToolDefinitionParam {
+  name: string;
+  description: string;
+  parameters: Record<string, any>; // JSON Schema
+}
+
+export interface ToolCall {
+  id: string;
+  name: string;
+  arguments: Record<string, any>;
+}
+
+export interface UnifiedMessage {
+  role: 'system' | 'user' | 'assistant' | 'tool';
+  content: string;
+  tool_calls?: ToolCall[];
+  tool_call_id?: string;
+}
+
+export interface UnifiedChatRequest {
+  messages: UnifiedMessage[];
+  temperature?: number;
+  max_tokens?: number;
+  response_format?: { type: 'json_object' | 'text' };
+  tools?: ToolDefinitionParam[];
+  tool_choice?: 'auto' | 'none';
+}
+
+export interface UnifiedChatResponse {
+  model: string;
+  provider: LLMProvider;
+  content: string;
+  usage: {
+    prompt_tokens: number;
+    completion_tokens: number;
+    total_tokens: number;
+  };
+  tool_calls?: ToolCall[];
+  finish_reason: 'stop' | 'tool_calls';
+}
+
+export interface UnifiedStreamChunk {
+  type: 'text_delta' | 'tool_call_delta' | 'usage' | 'done';
+  text?: string;
+  tool_call?: Partial<ToolCall> & { index?: number };
+  usage?: { prompt_tokens: number; completion_tokens: number; total_tokens: number };
+  finish_reason?: 'stop' | 'tool_calls';
+  tool_calls?: ToolCall[];
+  model?: string;
+  provider?: LLMProvider;
+}
+
+export class LLMClientManager {
+  private openaiManager: OpenAIClientManager;
+  private anthropicManager: AnthropicClientManager;
+  private bedrockManager: BedrockClientManager;
+  private availableProviders: LLMProvider[];
+  private externalApiMetrics: ((service: string, status: string, durationSec: number) => void) | null = null;
+
+  constructor() {
+    this.openaiManager = getOpenAIManager();
+    this.anthropicManager = getAnthropicManager();
+    this.bedrockManager = getBedrockManager();
+    this.availableProviders = ModelSelector.getAvailableProviders();
+
+    logger.info('LLM Client Manager initialized', {
+      providers: this.availableProviders,
+    });
+  }
+
+  setCostTracker(tracker: CostTrackerInterface) {
+    this.openaiManager.setCostTracker(tracker);
+    this.anthropicManager.setCostTracker(tracker);
+    this.bedrockManager.setCostTracker(tracker);
+  }
+
+  setExternalApiMetrics(callback: (service: string, status: string, durationSec: number) => void) {
+    this.externalApiMetrics = callback;
+  }
+
+  async chatCompletionWithModel(
+    request: UnifiedChatRequest,
+    model: string,
+    provider: LLMProvider,
+  ): Promise<UnifiedChatResponse> {
+    const selection: ModelSelection = { provider, model, budget: 'standard' };
+    return this.executeChatCompletion(request, selection);
+  }
+
+  async chatCompletion(
+    request: UnifiedChatRequest,
+    budget: BudgetLevel = 'standard',
+    preferredProvider?: LLMProvider
+  ): Promise<UnifiedChatResponse> {
+    const selection = ModelSelector.getModelSelection(budget, preferredProvider);
+
+    logger.debug('Executing chat completion', {
+      budget,
+      provider: selection.provider,
+      model: selection.model,
+    });
+
+    const callStart = Date.now();
+    try {
+      const result = await this.executeChatCompletion(request, selection);
+      const callDuration = (Date.now() - callStart) / 1000;
+      this.externalApiMetrics?.(selection.provider, 'success', callDuration);
+      return result;
+    } catch (primaryError: any) {
+      const callDuration = (Date.now() - callStart) / 1000;
+      this.externalApiMetrics?.(selection.provider, 'error', callDuration);
+      logger.warn(`Primary provider ${selection.provider} failed: ${primaryError.message}`);
+
+      // If primary was Bedrock, try Bedrock fallback model (Nova) before switching providers
+      if (selection.provider === 'bedrock') {
+        const bedrockFallback = ModelSelector.getBedrockFallbackSelection(budget);
+        if (bedrockFallback.model !== selection.model) {
+          logger.info(`Bedrock fallback: ${selection.model} → ${bedrockFallback.model}`);
+          const fbStart = Date.now();
+          try {
+            const result = await this.executeChatCompletion(request, bedrockFallback);
+            this.externalApiMetrics?.('bedrock-fallback', 'success', (Date.now() - fbStart) / 1000);
+            return result;
+          } catch (fbError: any) {
+            this.externalApiMetrics?.('bedrock-fallback', 'error', (Date.now() - fbStart) / 1000);
+            logger.warn(`Bedrock fallback also failed: ${fbError.message}`);
+          }
+        }
+      }
+
+      // Last resort: try a different provider entirely
+      const fallbackProvider = this.getFallbackProvider(selection.provider);
+      if (fallbackProvider) {
+        logger.info(`Falling back to provider ${fallbackProvider}`);
+        const fallbackSelection = ModelSelector.getModelSelection(budget, fallbackProvider);
+        const fbStart = Date.now();
+        try {
+          const result = await this.executeChatCompletion(request, fallbackSelection);
+          this.externalApiMetrics?.(fallbackSelection.provider, 'success', (Date.now() - fbStart) / 1000);
+          return result;
+        } catch (fbError: any) {
+          this.externalApiMetrics?.(fallbackSelection.provider, 'error', (Date.now() - fbStart) / 1000);
+          throw fbError;
+        }
+      }
+
+      throw primaryError;
+    }
+  }
+
+  private async executeChatCompletion(
+    request: UnifiedChatRequest,
+    selection: ModelSelection
+  ): Promise<UnifiedChatResponse> {
+    if (selection.provider === 'bedrock') {
+      return await this.executeBedrockChatCompletion(request, selection.model, selection.budget);
+    }
+    if (selection.provider === 'anthropic') {
+      return await this.executeAnthropicChatCompletion(request, selection.model);
+    }
+    return await this.executeOpenAIChatCompletion(request, selection.model);
+  }
+
+  private async executeOpenAIChatCompletion(
+    request: UnifiedChatRequest,
+    model: string
+  ): Promise<UnifiedChatResponse> {
+    const response = await this.openaiManager.executeWithRetry(async (client) => {
+      // Map messages: handle tool role and tool_calls for OpenAI format
+      const messages = request.messages.map((m) => {
+        if (m.role === 'tool') {
+          return {
+            role: 'tool' as const,
+            content: m.content,
+            tool_call_id: m.tool_call_id!,
+          };
+        }
+        if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+          return {
+            role: 'assistant' as const,
+            content: m.content || null,
+            tool_calls: m.tool_calls.map((tc) => ({
+              id: tc.id,
+              type: 'function' as const,
+              function: {
+                name: tc.name,
+                arguments: JSON.stringify(tc.arguments),
+              },
+            })),
+          };
+        }
+        return { role: m.role as 'system' | 'user' | 'assistant', content: m.content };
+      });
+
+      const params: OpenAI.Chat.ChatCompletionCreateParams = {
+        model,
+        messages: messages as OpenAI.Chat.ChatCompletionMessageParam[],
+        ...(supportsTemperature(model) ? { temperature: request.temperature ?? 0.3 } : {}),
+      };
+
+      if (request.max_tokens) {
+        params.max_completion_tokens = request.max_tokens;
+      }
+
+      if (request.response_format?.type === 'json_object' && ModelSelector.supportsJsonMode(model)) {
+        params.response_format = { type: 'json_object' };
+      }
+
+      // Add function calling tools
+      if (request.tools && request.tools.length > 0) {
+        params.tools = request.tools.map((t) => ({
+          type: 'function' as const,
+          function: {
+            name: t.name,
+            description: t.description,
+            parameters: t.parameters,
+          },
+        }));
+        if (request.tool_choice) {
+          params.tool_choice = request.tool_choice;
+        }
+      }
+
+      return await client.chat.completions.create(params);
+    });
+
+    const choice = response.choices[0];
+    const hasToolCalls = choice?.finish_reason === 'tool_calls' ||
+                         (choice?.message?.tool_calls && choice.message.tool_calls.length > 0);
+
+    const toolCalls: ToolCall[] | undefined = hasToolCalls
+      ? choice.message.tool_calls!.map((tc: any) => ({
+          id: tc.id,
+          name: tc.function.name,
+          arguments: JSON.parse(tc.function.arguments || '{}'),
+        }))
+      : undefined;
+
+    return {
+      model: response.model,
+      provider: 'openai',
+      content: choice?.message?.content || '',
+      usage: {
+        prompt_tokens: response.usage?.prompt_tokens || 0,
+        completion_tokens: response.usage?.completion_tokens || 0,
+        total_tokens: response.usage?.total_tokens || 0,
+      },
+      tool_calls: toolCalls,
+      finish_reason: hasToolCalls ? 'tool_calls' : 'stop',
+    };
+  }
+
+  private async executeAnthropicChatCompletion(
+    request: UnifiedChatRequest,
+    model: string
+  ): Promise<UnifiedChatResponse> {
+    const systemMessage = request.messages.find((m) => m.role === 'system');
+
+    // Build Anthropic messages, handling tool_use and tool_result
+    const conversationMessages: Anthropic.MessageParam[] = [];
+    for (const m of request.messages) {
+      if (m.role === 'system') continue;
+
+      if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+        // Assistant message with tool_use blocks
+        const content: Anthropic.ContentBlockParam[] = [];
+        if (m.content) {
+          content.push({ type: 'text', text: m.content });
+        }
+        for (const tc of m.tool_calls) {
+          content.push({
+            type: 'tool_use',
+            id: tc.id,
+            name: tc.name,
+            input: tc.arguments,
+          });
+        }
+        conversationMessages.push({ role: 'assistant', content });
+      } else if (m.role === 'tool') {
+        // Tool result → Anthropic expects this as a user message with tool_result block
+        // Check if the last message is already a user message with tool_result content
+        const lastMsg = conversationMessages[conversationMessages.length - 1];
+        const toolResultBlock: Anthropic.ToolResultBlockParam = {
+          type: 'tool_result',
+          tool_use_id: m.tool_call_id!,
+          content: m.content,
+        };
+        if (lastMsg && lastMsg.role === 'user' && Array.isArray(lastMsg.content)) {
+          // Merge into existing user message
+          (lastMsg.content as Anthropic.ContentBlockParam[]).push(toolResultBlock);
+        } else {
+          conversationMessages.push({
+            role: 'user',
+            content: [toolResultBlock],
+          });
+        }
+      } else {
+        conversationMessages.push({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        });
+      }
+    }
+
+    const response = await this.anthropicManager.executeWithRetry(async (client) => {
+      const params: Anthropic.MessageCreateParams = {
+        model,
+        messages: conversationMessages,
+        max_tokens: request.max_tokens || 4096,
+        temperature: request.temperature ?? 0.3,
+      };
+
+      if (systemMessage) {
+        params.system = systemMessage.content;
+      }
+
+      // Add tool definitions
+      if (request.tools && request.tools.length > 0) {
+        params.tools = request.tools.map((t) => ({
+          name: t.name,
+          description: t.description,
+          input_schema: t.parameters as Anthropic.Tool.InputSchema,
+        }));
+        if (request.tool_choice === 'auto') {
+          params.tool_choice = { type: 'auto' };
+        } else if (request.tool_choice === 'none') {
+          // Anthropic doesn't have 'none', omit tools instead
+          delete params.tools;
+        }
+      }
+
+      return await client.messages.create(params);
+    });
+
+    const textContent = response.content
+      .filter((block) => block.type === 'text')
+      .map((block: any) => block.text)
+      .join('');
+
+    const toolUseBlocks = response.content.filter((block) => block.type === 'tool_use');
+    const hasToolCalls = toolUseBlocks.length > 0;
+
+    const toolCalls: ToolCall[] | undefined = hasToolCalls
+      ? toolUseBlocks.map((block: any) => ({
+          id: block.id,
+          name: block.name,
+          arguments: block.input || {},
+        }))
+      : undefined;
+
+    return {
+      model: response.model,
+      provider: 'anthropic',
+      content: textContent,
+      usage: {
+        prompt_tokens: response.usage.input_tokens,
+        completion_tokens: response.usage.output_tokens,
+        total_tokens: response.usage.input_tokens + response.usage.output_tokens,
+      },
+      tool_calls: toolCalls,
+      finish_reason: hasToolCalls ? 'tool_calls' : 'stop',
+    };
+  }
+
+  /**
+   * Streaming chat completion — yields UnifiedStreamChunk tokens.
+   * Fallback only on connection error (not mid-stream).
+   */
+  async *chatCompletionStream(
+    request: UnifiedChatRequest,
+    budget: BudgetLevel = 'standard',
+    preferredProvider?: LLMProvider,
+    signal?: AbortSignal
+  ): AsyncGenerator<UnifiedStreamChunk> {
+    const selection = ModelSelector.getModelSelection(budget, preferredProvider);
+
+    logger.debug('Executing streaming chat completion', {
+      budget,
+      provider: selection.provider,
+      model: selection.model,
+    });
+
+    const streamStart = Date.now();
+    try {
+      if (selection.provider === 'bedrock') {
+        yield* this.executeBedrockStreamCompletion(request, selection.model, signal, budget);
+      } else if (selection.provider === 'anthropic') {
+        yield* this.executeAnthropicStreamCompletion(request, selection.model, signal);
+      } else {
+        yield* this.executeOpenAIStreamCompletion(request, selection.model, signal);
+      }
+      this.externalApiMetrics?.(selection.provider, 'success', (Date.now() - streamStart) / 1000);
+    } catch (primaryError: any) {
+      this.externalApiMetrics?.(selection.provider, 'error', (Date.now() - streamStart) / 1000);
+      logger.warn(`${selection.provider} streaming failed: ${primaryError.message}`);
+
+      // If primary was Bedrock, try Bedrock fallback model (Nova) before switching providers
+      if (selection.provider === 'bedrock') {
+        const bedrockFallback = ModelSelector.getBedrockFallbackSelection(budget);
+        if (bedrockFallback.model !== selection.model) {
+          logger.info(`Stream bedrock fallback: ${selection.model} → ${bedrockFallback.model}`);
+          const fbStart = Date.now();
+          try {
+            yield* this.executeBedrockStreamCompletion(request, bedrockFallback.model, signal, budget);
+            this.externalApiMetrics?.('bedrock-fallback', 'success', (Date.now() - fbStart) / 1000);
+            return;
+          } catch (fbError: any) {
+            this.externalApiMetrics?.('bedrock-fallback', 'error', (Date.now() - fbStart) / 1000);
+            logger.warn(`Stream bedrock fallback also failed: ${fbError.message}`);
+          }
+        }
+      }
+
+      // Last resort: try a different provider entirely
+      const fallbackProvider = this.getFallbackProvider(selection.provider);
+      if (fallbackProvider) {
+        logger.info(`Stream falling back to provider ${fallbackProvider}`);
+        const fallbackSelection = ModelSelector.getModelSelection(budget, fallbackProvider);
+        const fbStart = Date.now();
+        try {
+          if (fallbackSelection.provider === 'bedrock') {
+            yield* this.executeBedrockStreamCompletion(request, fallbackSelection.model, signal, fallbackSelection.budget);
+          } else if (fallbackSelection.provider === 'anthropic') {
+            yield* this.executeAnthropicStreamCompletion(request, fallbackSelection.model, signal);
+          } else {
+            yield* this.executeOpenAIStreamCompletion(request, fallbackSelection.model, signal);
+          }
+          this.externalApiMetrics?.(fallbackSelection.provider, 'success', (Date.now() - fbStart) / 1000);
+          return;
+        } catch (fbError: any) {
+          this.externalApiMetrics?.(fallbackSelection.provider, 'error', (Date.now() - fbStart) / 1000);
+          throw fbError;
+        }
+      }
+
+      throw primaryError;
+    }
+  }
+
+  private async *executeOpenAIStreamCompletion(
+    request: UnifiedChatRequest,
+    model: string,
+    signal?: AbortSignal
+  ): AsyncGenerator<UnifiedStreamChunk> {
+    const messages = request.messages.map((m) => {
+      if (m.role === 'tool') {
+        return {
+          role: 'tool' as const,
+          content: m.content,
+          tool_call_id: m.tool_call_id!,
+        };
+      }
+      if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+        return {
+          role: 'assistant' as const,
+          content: m.content || null,
+          tool_calls: m.tool_calls.map((tc) => ({
+            id: tc.id,
+            type: 'function' as const,
+            function: {
+              name: tc.name,
+              arguments: JSON.stringify(tc.arguments),
+            },
+          })),
+        };
+      }
+      return { role: m.role as 'system' | 'user' | 'assistant', content: m.content };
+    });
+
+    const params: any = {
+      model,
+      messages,
+      ...(supportsTemperature(model) ? { temperature: request.temperature ?? 0.3 } : {}),
+      stream: true,
+      stream_options: { include_usage: true },
+    };
+
+    if (request.max_tokens) {
+      params.max_completion_tokens = request.max_tokens;
+    }
+
+    if (request.response_format?.type === 'json_object' && ModelSelector.supportsJsonMode(model)) {
+      params.response_format = { type: 'json_object' };
+    }
+
+    if (request.tools && request.tools.length > 0) {
+      params.tools = request.tools.map((t) => ({
+        type: 'function' as const,
+        function: {
+          name: t.name,
+          description: t.description,
+          parameters: t.parameters,
+        },
+      }));
+      if (request.tool_choice) {
+        params.tool_choice = request.tool_choice;
+      }
+    }
+
+    // Try current key; on 429/401/403 rotate to next key and retry once
+    let stream: any;
+    try {
+      const client = this.openaiManager.getClient();
+      stream = await client.chat.completions.create(params, { signal });
+    } catch (err: any) {
+      if ((err.status === 429 || err.status === 401 || err.status === 403) && this.openaiManager.getClientCount() > 1) {
+        logger.warn(`OpenAI streaming key ${err.status}, rotating to next key`);
+        this.openaiManager.rotateClient();
+        const retryClient = this.openaiManager.getClient();
+        stream = await retryClient.chat.completions.create(params, { signal });
+      } else {
+        throw err;
+      }
+    }
+
+    const toolCallBuffers = new Map<number, { id: string; name: string; args: string }>();
+    let finishReason: 'stop' | 'tool_calls' = 'stop';
+
+    for await (const chunk of withChunkTimeout(stream as AsyncIterable<any>, STREAM_CHUNK_TIMEOUT_MS, signal)) {
+      if (signal?.aborted) break;
+
+      const choice = chunk.choices?.[0];
+      if (choice) {
+        // Text delta
+        if (choice.delta?.content) {
+          yield { type: 'text_delta', text: choice.delta.content };
+        }
+
+        // Tool call deltas
+        if (choice.delta?.tool_calls) {
+          for (const tc of choice.delta.tool_calls) {
+            const idx = tc.index ?? 0;
+            if (!toolCallBuffers.has(idx)) {
+              toolCallBuffers.set(idx, { id: tc.id || '', name: tc.function?.name || '', args: '' });
+            }
+            const buf = toolCallBuffers.get(idx)!;
+            if (tc.id) buf.id = tc.id;
+            if (tc.function?.name) buf.name = tc.function.name;
+            if (tc.function?.arguments) buf.args += tc.function.arguments;
+
+            yield {
+              type: 'tool_call_delta',
+              tool_call: { index: idx, id: buf.id, name: buf.name },
+            };
+          }
+        }
+
+        // Finish reason
+        if (choice.finish_reason) {
+          finishReason = choice.finish_reason === 'tool_calls' ? 'tool_calls' : 'stop';
+        }
+      }
+
+      // Usage info (final chunk)
+      if (chunk.usage) {
+        yield {
+          type: 'usage',
+          usage: {
+            prompt_tokens: chunk.usage.prompt_tokens || 0,
+            completion_tokens: chunk.usage.completion_tokens || 0,
+            total_tokens: chunk.usage.total_tokens || 0,
+          },
+        };
+      }
+    }
+
+    // Assemble completed tool calls
+    const completedToolCalls: ToolCall[] = [];
+    for (const [, buf] of toolCallBuffers) {
+      completedToolCalls.push({
+        id: buf.id,
+        name: buf.name,
+        arguments: buf.args ? JSON.parse(buf.args) : {},
+      });
+    }
+
+    yield {
+      type: 'done',
+      finish_reason: finishReason,
+      tool_calls: completedToolCalls.length > 0 ? completedToolCalls : undefined,
+      model,
+      provider: 'openai',
+    };
+  }
+
+  private async *executeAnthropicStreamCompletion(
+    request: UnifiedChatRequest,
+    model: string,
+    signal?: AbortSignal
+  ): AsyncGenerator<UnifiedStreamChunk> {
+    const client = this.anthropicManager.getClient();
+    const systemMessage = request.messages.find((m) => m.role === 'system');
+
+    const conversationMessages: Anthropic.MessageParam[] = [];
+    for (const m of request.messages) {
+      if (m.role === 'system') continue;
+
+      if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+        const content: Anthropic.ContentBlockParam[] = [];
+        if (m.content) {
+          content.push({ type: 'text', text: m.content });
+        }
+        for (const tc of m.tool_calls) {
+          content.push({
+            type: 'tool_use',
+            id: tc.id,
+            name: tc.name,
+            input: tc.arguments,
+          });
+        }
+        conversationMessages.push({ role: 'assistant', content });
+      } else if (m.role === 'tool') {
+        const lastMsg = conversationMessages[conversationMessages.length - 1];
+        const toolResultBlock: Anthropic.ToolResultBlockParam = {
+          type: 'tool_result',
+          tool_use_id: m.tool_call_id!,
+          content: m.content,
+        };
+        if (lastMsg && lastMsg.role === 'user' && Array.isArray(lastMsg.content)) {
+          (lastMsg.content as Anthropic.ContentBlockParam[]).push(toolResultBlock);
+        } else {
+          conversationMessages.push({
+            role: 'user',
+            content: [toolResultBlock],
+          });
+        }
+      } else {
+        conversationMessages.push({
+          role: m.role as 'user' | 'assistant',
+          content: m.content,
+        });
+      }
+    }
+
+    const params: any = {
+      model,
+      messages: conversationMessages,
+      max_tokens: request.max_tokens || 4096,
+      temperature: request.temperature ?? 0.3,
+      stream: true,
+    };
+
+    if (systemMessage) {
+      params.system = systemMessage.content;
+    }
+
+    if (request.tools && request.tools.length > 0) {
+      params.tools = request.tools.map((t: ToolDefinitionParam) => ({
+        name: t.name,
+        description: t.description,
+        input_schema: t.parameters as Anthropic.Tool.InputSchema,
+      }));
+      if (request.tool_choice === 'auto') {
+        params.tool_choice = { type: 'auto' };
+      } else if (request.tool_choice === 'none') {
+        delete params.tools;
+      }
+    }
+
+    const stream = client.messages.stream(params, { signal });
+    const toolCallBuffers = new Map<number, { id: string; name: string; args: string }>();
+    let blockIndex = 0;
+    let finishReason: 'stop' | 'tool_calls' = 'stop';
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    for await (const event of withChunkTimeout(stream as AsyncIterable<any>, STREAM_CHUNK_TIMEOUT_MS, signal)) {
+      if (signal?.aborted) break;
+
+      switch (event.type) {
+        case 'message_start':
+          if (event.message?.usage) {
+            inputTokens = event.message.usage.input_tokens || 0;
+          }
+          break;
+
+        case 'content_block_start':
+          if (event.content_block?.type === 'tool_use') {
+            toolCallBuffers.set(event.index ?? blockIndex, {
+              id: event.content_block.id || '',
+              name: event.content_block.name || '',
+              args: '',
+            });
+          }
+          blockIndex = event.index ?? blockIndex;
+          break;
+
+        case 'content_block_delta':
+          if (event.delta?.type === 'text_delta') {
+            yield { type: 'text_delta', text: event.delta.text };
+          } else if (event.delta?.type === 'input_json_delta') {
+            const idx = event.index ?? blockIndex;
+            const buf = toolCallBuffers.get(idx);
+            if (buf) {
+              buf.args += event.delta.partial_json || '';
+              yield {
+                type: 'tool_call_delta',
+                tool_call: { index: idx, id: buf.id, name: buf.name },
+              };
+            }
+          }
+          break;
+
+        case 'message_delta':
+          if (event.usage) {
+            outputTokens = event.usage.output_tokens || 0;
+          }
+          if (event.delta?.stop_reason) {
+            finishReason = event.delta.stop_reason === 'tool_use' ? 'tool_calls' : 'stop';
+          }
+          break;
+      }
+    }
+
+    // Assemble completed tool calls
+    const completedToolCalls: ToolCall[] = [];
+    for (const [, buf] of toolCallBuffers) {
+      completedToolCalls.push({
+        id: buf.id,
+        name: buf.name,
+        arguments: buf.args ? JSON.parse(buf.args) : {},
+      });
+    }
+
+    yield {
+      type: 'usage',
+      usage: {
+        prompt_tokens: inputTokens,
+        completion_tokens: outputTokens,
+        total_tokens: inputTokens + outputTokens,
+      },
+    };
+
+    yield {
+      type: 'done',
+      finish_reason: finishReason,
+      tool_calls: completedToolCalls.length > 0 ? completedToolCalls : undefined,
+      model,
+      provider: 'anthropic',
+    };
+  }
+
+  // ─── Bedrock Converse API ─────────────────────────────────────────
+
+  private convertToBedrockMessages(
+    messages: UnifiedMessage[],
+    hasTools: boolean = true
+  ): { system: SystemContentBlock[]; messages: BedrockMessage[] } {
+    const system: SystemContentBlock[] = [];
+    const bedrockMessages: BedrockMessage[] = [];
+
+    for (const m of messages) {
+      if (m.role === 'system') {
+        system.push({ text: m.content });
+        continue;
+      }
+
+      if (m.role === 'assistant' && m.tool_calls && m.tool_calls.length > 0) {
+        if (hasTools) {
+          const content: ContentBlock[] = [];
+          if (m.content) {
+            content.push({ text: m.content });
+          }
+          for (const tc of m.tool_calls) {
+            content.push({
+              toolUse: {
+                toolUseId: tc.id,
+                name: tc.name,
+                input: tc.arguments,
+              },
+            });
+          }
+          bedrockMessages.push({ role: 'assistant', content });
+        } else {
+          // No tools in request — convert tool_use blocks to text to avoid
+          // Bedrock's "toolConfig must be defined" validation error
+          const parts: string[] = [];
+          if (m.content) parts.push(m.content);
+          for (const tc of m.tool_calls) {
+            parts.push(`[Викликано інструмент ${tc.name}(${JSON.stringify(tc.arguments)})]`);
+          }
+          bedrockMessages.push({ role: 'assistant', content: [{ text: parts.join('\n') }] });
+        }
+        continue;
+      }
+
+      if (m.role === 'tool') {
+        if (hasTools) {
+          // Bedrock expects tool results as user messages
+          const toolResultBlock: ContentBlock = {
+            toolResult: {
+              toolUseId: m.tool_call_id!,
+              content: [{ text: m.content }],
+            },
+          };
+          // Merge into last user message if possible
+          const lastMsg = bedrockMessages[bedrockMessages.length - 1];
+          if (lastMsg && lastMsg.role === 'user' && Array.isArray(lastMsg.content)) {
+            lastMsg.content.push(toolResultBlock);
+          } else {
+            bedrockMessages.push({ role: 'user', content: [toolResultBlock] });
+          }
+        } else {
+          // No tools in request — convert tool results to plain text
+          const resultText = `[Результат інструменту: ${m.content.slice(0, 3000)}]`;
+          // Merge into last user message if possible
+          const lastMsg = bedrockMessages[bedrockMessages.length - 1];
+          if (lastMsg && lastMsg.role === 'user' && Array.isArray(lastMsg.content)) {
+            lastMsg.content.push({ text: resultText });
+          } else {
+            bedrockMessages.push({ role: 'user', content: [{ text: resultText }] });
+          }
+        }
+        continue;
+      }
+
+      // user or assistant (no tool_calls)
+      const text = m.content || (m.role === 'assistant' ? '...' : '...');
+      bedrockMessages.push({
+        role: m.role as 'user' | 'assistant',
+        content: [{ text }],
+      });
+    }
+
+    // Bedrock requires strict user/assistant alternation.
+    // Merge consecutive same-role messages to avoid "Error in input stream".
+    const merged: BedrockMessage[] = [];
+    for (const msg of bedrockMessages) {
+      const prev = merged[merged.length - 1];
+      if (prev && prev.role === msg.role && Array.isArray(prev.content) && Array.isArray(msg.content)) {
+        prev.content.push(...msg.content);
+      } else {
+        merged.push(msg);
+      }
+    }
+
+    return { system, messages: merged };
+  }
+
+  private buildBedrockToolConfig(request: UnifiedChatRequest): ToolConfiguration | undefined {
+    if (!request.tools || request.tools.length === 0) return undefined;
+
+    const tools = request.tools.map((t) => ({
+      toolSpec: {
+        name: t.name,
+        description: t.description,
+        inputSchema: {
+          json: t.parameters,
+        },
+      } as ToolSpecification,
+    }));
+
+    const toolChoice = request.tool_choice === 'none'
+      ? { auto: {} }  // Bedrock doesn't have 'none', use auto and skip tools
+      : { auto: {} };
+
+    return { tools, toolChoice };
+  }
+
+  private async executeBedrockChatCompletion(
+    request: UnifiedChatRequest,
+    model: string,
+    budget: BudgetLevel = 'standard'
+  ): Promise<UnifiedChatResponse> {
+    // Tier-based region pinning: quick-tier calls may route to a separate
+    // region (BEDROCK_QUICK_REGION) to isolate quota from the main loop.
+    const pin = this.bedrockManager.getClientForTier(budget);
+    const pinnedModel = swapRegionPrefix(model, pin.region);
+    try {
+      return await this.sendBedrockConverse(pin.client, pinnedModel, request);
+    } catch (err: any) {
+      if (!isThrottlingError(err)) throw err;
+
+      // Cross-region fallback on throttling (excluding the region already tried)
+      for (const fb of this.bedrockManager.getFailoverClients(pin.region)) {
+        const regionModel = swapRegionPrefix(model, fb.region);
+        logger.info(`Bedrock throttled, trying ${fb.region}`, { model: regionModel });
+        try {
+          return await this.sendBedrockConverse(fb.client, regionModel, request);
+        } catch (fbErr: any) {
+          logger.warn(`Bedrock fallback ${fb.region} failed: ${fbErr.message}`);
+          if (!isThrottlingError(fbErr)) throw fbErr;
+        }
+      }
+      throw err;
+    }
+  }
+
+  private async sendBedrockConverse(
+    client: import('@aws-sdk/client-bedrock-runtime').BedrockRuntimeClient,
+    model: string,
+    request: UnifiedChatRequest
+  ): Promise<UnifiedChatResponse> {
+    const hasTools = !!(request.tools && request.tools.length > 0);
+    const { system, messages } = this.convertToBedrockMessages(request.messages, hasTools);
+
+    const params: ConverseCommandInput = {
+      modelId: model,
+      messages,
+      ...(system.length > 0 ? { system } : {}),
+    };
+
+    const inferenceConfig: any = {};
+    if (request.max_tokens) {
+      const modelMaxTokens = model.includes('nova') ? 10000 : request.max_tokens;
+      inferenceConfig.maxTokens = Math.min(request.max_tokens, modelMaxTokens);
+    }
+    if (request.temperature !== undefined && ModelSelector.supportsTemperature(model)) {
+      inferenceConfig.temperature = request.temperature;
+    }
+    if (Object.keys(inferenceConfig).length > 0) {
+      params.inferenceConfig = inferenceConfig;
+    }
+
+    if (request.tools && request.tools.length > 0 && request.tool_choice !== 'none') {
+      params.toolConfig = this.buildBedrockToolConfig(request);
+    }
+
+    const command = new ConverseCommand(params);
+    const response = await client.send(command);
+
+    const contentBlocks = response.output?.message?.content || [];
+    let textContent = '';
+    const toolCalls: ToolCall[] = [];
+
+    for (const block of contentBlocks) {
+      if ('text' in block && block.text) {
+        textContent += block.text;
+      }
+      if ('toolUse' in block && block.toolUse) {
+        toolCalls.push({
+          id: block.toolUse.toolUseId || `tc_${Date.now()}`,
+          name: block.toolUse.name || '',
+          arguments: (block.toolUse.input as Record<string, any>) || {},
+        });
+      }
+    }
+
+    const hasToolCalls = toolCalls.length > 0;
+    const inputTokens = response.usage?.inputTokens || 0;
+    const outputTokens = response.usage?.outputTokens || 0;
+
+    await this.bedrockManager.trackUsage(model, inputTokens, outputTokens);
+
+    return {
+      model,
+      provider: 'bedrock',
+      content: textContent,
+      usage: {
+        prompt_tokens: inputTokens,
+        completion_tokens: outputTokens,
+        total_tokens: inputTokens + outputTokens,
+      },
+      tool_calls: hasToolCalls ? toolCalls : undefined,
+      finish_reason: response.stopReason === 'tool_use' ? 'tool_calls' : 'stop',
+    };
+  }
+
+  /**
+   * Bedrock streaming entry: tier-based region pinning + optional cross-region
+   * hedging for the standard tier (BEDROCK_HEDGE_MS). Delegates the actual
+   * stream to streamBedrockOnClient.
+   */
+  private async *executeBedrockStreamCompletion(
+    request: UnifiedChatRequest,
+    model: string,
+    signal?: AbortSignal,
+    budget: BudgetLevel = 'standard'
+  ): AsyncGenerator<UnifiedStreamChunk> {
+    const pin = this.bedrockManager.getClientForTier(budget);
+
+    // Cross-region hedging: only for the standard tier (Sonnet — available in
+    // all fallback regions, no Opus-downgrade risk) and only when enabled. The
+    // model/provider fallback in chatCompletionStream still wraps this path.
+    if (BEDROCK_HEDGE_MS > 0 && budget === 'standard') {
+      const hedge = this.bedrockManager.getFailoverClients(pin.region)[0];
+      if (hedge) {
+        yield* this.executeBedrockHedgedStream(request, model, signal, pin, hedge);
+        return;
+      }
+    }
+
+    yield* this.streamBedrockOnClient(pin.client, swapRegionPrefix(model, pin.region), request, signal);
+  }
+
+  /** Stream a Bedrock Converse response on a specific region client. */
+  private async *streamBedrockOnClient(
+    client: import('@aws-sdk/client-bedrock-runtime').BedrockRuntimeClient,
+    model: string,
+    request: UnifiedChatRequest,
+    signal?: AbortSignal
+  ): AsyncGenerator<UnifiedStreamChunk> {
+    const hasTools = !!(request.tools && request.tools.length > 0);
+    const { system, messages } = this.convertToBedrockMessages(request.messages, hasTools);
+
+    const params: ConverseStreamCommandInput = {
+      modelId: model,
+      messages,
+      ...(system.length > 0 ? { system } : {}),
+    };
+
+    const inferenceConfig: any = {};
+    if (request.max_tokens) {
+      const modelMaxTokens = model.includes('nova') ? 10000 : request.max_tokens;
+      inferenceConfig.maxTokens = Math.min(request.max_tokens, modelMaxTokens);
+    }
+    if (request.temperature !== undefined && ModelSelector.supportsTemperature(model)) {
+      inferenceConfig.temperature = request.temperature;
+    }
+    if (Object.keys(inferenceConfig).length > 0) {
+      params.inferenceConfig = inferenceConfig;
+    }
+
+    if (request.tools && request.tools.length > 0 && request.tool_choice !== 'none') {
+      params.toolConfig = this.buildBedrockToolConfig(request);
+    }
+
+    const command = new ConverseStreamCommand(params);
+    const response = await client.send(command);
+
+    if (!response.stream) {
+      throw new Error('Bedrock stream response is empty');
+    }
+
+    const toolCallBuffers = new Map<number, { id: string; name: string; args: string }>();
+    let finishReason: 'stop' | 'tool_calls' = 'stop';
+    let blockIndex = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+
+    for await (const event of withChunkTimeout(response.stream, STREAM_CHUNK_TIMEOUT_MS, signal)) {
+      if (signal?.aborted) break;
+
+      if (event.contentBlockStart) {
+        const start = event.contentBlockStart.start;
+        if (start && 'toolUse' in start && start.toolUse) {
+          toolCallBuffers.set(event.contentBlockStart.contentBlockIndex ?? blockIndex, {
+            id: start.toolUse.toolUseId || `tc_${Date.now()}`,
+            name: start.toolUse.name || '',
+            args: '',
+          });
+        }
+        blockIndex = event.contentBlockStart.contentBlockIndex ?? blockIndex;
+      }
+
+      if (event.contentBlockDelta) {
+        const delta = event.contentBlockDelta.delta;
+        if (delta && 'text' in delta && delta.text) {
+          yield { type: 'text_delta', text: delta.text };
+        }
+        if (delta && 'toolUse' in delta && delta.toolUse) {
+          const idx = event.contentBlockDelta.contentBlockIndex ?? blockIndex;
+          const buf = toolCallBuffers.get(idx);
+          if (buf) {
+            buf.args += delta.toolUse.input || '';
+            yield {
+              type: 'tool_call_delta',
+              tool_call: { index: idx, id: buf.id, name: buf.name },
+            };
+          }
+        }
+      }
+
+      if (event.messageStop) {
+        if (event.messageStop.stopReason === 'tool_use') {
+          finishReason = 'tool_calls';
+        }
+      }
+
+      if (event.metadata) {
+        inputTokens = event.metadata.usage?.inputTokens || 0;
+        outputTokens = event.metadata.usage?.outputTokens || 0;
+      }
+    }
+
+    // Track cost
+    await this.bedrockManager.trackUsage(model, inputTokens, outputTokens);
+
+    // Emit usage
+    yield {
+      type: 'usage',
+      usage: {
+        prompt_tokens: inputTokens,
+        completion_tokens: outputTokens,
+        total_tokens: inputTokens + outputTokens,
+      },
+    };
+
+    // Assemble completed tool calls
+    const completedToolCalls: ToolCall[] = [];
+    for (const [, buf] of toolCallBuffers) {
+      let args: Record<string, any> = {};
+      if (buf.args) {
+        try {
+          args = JSON.parse(buf.args);
+        } catch {
+          logger.warn('Failed to parse Bedrock tool call arguments', { args: buf.args });
+        }
+      }
+      completedToolCalls.push({ id: buf.id, name: buf.name, arguments: args });
+    }
+
+    yield {
+      type: 'done',
+      finish_reason: finishReason,
+      tool_calls: completedToolCalls.length > 0 ? completedToolCalls : undefined,
+      model,
+      provider: 'bedrock',
+    };
+  }
+
+  /**
+   * Hedged Bedrock stream: start the primary region; if it produces no first
+   * chunk within BEDROCK_HEDGE_MS, start a duplicate on a fallback region and
+   * stream from whichever yields the first chunk first. The loser is aborted.
+   * If one region errors before producing, the other takes over (resilience).
+   */
+  private async *executeBedrockHedgedStream(
+    request: UnifiedChatRequest,
+    baseModel: string,
+    signal: AbortSignal | undefined,
+    primary: { region: string; client: import('@aws-sdk/client-bedrock-runtime').BedrockRuntimeClient },
+    hedge: { region: string; client: import('@aws-sdk/client-bedrock-runtime').BedrockRuntimeClient }
+  ): AsyncGenerator<UnifiedStreamChunk> {
+    type Pull = { src: 1 | 2; r?: IteratorResult<UnifiedStreamChunk>; err?: any };
+
+    const ac1 = new AbortController();
+    const ac2 = new AbortController();
+    const onOuterAbort = () => { ac1.abort(); ac2.abort(); };
+    if (signal) {
+      if (signal.aborted) onOuterAbort();
+      else signal.addEventListener('abort', onOuterAbort, { once: true });
+    }
+    const cleanup = () => { if (signal) signal.removeEventListener('abort', onOuterAbort); };
+
+    const m1 = swapRegionPrefix(baseModel, primary.region);
+    const m2 = swapRegionPrefix(baseModel, hedge.region);
+
+    const it1 = this.streamBedrockOnClient(primary.client, m1, request, ac1.signal)[Symbol.asyncIterator]();
+    const pull1: Promise<Pull> = it1.next().then(r => ({ src: 1 as const, r })).catch(err => ({ src: 1 as const, err }));
+
+    let it2: AsyncIterator<UnifiedStreamChunk> | null = null;
+    let pull2: Promise<Pull> | null = null;
+    const startHedge = (): Promise<Pull> => {
+      it2 = this.streamBedrockOnClient(hedge.client, m2, request, ac2.signal)[Symbol.asyncIterator]();
+      pull2 = it2.next().then(r => ({ src: 2 as const, r })).catch(err => ({ src: 2 as const, err }));
+      return pull2;
+    };
+
+    const timer = new Promise<'timer'>(res => setTimeout(() => res('timer'), BEDROCK_HEDGE_MS));
+
+    try {
+      // Phase 1: wait for the primary's first chunk, or the hedge timer.
+      let decided = await Promise.race([pull1, timer]);
+      if (decided === 'timer') {
+        logger.info('Bedrock hedge: primary slow, starting second region', {
+          primaryRegion: primary.region, hedgeRegion: hedge.region, hedgeMs: BEDROCK_HEDGE_MS,
+        });
+        decided = await Promise.race([pull1, startHedge()]);
+      }
+      const first = decided as Pull;
+
+      // Phase 2: resolve the winner, handling the case where the first to settle errored.
+      let winner: AsyncIterator<UnifiedStreamChunk>;
+      let loserAc: AbortController;
+      let firstResult: IteratorResult<UnifiedStreamChunk> | null = null;
+
+      if (!first.err) {
+        if (first.src === 1) { winner = it1; loserAc = ac2; }
+        else { winner = it2!; loserAc = ac1; }
+        firstResult = first.r!;
+      } else if (first.src === 1) {
+        // Primary failed before producing — fall back to the hedge.
+        logger.warn('Bedrock hedge: primary region failed, using second region', {
+          region: primary.region, error: first.err?.message,
+        });
+        const r2 = await (pull2 ?? startHedge());
+        if (r2.err) { throw first.err; } // both regions failed
+        winner = it2!; loserAc = ac1; firstResult = r2.r!;
+      } else {
+        // Hedge failed before producing — fall back to the primary.
+        logger.warn('Bedrock hedge: second region failed, using primary', {
+          region: hedge.region, error: first.err?.message,
+        });
+        const r1 = await pull1;
+        if (r1.err) { throw r1.err; } // both regions failed
+        winner = it1; loserAc = ac2; firstResult = r1.r!;
+      }
+
+      // Abort the loser and swallow its abandoned pull promise.
+      loserAc.abort();
+      const loserPull: Promise<Pull> | null = loserAc === ac1 ? pull1 : pull2;
+      loserPull?.catch(() => {});
+
+      // Emit the winner's first chunk, then drain the rest.
+      if (firstResult) {
+        if (!firstResult.done && firstResult.value) yield firstResult.value;
+        if (firstResult.done) return;
+      }
+      while (!signal?.aborted) {
+        const r = await winner.next();
+        if (r.done) break;
+        if (r.value) yield r.value;
+      }
+    } finally {
+      ac1.abort();
+      ac2.abort();
+      cleanup();
+    }
+  }
+
+  // ─── Fallback ───────────────────────────────────────────────────
+
+  private getFallbackProvider(primaryProvider: LLMProvider): LLMProvider | null {
+    const others = this.availableProviders.filter((p) => p !== primaryProvider);
+    return others.length > 0 ? others[0] : null;
+  }
+
+  getOpenAIClient(): OpenAI {
+    return this.openaiManager.getClient();
+  }
+
+  getAnthropicClient(): Anthropic {
+    return this.anthropicManager.getClient();
+  }
+
+  isProviderAvailable(provider: LLMProvider): boolean {
+    return this.availableProviders.includes(provider);
+  }
+}
+
+let llmManager: LLMClientManager | null = null;
+
+export function getLLMManager(): LLMClientManager {
+  if (!llmManager) {
+    llmManager = new LLMClientManager();
+  }
+  return llmManager;
+}

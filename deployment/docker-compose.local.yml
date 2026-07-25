@@ -1,0 +1,1095 @@
+# Local development environment for SecondLayer
+# Simplified setup for running on developer machines
+
+services:
+  postgres-local:
+    image: postgres:15-alpine
+    container_name: secondlayer-postgres-local
+    shm_size: '32gb'
+    oom_score_adj: -500
+    command: >-
+      postgres
+      -c max_connections=500
+      -c shared_buffers=16GB
+      -c effective_cache_size=48GB
+      -c work_mem=4GB
+      -c maintenance_work_mem=8GB
+      -c max_parallel_workers_per_gather=12
+      -c max_parallel_workers=16
+      -c max_worker_processes=16
+      -c wal_buffers=64MB
+      -c temp_buffers=32MB
+      -c huge_pages=off
+      -c dynamic_shared_memory_type=mmap
+      -c checkpoint_completion_target=0.9
+      -c wal_level=minimal
+      -c max_wal_senders=0
+      -c idle_in_transaction_session_timeout=60000
+      -c statement_timeout=300000
+      -c lock_timeout=30000
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
+    ports:
+      - "127.0.0.1:5432:5432"  # Standard PostgreSQL port
+    volumes:
+      - postgres_local_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-secondlayer} -d ${POSTGRES_DB:-secondlayer_local}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+    deploy:
+      resources:
+        limits:
+          cpus: '16'
+          memory: 96G
+        reservations:
+          cpus: '2'
+          memory: 4G
+
+  rada-db-init-local:
+    image: postgres:15-alpine
+    container_name: rada-db-init-local
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres-local
+      POSTGRES_PORT: "5432"
+      POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
+      POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_password}
+      RADA_POSTGRES_USER: ${RADA_POSTGRES_USER:-rada_mcp}
+      RADA_POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD:-rada_password}
+      RADA_POSTGRES_SCHEMA: ${RADA_POSTGRES_SCHEMA:-rada}
+    volumes:
+      - ./scripts/rada-db-init.sh:/scripts/rada-db-init.sh:ro
+    command: ["sh", "/scripts/rada-db-init.sh"]
+    restart: "no"
+    networks:
+      - secondlayer-local
+
+  qdrant-local:
+    image: qdrant/qdrant:latest
+    container_name: secondlayer-qdrant-local
+    ports:
+      - "127.0.0.1:6333:6333"  # HTTP API
+      - "127.0.0.1:6334:6334"  # gRPC
+    volumes:
+      - qdrant_local_data:/qdrant/storage
+    environment:
+      QDRANT__SERVICE__API_KEY: ${QDRANT_API_KEY:-local_qdrant_key}
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c 'echo > /dev/tcp/localhost/6333'"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 64G
+        reservations:
+          cpus: '1.0'
+          memory: 4G
+
+  redis-local:
+    image: redis:7-alpine
+    container_name: secondlayer-redis-local
+    ports:
+      - "127.0.0.1:6379:6379"
+    volumes:
+      - redis_local_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy volatile-lru
+      --requirepass ${REDIS_PASSWORD:-local_redis_pass}
+      --rename-command CONFIG ""
+      --rename-command DEBUG ""
+      --rename-command SLAVEOF ""
+      --rename-command REPLICAOF ""
+      --rename-command FLUSHDB ""
+      --rename-command FLUSHALL ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-local_redis_pass}", "ping"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+      start_period: 3s
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+
+  migrate-local:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.mono-backend
+    image: secondlayer-app:latest
+    container_name: secondlayer-migrate-local
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-local_dev_password}@postgres-local:5432/${POSTGRES_DB:-secondlayer_local}
+      POSTGRES_HOST: postgres-local
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NODE_ENV: development
+    working_dir: /app/mcp_backend
+    command: ["node", "dist/migrations/migrate.js"]
+    restart: "no"
+    networks:
+      - secondlayer-local
+
+  seed-admin-local:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.mono-backend
+    image: secondlayer-app:latest
+    container_name: secondlayer-seed-admin-local
+    depends_on:
+      migrate-local:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-local_dev_password}@postgres-local:5432/${POSTGRES_DB:-secondlayer_local}
+      POSTGRES_HOST: postgres-local
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NODE_ENV: development
+      ADMIN_USER_EMAIL: ${ADMIN_USER_EMAIL:-admin@legal.org.ua}
+      ADMIN_USER_PASSWORD: ${ADMIN_USER_PASSWORD:-admin123456}
+    working_dir: /app/mcp_backend
+    command: ["node", "dist/scripts/seed-admin-user.js"]
+    restart: "no"
+    networks:
+      - secondlayer-local
+
+  seed-test-user-local:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.mono-backend
+    image: secondlayer-app:latest
+    container_name: secondlayer-seed-test-user-local
+    depends_on:
+      migrate-local:
+        condition: service_completed_successfully
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-local_dev_password}@postgres-local:5432/${POSTGRES_DB:-secondlayer_local}
+      POSTGRES_HOST: postgres-local
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NODE_ENV: development
+      TEST_USER_EMAIL: ${TEST_USER_EMAIL:-testuser@secondlayer.com}
+      TEST_USER_PASSWORD: ${TEST_USER_PASSWORD:-testuser123}
+    working_dir: /app/mcp_backend
+    command: >
+      sh -c "node -e \"
+        const bcrypt = require('bcryptjs');
+        const { Database } = require('./dist/database/database.js');
+        async function seed() {
+          const db = new Database();
+          await db.connect();
+          const email = process.env.TEST_USER_EMAIL || 'testuser@secondlayer.com';
+          const password = process.env.TEST_USER_PASSWORD || 'testuser123';
+          const passwordHash = await bcrypt.hash(password, 10);
+          await db.query(
+            \\\`INSERT INTO users (email, name, password_hash, email_verified)
+             VALUES (\\\$1, 'Test User', \\\$2, true)
+             ON CONFLICT (email) DO UPDATE SET password_hash = \\\$2, updated_at = NOW()
+             RETURNING id\\\`,
+            [email, passwordHash]
+          );
+          console.log('Test user seeded:', email);
+          await db.close();
+        }
+        seed().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); });
+      \""
+    restart: "no"
+    networks:
+      - secondlayer-local
+
+  app-local:
+    image: secondlayer-app:latest
+    container_name: secondlayer-app-local
+    command: ["node", "--max-old-space-size=2048", "dist/http-server.js"]
+    environment:
+      # Application
+      NODE_ENV: ${NODE_ENV:-development}
+      PORT: ${HTTP_PORT:-3000}
+      HTTP_PORT: ${HTTP_PORT:-3000}
+      HTTP_HOST: 0.0.0.0
+
+      # JWT for authentication
+      JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-change-in-production}
+
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-local_dev_password}@postgres-local:5432/${POSTGRES_DB:-secondlayer_local}
+      POSTGRES_HOST: postgres-local
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
+
+      # Vector DB
+      QDRANT_URL: http://qdrant-local:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-local_qdrant_key}
+
+      # Cache
+      REDIS_URL: redis://:${REDIS_PASSWORD:-local_redis_pass}@redis-local:6379
+      REDIS_HOST: redis-local
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local_redis_pass}
+
+      # AWS Bedrock Configuration
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-}
+      AWS_REGION: ${AWS_REGION:-eu-central-1}
+      BEDROCK_MODEL_QUICK: ${BEDROCK_MODEL_QUICK:-eu.anthropic.claude-haiku-4-5-20251001-v1:0}
+      BEDROCK_MODEL_STANDARD: ${BEDROCK_MODEL_STANDARD:-eu.anthropic.claude-sonnet-4-6}
+      BEDROCK_MODEL_DEEP: ${BEDROCK_MODEL_DEEP:-eu.anthropic.claude-sonnet-4-6}
+      BEDROCK_FALLBACK_MODEL_QUICK: ${BEDROCK_FALLBACK_MODEL_QUICK:-}
+      BEDROCK_FALLBACK_MODEL_STANDARD: ${BEDROCK_FALLBACK_MODEL_STANDARD:-}
+      BEDROCK_FALLBACK_MODEL_DEEP: ${BEDROCK_FALLBACK_MODEL_DEEP:-}
+
+      # Embeddings
+      VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY:-}
+      VOYAGEAI_API_KEY_2: ${VOYAGEAI_API_KEY_2:-}
+      VOYAGEAI_EMBEDDING_MODEL: ${VOYAGEAI_EMBEDDING_MODEL:-voyage-multilingual-2}
+      BGE_M3_URL: ${BGE_M3_URL:-}
+
+      # LLM Provider Strategy
+      LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-bedrock-first}
+
+      # No Anthropic/OpenAI — Bedrock only
+
+      # ZakonOnline API (deprecated, removal pending)
+      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN:-}
+      ZAKONONLINE_API_TOKEN2: ${ZAKONONLINE_API_TOKEN2:-}
+
+      # Security (relaxed for local dev)
+      SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS:-local-dev-key,test-key-123}
+
+      # Unified Gateway Configuration
+      ENABLE_UNIFIED_GATEWAY: ${ENABLE_UNIFIED_GATEWAY:-true}
+      RADA_MCP_URL: ${RADA_MCP_URL:-http://rada-mcp-app-local:3001}
+      RADA_API_KEY: ${RADA_API_KEY:-test-key-123}
+      OPENREYESTR_MCP_URL: ${OPENREYESTR_MCP_URL:-http://openreyestr-app-local:3004}
+      OPENREYESTR_API_KEY: ${OPENREYESTR_API_KEY:-test-key-123}
+      SNEAKYPIPER_API_URL: ${SNEAKYPIPER_API_URL:-}
+      SNEAKYPIPER_API_KEY: ${SNEAKYPIPER_API_KEY:-}
+      STAGE_BACKEND_URL: ${STAGE_BACKEND_URL:-https://stage.legal.org.ua}
+      STAGE_API_KEY: ${STAGE_API_KEY:-}
+
+      # WebAuthn / FIDO2
+      WEBAUTHN_RP_ID: ${WEBAUTHN_RP_ID:-local.legal.org.ua}
+      WEBAUTHN_RP_NAME: ${WEBAUTHN_RP_NAME:-SecondLayer Legal}
+      WEBAUTHN_ORIGIN: ${WEBAUTHN_ORIGIN:-https://local.legal.org.ua}
+
+      # OAuth (optional for local - can use API keys instead)
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: ${GOOGLE_CALLBACK_URL:-https://local.legal.org.ua/auth/google/callback}
+      FRONTEND_URL: ${FRONTEND_URL:-https://local.legal.org.ua}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-https://local.legal.org.ua,https://usa.legal.org.ua,https://uk.legal.org.ua,https://de.legal.org.ua,https://fr.legal.org.ua,https://nl.legal.org.ua,https://ee.legal.org.ua,https://eu.legal.org.ua,https://ua.legal.org.ua,http://localhost:5173,http://localhost:3000}
+
+      # MinIO (S3-compatible object storage)
+      MINIO_ENDPOINT: minio-local
+      MINIO_PORT: 9000
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_USE_SSL: "false"
+      MINIO_PUBLIC_URL: https://local.legal.org.ua/s3
+
+      # Nextcloud (cloud file storage)
+      NEXTCLOUD_URL: http://nextcloud-local:80
+      NEXTCLOUD_USER: ${NEXTCLOUD_USER:-admin}
+      NEXTCLOUD_PASSWORD: ${NEXTCLOUD_PASSWORD:-admin}
+
+      # Upload temp directory
+      UPLOAD_TEMP_DIR: /app/data/uploads
+
+      # Vision/OCR credentials
+      VISION_CREDENTIALS_PATH: /app/credentials/vision-credentials.json
+      GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/vision-credentials.json
+
+      # Prometheus (for admin metrics dashboard)
+      PROMETHEUS_URL: http://prometheus-local:9090
+
+      # Logging (verbose for development)
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+
+      # Admin user for local development
+      ADMIN_USER_EMAIL: ${ADMIN_USER_EMAIL:-admin@legal.org.ua}
+      ADMIN_USER_PASSWORD: ${ADMIN_USER_PASSWORD:-admin123456}
+
+      # Terminal service (dedicated Debian container for admin shell)
+      TERMINAL_SERVICE_URL: ws://terminal-service-local:3010
+
+      # Payment gateways
+      MONOBANK_API_KEY: ${MONOBANK_API_KEY:-}
+      MONOBANK_REDIRECT_URL: ${MONOBANK_REDIRECT_URL:-}
+      PUBLIC_URL: ${PUBLIC_URL:-https://local.legal.org.ua}
+
+    ports:
+      - "127.0.0.1:3000:3000"  # Standard backend port
+
+    depends_on:
+      migrate-local:
+        condition: service_completed_successfully
+      seed-admin-local:
+        condition: service_completed_successfully
+      seed-test-user-local:
+        condition: service_completed_successfully
+      qdrant-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+
+    volumes:
+      # NOTE: do NOT bind-mount host packages/shared/dist or mcp_backend/dist here.
+      # Dockerfile.mono-backend already compiles fresh dist into the image (and the
+      # local deploy runs `up -d --build`), so mounting host dist only re-introduced
+      # the stale-overwrite the Dockerfile warns about — and, because dist/ is
+      # gitignored, `git clean -ffdx` in CI checkout deletes it while this
+      # restart:unless-stopped container holds the mount, making the Docker daemon
+      # recreate the host dir root-owned and break the next tsc build (EACCES).
+      - ../mcp_backend/logs:/app/logs
+      - app_local_data:/app/data
+      # Vision API credentials for OCR
+      - ../vision-ocr-credentials.json:/app/credentials/vision-credentials.json:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3000/health/ready', r => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); });",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 40s
+
+    restart: unless-stopped
+
+    networks:
+      - secondlayer-local
+
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+
+  rada-migrate-local:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.mono-rada
+    image: rada-mcp:latest
+    container_name: rada-mcp-migrate-local
+    depends_on:
+      rada-db-init-local:
+        condition: service_completed_successfully
+      redis-local:
+        condition: service_healthy
+    environment:
+      POSTGRES_HOST: postgres-local
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${RADA_POSTGRES_USER:-rada_mcp}
+      POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD:-rada_password}
+      POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
+      POSTGRES_SCHEMA: ${RADA_POSTGRES_SCHEMA:-rada}
+      REDIS_HOST: redis-local
+      REDIS_PORT: 6379
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NODE_ENV: production
+    command: ["node", "dist/migrations/migrate.js"]
+    restart: "no"
+    networks:
+      - secondlayer-local
+
+  rada-mcp-app-local:
+    image: rada-mcp:latest
+    container_name: rada-mcp-app-local
+    depends_on:
+      rada-migrate-local:
+        condition: service_completed_successfully
+      redis-local:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 3001
+      HTTP_PORT: 3001
+      HTTP_HOST: 0.0.0.0
+      POSTGRES_HOST: postgres-local
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${RADA_POSTGRES_USER:-rada_mcp}
+      POSTGRES_PASSWORD: ${RADA_POSTGRES_PASSWORD:-rada_password}
+      POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
+      POSTGRES_SCHEMA: ${RADA_POSTGRES_SCHEMA:-rada}
+      DATABASE_URL: postgresql://${RADA_POSTGRES_USER:-rada_mcp}:${RADA_POSTGRES_PASSWORD:-rada_password}@postgres-local:5432/${POSTGRES_DB:-secondlayer_local}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-local_redis_pass}@redis-local:6379
+      REDIS_HOST: redis-local
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local_redis_pass}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-local-dev-openai-key}
+      OPENAI_API_KEY2: ${OPENAI_API_KEY2:-}
+      OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
+      OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
+      OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
+      LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-openai-first}
+      SECONDLAYER_URL: http://app-local:3000
+      SECONDLAYER_API_KEY: ${SECONDARY_LAYER_KEYS:-test-key-123}
+      RADA_API_KEYS: ${RADA_API_KEYS:-test-key-123,test-rada-key}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+    ports:
+      - "127.0.0.1:3001:3001"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3001/health/ready', r => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); });",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+
+  document-service-local:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.document-service
+    image: document-service:latest
+    container_name: document-service-local
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+      qdrant-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+    environment:
+      # Application
+      NODE_ENV: ${NODE_ENV:-development}
+      DOCUMENT_SERVICE_PORT: 3002
+      PORT: 3002
+      HTTP_PORT: 3002
+      HTTP_HOST: 0.0.0.0
+
+      # Database
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-local_dev_password}@postgres-local:5432/${POSTGRES_DB:-secondlayer_local}
+      POSTGRES_HOST: postgres-local
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
+
+      # Vector DB
+      QDRANT_URL: http://qdrant-local:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-local_qdrant_key}
+
+      # Cache
+      REDIS_URL: redis://:${REDIS_PASSWORD:-local_redis_pass}@redis-local:6379
+      REDIS_HOST: redis-local
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local_redis_pass}
+
+      # OpenAI Configuration
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-local-dev-openai-key}
+      OPENAI_API_KEY2: ${OPENAI_API_KEY2:-}
+      OPENAI_EMBEDDING_MODEL: ${OPENAI_EMBEDDING_MODEL:-text-embedding-3-small}
+      VOYAGEAI_API_KEY: ${VOYAGEAI_API_KEY:-}
+      VOYAGEAI_API_KEY_2: ${VOYAGEAI_API_KEY_2:-}
+      VOYAGEAI_EMBEDDING_MODEL: ${VOYAGEAI_EMBEDDING_MODEL:-voyage-multilingual-2}
+
+      # Dynamic model selection
+      OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
+      OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
+      OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
+
+      # LLM Provider Strategy (OpenAI-only pipeline)
+      LLM_PROVIDER_STRATEGY: ${LLM_PROVIDER_STRATEGY:-openai-first}
+
+      # Vision/OCR credentials path (inside container, always same path)
+      VISION_CREDENTIALS_PATH: /app/credentials/vision-credentials.json
+      GOOGLE_APPLICATION_CREDENTIALS: /app/credentials/vision-credentials.json
+
+      # External APIs (ZakonOnline)
+      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN:-}
+
+      # Security
+      SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS:-test-key-123}
+      JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-change-in-production}
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+
+      # CORS
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS:-http://localhost:5173,http://localhost:3000}
+
+    ports:
+      - "127.0.0.1:3002:3002"
+
+    volumes:
+      # Vision API credentials for OCR
+      - ../vision-ocr-credentials.json:/app/credentials/vision-credentials.json:ro
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3002/health', r => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1));",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    restart: unless-stopped
+
+    networks:
+      - secondlayer-local
+
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 512M
+
+  # OpenReyestr MCP Server - Ukrainian State Register
+  postgres-openreyestr-local:
+    image: postgres:15-alpine
+    container_name: openreyestr-postgres-local
+    environment:
+      POSTGRES_USER: ${OPENREYESTR_POSTGRES_USER:-openreyestr}
+      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD:-openreyestr_dev_password}
+      POSTGRES_DB: ${OPENREYESTR_POSTGRES_DB:-openreyestr_local}
+    ports:
+      - "127.0.0.1:5437:5432"
+    volumes:
+      - postgres_openreyestr_local_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${OPENREYESTR_POSTGRES_USER:-openreyestr} -d ${OPENREYESTR_POSTGRES_DB:-openreyestr_local}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+
+  migrate-openreyestr-local:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.mono-openreyestr
+    image: openreyestr-app:latest
+    container_name: openreyestr-migrate-local
+    depends_on:
+      postgres-openreyestr-local:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD:-openreyestr_dev_password}@postgres-openreyestr-local:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_local}
+      POSTGRES_HOST: postgres-openreyestr-local
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${OPENREYESTR_POSTGRES_USER:-openreyestr}
+      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD:-openreyestr_dev_password}
+      POSTGRES_DB: ${OPENREYESTR_POSTGRES_DB:-openreyestr_local}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      NODE_ENV: development
+    command: ["node", "dist/migrations/migrate.js"]
+    restart: "no"
+    networks:
+      - secondlayer-local
+
+  app-openreyestr-local:
+    image: openreyestr-app:latest
+    container_name: openreyestr-app-local
+    command: ["node", "dist/http-server.js"]
+    environment:
+      # Application
+      NODE_ENV: ${NODE_ENV:-development}
+      HTTP_PORT: 3004
+      HTTP_HOST: 0.0.0.0
+
+      # Database
+      DATABASE_URL: postgresql://${OPENREYESTR_POSTGRES_USER:-openreyestr}:${OPENREYESTR_POSTGRES_PASSWORD:-openreyestr_dev_password}@postgres-openreyestr-local:5432/${OPENREYESTR_POSTGRES_DB:-openreyestr_local}
+      POSTGRES_HOST: postgres-openreyestr-local
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${OPENREYESTR_POSTGRES_USER:-openreyestr}
+      POSTGRES_PASSWORD: ${OPENREYESTR_POSTGRES_PASSWORD:-openreyestr_dev_password}
+      POSTGRES_DB: ${OPENREYESTR_POSTGRES_DB:-openreyestr_local}
+
+      # Authentication
+      OPENREYESTR_API_KEYS: ${OPENREYESTR_API_KEYS:-test-key-123,local-dev-key}
+
+      # OpenAI Configuration (optional for future AI features)
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-local-dev-openai-key}
+      OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
+      OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
+      OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
+
+      # SecondLayer Integration (for cross-referencing)
+      SECONDLAYER_URL: http://app-local:3000
+      SECONDLAYER_API_KEY: ${SECONDARY_LAYER_KEYS:-test-key-123}
+
+      # Logging
+      LOG_LEVEL: ${LOG_LEVEL:-debug}
+
+    ports:
+      - "127.0.0.1:3004:3004"
+
+    depends_on:
+      postgres-openreyestr-local:
+        condition: service_healthy
+      migrate-openreyestr-local:
+        condition: service_completed_successfully
+
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://127.0.0.1:3004/health/ready', r => { let d=''; r.on('data', c => d+=c); r.on('end', () => { if (r.statusCode !== 200) { process.stderr.write(d); process.exit(1); } process.exit(0); }); }).on('error', e => { process.stderr.write(e.message); process.exit(1); });",
+        ]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+    restart: unless-stopped
+
+    networks:
+      - secondlayer-local
+
+    # Resource limits for local development
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ===== Terminal Service (Debian shell for admins) =====
+
+  terminal-service-local:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.terminal-service
+    image: terminal-service:latest
+    container_name: terminal-service-local
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+    environment:
+      TERMINAL_CWD: /workspace/mcp_backend
+      MAX_SESSIONS: "10"
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-secondlayer}:${POSTGRES_PASSWORD:-local_dev_password}@postgres-local:5432/${POSTGRES_DB:-secondlayer_local}
+      POSTGRES_HOST: postgres-local
+      POSTGRES_PORT: 5432
+      POSTGRES_USER: ${POSTGRES_USER:-secondlayer}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-local_dev_password}
+      POSTGRES_DB: ${POSTGRES_DB:-secondlayer_local}
+      REDIS_URL: redis://:${REDIS_PASSWORD:-local_redis_pass}@redis-local:6379
+      REDIS_HOST: redis-local
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ${REDIS_PASSWORD:-local_redis_pass}
+      QDRANT_URL: http://qdrant-local:6333
+      QDRANT_API_KEY: ${QDRANT_API_KEY:-local_qdrant_key}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL_QUICK: ${OPENAI_MODEL_QUICK:-gpt-5-nano}
+      OPENAI_MODEL_STANDARD: ${OPENAI_MODEL_STANDARD:-gpt-5-mini}
+      OPENAI_MODEL_DEEP: ${OPENAI_MODEL_DEEP:-gpt-5.1}
+      ZAKONONLINE_API_TOKEN: ${ZAKONONLINE_API_TOKEN:-}
+      SECONDARY_LAYER_KEYS: ${SECONDARY_LAYER_KEYS:-local-dev-key}
+      JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-change-in-production}
+      LOG_LEVEL: debug
+    volumes:
+      - ../:/workspace
+    depends_on:
+      postgres-local:
+        condition: service_healthy
+      redis-local:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    # NO ports exposed — only accessible via Docker internal network
+
+  # MinIO - S3-compatible object storage for media/large files
+  minio-local:
+    image: minio/minio:latest
+    container_name: minio-local
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY:-minioadmin}
+      MINIO_PROMETHEUS_AUTH_TYPE: public
+    ports:
+      - "127.0.0.1:9000:9000"   # S3 API
+      - "127.0.0.1:9001:9001"   # Web console
+    volumes:
+      - minio_local_data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+
+  # ===== Nextcloud (cloud file storage) =====
+
+  nextcloud-db-local:
+    image: postgres:15-alpine
+    container_name: nextcloud-db-local
+    environment:
+      POSTGRES_DB: ${NEXTCLOUD_DB_NAME:-nextcloud}
+      POSTGRES_USER: ${NEXTCLOUD_DB_USER:-nextcloud}
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-nextcloud_local_pass}
+    volumes:
+      - nextcloud_db_local_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${NEXTCLOUD_DB_USER:-nextcloud}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+
+  nextcloud-local:
+    image: nextcloud:29-apache
+    container_name: nextcloud-local
+    environment:
+      POSTGRES_HOST: nextcloud-db-local
+      POSTGRES_DB: ${NEXTCLOUD_DB_NAME:-nextcloud}
+      POSTGRES_USER: ${NEXTCLOUD_DB_USER:-nextcloud}
+      POSTGRES_PASSWORD: ${NEXTCLOUD_DB_PASSWORD:-nextcloud_local_pass}
+      NEXTCLOUD_ADMIN_USER: ${NEXTCLOUD_USER:-admin}
+      NEXTCLOUD_ADMIN_PASSWORD: ${NEXTCLOUD_PASSWORD:-admin}
+      NEXTCLOUD_TRUSTED_DOMAINS: "nextcloud-local localhost local.legal.org.ua"
+      OVERWRITEPROTOCOL: https
+    ports:
+      - "127.0.0.1:8888:80"
+    volumes:
+      - nextcloud_local_data:/var/www/html
+    depends_on:
+      nextcloud-db-local:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+
+  # ===== Frontend (Vite dev server in Docker) =====
+
+  lexwebapp-deps-local:
+    image: node:20-alpine
+    container_name: lexwebapp-deps-local
+    working_dir: /app
+    command: ["npm", "install", "--legacy-peer-deps"]
+    volumes:
+      - ../lexwebapp:/app
+      - lexwebapp_node_modules:/app/node_modules
+    restart: "no"
+    networks:
+      - secondlayer-local
+
+  lexwebapp-local:
+    image: node:20-alpine
+    container_name: lexwebapp-local
+    working_dir: /app
+    command: ["npx", "vite", "--host", "0.0.0.0"]
+    environment:
+      NODE_ENV: development
+      DOCKER_ENV: "true"
+      VITE_API_URL: ${VITE_API_URL:-https://local.legal.org.ua}
+    volumes:
+      - ../lexwebapp:/app
+      - lexwebapp_node_modules:/app/node_modules
+    depends_on:
+      lexwebapp-deps-local:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:5173/ || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # ===== Developer Platform =====
+
+  platform-local:
+    build:
+      context: ..
+      dockerfile: platform/Dockerfile
+      args:
+        - BUILD_ENV=development
+        - VITE_API_URL=https://local-platform.legal.org.ua
+    image: platform-local:latest
+    container_name: platform-local
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 3s
+      start_period: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 64M
+
+  # ===== Nginx Reverse Proxy =====
+
+  nginx-local:
+    image: nginx:alpine
+    container_name: nginx-local
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/local-docker.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx/certs:/etc/nginx/certs:ro
+      - certbot_webroot:/var/www/certbot:ro
+    depends_on:
+      app-local:
+        condition: service_healthy
+      lexwebapp-local:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "nginx", "-t"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 128M
+        reservations:
+          cpus: '0.1'
+          memory: 32M
+
+  # ===== Monitoring Stack =====
+
+  prometheus-local:
+    image: prom/prometheus:v2.48.0
+    container_name: prometheus-local
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--storage.tsdb.retention.time=7d'
+      - '--web.enable-lifecycle'
+    volumes:
+      - ./prometheus/prometheus-local.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
+      - prometheus_local_data:/prometheus
+    ports:
+      - "127.0.0.1:9090:9090"
+    networks:
+      - secondlayer-local
+    restart: unless-stopped
+
+  grafana-local:
+    image: grafana/grafana:10.2.3
+    container_name: grafana-local
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-grafana@legal.org.ua}
+      - GF_SERVER_ROOT_URL=https://local.grafana.legal.org.ua/
+      - GF_SERVER_SERVE_FROM_SUB_PATH=false
+      - PROMETHEUS_HOST=prometheus-local
+    volumes:
+      - grafana_local_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    ports:
+      - "127.0.0.1:3100:3000"
+    networks:
+      - secondlayer-local
+    restart: unless-stopped
+
+  cadvisor-local:
+    image: gcr.io/cadvisor/cadvisor:v0.55.1
+    container_name: cadvisor-local
+    privileged: true
+    devices:
+      - /dev/kmsg
+    environment:
+      - DOCKER_API_VERSION=1.44
+    command:
+      - '-docker_only=true'
+      - '-housekeeping_interval=30s'
+      - '-disable_metrics=cpu_topology,hugetlb,memory_numa,perf_event,referenced_memory,resctrl,sched,tcp,udp'
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+      - /etc/machine-id:/etc/machine-id:ro
+    networks:
+      - secondlayer-local
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+        reservations:
+          memory: 64M
+
+  # ===== HUDOC PostgreSQL on HDD (court sessions bulk data) =====
+
+  postgres-hudoc-local:
+    image: postgres:15-alpine
+    container_name: postgres-hudoc-local
+    shm_size: '1gb'
+    command: >-
+      postgres
+      -c max_connections=100
+      -c shared_buffers=512MB
+      -c effective_cache_size=2GB
+      -c work_mem=32MB
+      -c maintenance_work_mem=256MB
+      -c checkpoint_completion_target=0.9
+      -c max_wal_size=4GB
+      -c wal_level=minimal
+      -c max_wal_senders=0
+    environment:
+      POSTGRES_USER: ${HUDOC_POSTGRES_USER:-hudoc}
+      POSTGRES_PASSWORD: ${HUDOC_POSTGRES_PASSWORD:-hudoc_local_pass}
+      POSTGRES_DB: ${HUDOC_POSTGRES_DB:-hudoc_local}
+    ports:
+      - "127.0.0.1:5436:5432"
+    volumes:
+      - ${HUDOC_DATA_PATH:-./hudoc-storage/pgdata}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${HUDOC_POSTGRES_USER:-hudoc} -d ${HUDOC_POSTGRES_DB:-hudoc_local}"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    restart: unless-stopped
+    networks:
+      - secondlayer-local
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  redis-exporter-local:
+    image: oliver006/redis_exporter:v1.56.0
+    container_name: redis-exporter-local
+    environment:
+      REDIS_ADDR: "redis://redis-local:6379"
+    ports:
+      - "127.0.0.1:9121:9121"
+    networks:
+      - secondlayer-local
+    restart: unless-stopped
+    depends_on:
+      - redis-local
+
+volumes:
+  postgres_local_data:
+    driver: local
+  qdrant_local_data:
+    driver: local
+  redis_local_data:
+    driver: local
+  app_local_data:
+    driver: local
+  document_service_credentials:
+    driver: local
+  minio_local_data:
+    driver: local
+  lexwebapp_node_modules:
+    driver: local
+  postgres_openreyestr_local_data:
+    driver: local
+  prometheus_local_data:
+    driver: local
+  certbot_webroot:
+    driver: local
+  grafana_local_data:
+    driver: local
+  nextcloud_local_data:
+    driver: local
+  nextcloud_db_local_data:
+    driver: local
+
+networks:
+  secondlayer-local:
+    driver: bridge

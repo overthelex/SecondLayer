@@ -1,0 +1,8 @@
+FROM pytorch/pytorch:2.3.1-cuda12.1-cudnn8-runtime
+
+RUN pip install --no-cache-dir sentence-transformers==3.0.1 numpy
+
+COPY scripts/citation-graph/10_dense_retrieval.py /opt/ml/code/train.py
+
+ENV SAGEMAKER_PROGRAM=train.py
+ENTRYPOINT ["python", "/opt/ml/code/train.py"]
