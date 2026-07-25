@@ -47,6 +47,7 @@ class BaseImporter(ABC):
     ON_CONFLICT = "do_nothing"       # or "do_update"
     BATCH_SIZE = 500                 # rows per COPY batch
     USER_AGENT: str | None = None    # override to bypass Cloudflare/UA filters
+    RATE_LIMIT_PER_SEC: float | None = None  # override: hard cap, source-documented
 
     def __init__(self):
         self.log = logging.getLogger(self.SERVICE_NAME)
@@ -96,6 +97,8 @@ class BaseImporter(ABC):
         pool_kwargs = {}
         if self.USER_AGENT:
             pool_kwargs["user_agent"] = self.USER_AGENT
+        if self.RATE_LIMIT_PER_SEC:
+            pool_kwargs["rate_limit_per_sec"] = self.RATE_LIMIT_PER_SEC
         async with MultiIPSessionPool(ips, self.workers_per_ip, **pool_kwargs) as pool:
             self.log.info(f"Total concurrent workers: {pool.total_workers}")
             self.log.info(f"Target: {self.ssh_host}/{self.container}/{self.dbname}/{self.TARGET_TABLE}")

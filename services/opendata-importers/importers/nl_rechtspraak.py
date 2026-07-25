@@ -26,6 +26,21 @@ from shared.prod_writer import _ssh_cmd  # noqa: E402
 
 ATOM_NS = {"a": "http://www.w3.org/2005/Atom"}
 
+# Court scope filter: comma-separated ECLI court-code segments (e.g.
+# "HR,GHAMS,GHARL,GHDHA,GHSHE" for Hoge Raad + the 4 Gerechtshoven), or unset/"ALL"
+# to disable filtering — default is unset so existing full-coverage behavior is
+# unchanged; this is strictly opt-in for a narrower pilot/test run.
+# ECLI shape is ECLI:NL:<court-code>:<year>:<ordinal>.
+_PILOT_COURTS_ENV = os.environ.get("PILOT_COURTS", "ALL")
+_PILOT_COURTS = None if _PILOT_COURTS_ENV.strip().upper() == "ALL" else set(
+    _PILOT_COURTS_ENV.split(","))
+_ECLI_COURT_RE = re.compile(r"^ECLI:NL:([A-Z]+):")
+
+
+def _ecli_court(ecli: str) -> str | None:
+    m = _ECLI_COURT_RE.match(ecli)
+    return m.group(1) if m else None
+
 
 class NLRechtspraakImporter(BaseImporter):
     SERVICE_NAME = "nl_rechtspraak"
@@ -36,6 +51,9 @@ class NLRechtspraakImporter(BaseImporter):
     PK_COLUMNS = ["ecli"]
     ON_CONFLICT = "do_nothing"
     BATCH_SIZE = 500
+    # data.rechtspraak.nl documents a 10 req/sec fair-use cap; stay under it with margin
+    # (measured: 4 workers alone already hit 11.7 req/s on this fast API).
+    RATE_LIMIT_PER_SEC = 8.0
 
     SEARCH_URL = "https://data.rechtspraak.nl/uitspraken/zoeken"
     CONTENT_URL = "https://data.rechtspraak.nl/uitspraken/content"
@@ -135,12 +153,17 @@ class NLRechtspraakImporter(BaseImporter):
         }
 
     async def import_dataset(self, pool: MultiIPSessionPool):
-        max_date_str = self._get_max_date_on_prod()
-        self.log.info(f"Max decision_date on prod: {max_date_str}")
-        try:
-            start_day = date.fromisoformat(max_date_str)
-        except ValueError:
-            start_day = date(2000, 1, 1)
+        start_date_override = os.environ.get("START_DATE")
+        if start_date_override:
+            start_day = date.fromisoformat(start_date_override)
+            self.log.info(f"START_DATE override: starting from {start_day}")
+        else:
+            max_date_str = self._get_max_date_on_prod()
+            self.log.info(f"Max decision_date on prod: {max_date_str}")
+            try:
+                start_day = date.fromisoformat(max_date_str)
+            except ValueError:
+                start_day = date(2000, 1, 1)
 
         days_to_walk = int(os.environ.get("WALK_DAYS", "30"))
         end_day = start_day + timedelta(days=days_to_walk)
@@ -166,6 +189,12 @@ class NLRechtspraakImporter(BaseImporter):
             for sub in results:
                 eclis.extend(sub)
             self.log.info(f"  listed {chunk_start+len(chunk)}/{len(days)} days, {len(eclis)} ECLIs found so far")
+
+        if _PILOT_COURTS is not None:
+            eclis = [e for e in eclis if _ecli_court(e) in _PILOT_COURTS]
+            self.log.info(f"Pilot filter ({sorted(_PILOT_COURTS)}): {len(eclis)} ECLIs remain")
+        else:
+            self.log.info(f"PILOT_COURTS=ALL — no court filter, {len(eclis)} ECLIs")
 
         seen = self.ckpt.done_set
         new_eclis = [e for e in eclis if e not in seen]
