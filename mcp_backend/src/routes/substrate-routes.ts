@@ -131,7 +131,7 @@ export function createSubstrateRoutes(db: IDatabase): Router {
         point_in_time: 'statute endpoints accept as_of=YYYY-MM-DD and answer for that date',
       },
       endpoints: [
-        { path: '/{j}/search', q: 'full-text query', filters: 'court, date_from, date_to, subject, has_text' },
+        { path: '/{j}/search', q: 'full-text query', filters: 'court, date_from, date_to, subject', order: 'relevance | authority | date' },
         { path: '/{j}/decisions/{ecli}', returns: 'decision with resolved citations' },
         { path: '/{j}/decisions/{ecli}/status', returns: 'precedent status and what changed it' },
         { path: '/{j}/decisions/{ecli}/citing', returns: 'inbound citations' },
@@ -173,22 +173,40 @@ export function createSubstrateRoutes(db: IDatabase): Router {
       if (req.query.date_to) { params.push(req.query.date_to); where.push(`decision_date <= $${params.length}`); }
       if (req.query.subject) { params.push([req.query.subject]); where.push(`subject_areas && $${params.length}`); }
 
+      // Ordering is a measured tradeoff, so it is a parameter rather than a
+      // hidden choice. Ranking with ts_rank over the full text costs 42s on this
+      // corpus: it recomputes the tsvector for every match before LIMIT applies.
+      // Over the summary alone it is 603ms and still textual; by authority it is
+      // 73ms. Measured on "huurovereenkomst ontbinding", 20 rows.
+      const order = String(req.query.order || 'relevance');
+      const orderSql = order === 'authority'
+        ? 'coalesce(p.cited_by_count,0) DESC, d.decision_date DESC'
+        : order === 'date'
+          ? 'd.decision_date DESC'
+          : `ts_rank(to_tsvector('${j.ftsConfig}', coalesce(d.summary,'')),
+                     plainto_tsquery('${j.ftsConfig}', $1)) DESC,
+             coalesce(p.cited_by_count,0) DESC`;
+
       params.push(limit);
       const rows = await db.query(
         `SELECT d.ecli, d.court_name, d.decision_date, d.decision_type, d.procedure_type,
                 d.subject_areas, d.summary,
-                ts_rank(to_tsvector('${j.ftsConfig}', coalesce(d.summary,'') || ' ' || coalesce(d.full_text,'')),
-                        plainto_tsquery('${j.ftsConfig}', $1)) AS rank,
                 coalesce(p.cited_by_count, 0) AS cited_by_count, p.status AS precedent_status
            FROM ${j.decisionsTable} d
            LEFT JOIN ${j.precedentTable} p ON p.ecli = d.ecli
           WHERE ${where.join(' AND ')}
-          ORDER BY rank DESC
+          ORDER BY ${orderSql}
           LIMIT $${params.length}`, params);
 
       res.json({
         jurisdiction: j.code,
         query: q,
+        // say what the ranking actually is: the match is over the whole text,
+        // the ordering signal is the court's own abstract until vectors land
+        order: order,
+        order_note: order === 'relevance'
+          ? 'matched on full text, ranked on the summary; vector ranking is not wired yet'
+          : `matched on full text, ordered by ${order}`,
         count: rows.rows.length,
         results: rows.rows.map((r: any) => ({
           ecli: r.ecli,
