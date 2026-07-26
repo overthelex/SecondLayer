@@ -18,8 +18,12 @@
 -- found no <artikel> at all (mostly pre-1900 royal decrees), so the text of a
 -- provision is never held twice.
 
--- One row per article per edition. The primary key is deliberately the citation
--- coordinates, so a lookup from nl_legislation_citations is a direct hit.
+-- One row per article per edition. The key is (edition, document order) rather
+-- than (edition, article_label), because a label is not unique inside an act:
+-- annexes restart numbering, so the Awb alone carries two "Artikel 1" and two
+-- "Artikel 2". Keying on the label would have rejected the whole insert batch.
+-- The label lookup is served by the non-unique index below, and a query for an
+-- ambiguous label honestly returns both rows instead of one silently chosen.
 CREATE TABLE IF NOT EXISTS nl_law_articles (
     bwb_id        TEXT NOT NULL,
     valid_from    DATE NOT NULL,
@@ -31,7 +35,7 @@ CREATE TABLE IF NOT EXISTS nl_law_articles (
     text          TEXT NOT NULL,
     n_chars       INTEGER NOT NULL DEFAULT 0,
     ord           INTEGER NOT NULL DEFAULT 0,   -- document order within edition
-    PRIMARY KEY (bwb_id, valid_from, seq, article_label)
+    PRIMARY KEY (bwb_id, valid_from, seq, ord)
 );
 
 -- The lookup that matters: "what did article X of act Y say on date D".
