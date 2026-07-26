@@ -93,7 +93,57 @@ meaning and the contract does not.
 **10, changes.** Returns `next_since`, which is the caller's cursor for the next
 poll: polling from it never re-delivers and never skips. This is the RegTech
 primitive that turns a purchase into a subscription, so it should exist from day
-one even before webhooks.
+one even before webhooks — and it is also the export risk, see below.
+
+## The export boundary, restated
+
+Niko's rule, from the 24 Jul mail and now in the product description: neither
+seat tier includes a public SPARQL endpoint, because a seat buys answers and an
+endpoint buys the substrate. The rule is right and the artifact it names is too
+narrow. **The property that matters is enumerability, not the query language.**
+This REST layer, built exactly as the product description asks for, reproduces
+the risk it warns about:
+
+- `/changes?since=1990-01-01` plus the `next_since` cursor is a
+  guaranteed-complete enumerator. It was designed that way on purpose for
+  subscriptions. 3.6M decisions at 100 per page is 36,000 requests.
+- `/decisions/{ecli}` then returns the text, and `/cited` plus `/citing` per
+  ECLI rebuild the citation graph.
+- Today there is no per-key quota and no metering on these routes; the only
+  limit is 3,000 requests per minute keyed by IP, not by key.
+
+What is worth protecting is not the corpus. Dutch judgments are open data and
+Rechtspraak gives them away in bulk. The asset is the **derived layer** — the
+resolved graph, precedent status, instance chains, the alias dictionary, the
+edition mapping — and that is precisely what these endpoints hand out one row at
+a time.
+
+Enforcement, in order of leverage; the first is commercial and the strongest:
+
+1. **Sell the bulk snapshot.** Already an Enterprise surface. If the legitimate
+   path is cheaper than 3.6M requests, scraping stops being rational.
+2. **Per-key daily quota, keyed by API key rather than IP.** Rate limits stop
+   bursts; quotas stop patient scrapers. A crawler at 10 req/s under a 3,000/min
+   ceiling looks like an ordinary client.
+3. **Meter the endpoints** into the existing credit system, weighted per
+   endpoint: `/resolve` cheap, `/changes` and `/search` expensive.
+4. **Bound the enumeration primitive.** `/changes` is the only endpoint that
+   guarantees completeness.
+5. **Detect the pattern, not just the count.** Enumeration is distinctive: high
+   unique-entity ratio, near-zero repeats, sequential cursors, breadth without
+   depth.
+
+Not proposed: watermarking the graph with fabricated edges. In a product whose
+pitch is that every reference resolves, seeding false relations to catch thieves
+is self-defeating.
+
+The open commercial question: Niko's tiering says both tiers get the full graph
+and differ only by usage limits, and also puts change-tracking in the Pro seat.
+Once the feed exists those pull apart, because an unbounded cursor over the whole
+corpus from 1990 *is* the substrate. The likely resolution is that Pro gets
+change-tracking over its own monitored set while an unbounded historical cursor
+is a Builder/Enterprise capability — one endpoint name covering two products.
+That is a call for Vlad and Niko, not something to decide in code.
 
 ## What NL currently answers with
 
@@ -133,6 +183,7 @@ Numbers as of 26 Jul 2026, so the FI side has something to compare against.
 - **SPARQL alongside REST.** The spec keeps SPARQL key-gated for the
   infrastructure tier. This REST layer is deliberately the narrow, cacheable
   surface for the per-seat and Builder tiers; it does not replace the endpoint.
+  Both need the same quota rules, or the weaker one becomes the leak.
 - **Whether FI is served from our backend or Niko's**, with this contract as the
   interface either way. That decision is independent of the shape above, which
   is the point of writing the shape down first.
