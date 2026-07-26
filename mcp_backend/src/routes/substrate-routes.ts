@@ -176,7 +176,7 @@ export function createSubstrateRoutes(db: IDatabase): Router {
       params.push(limit);
       const rows = await db.query(
         `SELECT d.ecli, d.court_name, d.decision_date, d.decision_type, d.procedure_type,
-                d.subject_areas, left(d.summary, 400) AS summary,
+                d.subject_areas, d.summary,
                 ts_rank(to_tsvector('${j.ftsConfig}', coalesce(d.summary,'') || ' ' || coalesce(d.full_text,'')),
                         plainto_tsquery('${j.ftsConfig}', $1)) AS rank,
                 coalesce(p.cited_by_count, 0) AS cited_by_count, p.status AS precedent_status
@@ -197,7 +197,11 @@ export function createSubstrateRoutes(db: IDatabase): Router {
           type: r.decision_type,
           procedure: r.procedure_type,
           subjects: r.subject_areas,
-          summary: r.summary,
+          // truncated in JS, not with SQL left(): that function raises
+          // "invalid byte sequence for encoding UTF8" on some rows at some
+          // offsets even when the stored value is valid, and a search endpoint
+          // that 500s on a legitimate row is worse than a longer snippet
+          summary: r.summary ? String(r.summary).slice(0, 400) : null,
           cited_by_count: Number(r.cited_by_count),
           precedent_status: r.precedent_status,
           redistribution: classifyEcli(r.ecli).redistribution,
@@ -416,7 +420,7 @@ export function createSubstrateRoutes(db: IDatabase): Router {
 
       const rows = await db.query(
         `SELECT DISTINCT ON (d.ecli) d.ecli, d.court_name, d.decision_date, c.article,
-                left(d.summary, 300) AS summary, coalesce(p.cited_by_count,0) AS cited_by_count
+                d.summary, coalesce(p.cited_by_count,0) AS cited_by_count
            FROM ${j.statuteEdgesTable} c
            JOIN ${j.decisionsTable} d ON d.ecli = c.from_ecli
            LEFT JOIN ${j.precedentTable} p ON p.ecli = d.ecli
@@ -429,7 +433,9 @@ export function createSubstrateRoutes(db: IDatabase): Router {
         article: req.query.article ?? null, count: rows.rows.length,
         decisions: rows.rows.map((r: any) => ({
           ecli: r.ecli, court: r.court_name, date: r.decision_date,
-          article: r.article, summary: r.summary, cited_by_count: Number(r.cited_by_count),
+          article: r.article,
+          summary: r.summary ? String(r.summary).slice(0, 300) : null,
+          cited_by_count: Number(r.cited_by_count),
         })),
       });
     } catch (err) {
