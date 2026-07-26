@@ -38,7 +38,6 @@
 import { Router, type Response } from 'express';
 import type { AuthenticatedRequest as DualAuthRequest } from '../middleware/dual-auth.js';
 import type { IDatabase } from '../domain/ports/index.js';
-import { createRateLimiter } from '../middleware/rate-limit.js';
 import { logger } from '../utils/logger.js';
 
 /** Per-jurisdiction wiring. Adding Finland is adding an entry here. */
@@ -77,12 +76,11 @@ const JURISDICTIONS: Record<string, JurisdictionConfig> = {
 
 const MAX_LIMIT = 100;
 
-const substrateRateLimit = createRateLimiter({
-  windowMs: 60 * 1000,
-  maxRequests: 120,
-  keyPrefix: 'substrate_api',
-});
-
+// No rate limiter here on purpose. '/api' already has the global one, and each
+// limiter costs a Redis GET that currently times out at 2500ms under the known
+// connection-level issue (LEXAI-1795), so a second one doubled every substrate
+// response to ~5s. Per-key quota for the Builder tier belongs in billing, not in
+// a second copy of the same middleware.
 function jurisdictionOf(req: DualAuthRequest): JurisdictionConfig | null {
   return JURISDICTIONS[String(req.params.jurisdiction || '').toLowerCase()] ?? null;
 }
@@ -111,8 +109,6 @@ function fail(res: Response, code: number, error: string, detail?: string) {
 
 export function createSubstrateRoutes(db: IDatabase): Router {
   const router = Router({ mergeParams: true });
-
-  router.use(substrateRateLimit as any);
 
   // Catalog is registered before the jurisdiction guard on purpose: Express
   // matches '/catalog' against router.use('/:jurisdiction'), so a guard placed
@@ -539,7 +535,10 @@ export function createSubstrateRoutes(db: IDatabase): Router {
         });
       }
 
-      const norm = ref.toUpperCase().replace(/\s+/g, ' ').trim();
+      // The alias dictionary stores an LJN by its code alone, because the code is
+      // literally the ECLI ordinal for pre-2013 decisions. A caller writing
+      // "LJN BO5087" must still resolve, so the prefix comes off first.
+      const norm = ref.toUpperCase().replace(/\s+/g, ' ').trim().replace(/^LJN[: ]\s*/, '');
       const alias = await db.query(
         `SELECT a.alias_kind, a.ecli, d.court_name, d.decision_date
            FROM ${j.aliasTable} a
