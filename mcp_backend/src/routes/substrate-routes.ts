@@ -114,14 +114,9 @@ export function createSubstrateRoutes(db: IDatabase): Router {
 
   router.use(substrateRateLimit as any);
 
-  router.use('/:jurisdiction', (req: any, res: Response, next: any) => {
-    if (!jurisdictionOf(req)) {
-      return fail(res, 404, 'unknown_jurisdiction',
-        `Known: ${Object.keys(JURISDICTIONS).join(', ')}`);
-    }
-    next();
-  });
-
+  // Catalog is registered before the jurisdiction guard on purpose: Express
+  // matches '/catalog' against router.use('/:jurisdiction'), so a guard placed
+  // first answers unknown_jurisdiction for the discovery endpoint itself.
   // ---------------------------------------------------------------- catalog
   router.get('/catalog', (_req: any, res: Response) => {
     res.json({
@@ -148,6 +143,14 @@ export function createSubstrateRoutes(db: IDatabase): Router {
         { path: '/{j}/changes', params: 'since, limit', returns: 'nodes changed since a timestamp' },
       ],
     });
+  });
+
+  router.use('/:jurisdiction', (req: any, res: Response, next: any) => {
+    if (!jurisdictionOf(req)) {
+      return fail(res, 404, 'unknown_jurisdiction',
+        `Known: ${Object.keys(JURISDICTIONS).join(', ')}`);
+    }
+    next();
   });
 
   // -------------------------------------------------------------- 1. search
