@@ -52,7 +52,7 @@ default of "good law".
 
 | # | Endpoint | Answers |
 |---|---|---|
-| 1 | `GET /{j}/search?q=&court=&date_from=&date_to=&subject=` | find decisions |
+| 1 | `GET /{j}/search?q=&court=&date_from=&date_to=&subject=&order=` | find decisions |
 | 2 | `GET /{j}/decisions/{ecli}` | one decision with every reference resolved |
 | 3 | `GET /{j}/decisions/{ecli}/status` | is it still good law, and what changed it |
 | 4 | `GET /{j}/decisions/{ecli}/citing` | who cites it |
@@ -81,6 +81,14 @@ answer under-resolves.
 outcome of each appeal attached. Worth stating that this does not need a graph
 store: Dutch ladders are at most four deep and the query is a few milliseconds.
 Reach for Neo4j when the graph is EDRSR-sized (135M edges), not at 1M.
+
+**1, search, and why ordering is a parameter.** Ranking with `ts_rank` over the
+full text costs **42 seconds** on this corpus: Postgres recomputes the tsvector
+for every matching row before `LIMIT` can apply. Ranking over the summary alone
+is 603ms and still textual; ordering by authority is 73ms. Rather than pick one
+silently, `order` is `relevance` (default), `authority` or `date`, and the
+response says which signal was used. When vectors land, `relevance` changes
+meaning and the contract does not.
 
 **10, changes.** Returns `next_since`, which is the caller's cursor for the next
 poll: polling from it never re-delivers and never skips. This is the RegTech
