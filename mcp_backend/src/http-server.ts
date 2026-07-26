@@ -4,6 +4,7 @@ import cors from 'cors';
 import dotenv from 'dotenv';
 import { logger } from './utils/logger.js';
 import { dualAuth, requireJWT, optionalJWT, AuthenticatedRequest as DualAuthRequest } from './middleware/dual-auth.js';
+import { createSubstrateRoutes } from './routes/substrate-routes.js';
 import { createAccessGate } from './middleware/access-gate-middleware.js';
 import { createAccessRoutes } from './routes/access-routes.js';
 import authRouter from './routes/auth.js';
@@ -686,6 +687,12 @@ class HTTPMCPServer {
     // MUST be before the catch-all /api workflow routes
     this.app.use('/api/workers', dualAuth as any, createWorkerHeartbeatRoute());
     logger.info('Worker heartbeat routes registered at /api/workers');
+
+    // Grounded legal substrate — the REST contract customers integrate against
+    // and the shape the Finnish graph is meant to be served through. dualAuth so
+    // an API key works: this surface is sold to builders, not to browser users.
+    this.app.use('/api/v1/substrate', dualAuth as any, createSubstrateRoutes(this.services.db));
+    logger.info('Substrate API registered at /api/v1/substrate');
 
     // Workflow routes - workflow sets, workflow execution, cancellation
     // IMPORTANT: Use specific prefixes, NOT '/api' — a catch-all '/api' prefix with requireJWT
