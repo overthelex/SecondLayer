@@ -42,7 +42,7 @@ import { createTeamService } from './services/team-service.js';
 import { createTestEmailRoute } from './routes/test-email-route.js';
 import passport from 'passport';
 import { createApiKeyRouter } from './routes/api-key-routes.js';
-import { getRedisClient } from './utils/redis-client.js';
+import { getRedisClient, setRedisStateHook } from './utils/redis-client.js';
 import { getOpenAIManager } from '@secondlayer/shared';
 import { CacheAdapter } from './infrastructure/adapters/cache-adapter.js';
 import { LLMAdapter } from './infrastructure/adapters/llm-adapter.js';
@@ -1025,7 +1025,14 @@ class HTTPMCPServer {
       // Initialize Redis cache for services (optional)
       const redis = await getRedisClient();
       if (redis) {
+        // Surface Redis client health to Prometheus: the gauge tracks connection state (reconnect
+        // events) and the counter tracks failed cache ops — together they alert on a stuck client
+        // even when the socket still reports "connected" (prod incident 2026-07).
+        const metrics = this.app_.metricsService;
+        setRedisStateHook((up) => metrics.backendRedisClientUp.set(up ? 1 : 0));
+        metrics.backendRedisClientUp.set(1); // singleton already connected by this point
         const cache = new CacheAdapter(redis);
+        cache.setMetricsCallback((operation) => metrics.redisCommandErrors.inc({ operation }));
         this.services.legislationTools.setRedisClient(cache);
         this.services.zoAdapter.setCachePort(cache);
         this.services.zoPracticeAdapter.setCachePort(cache);

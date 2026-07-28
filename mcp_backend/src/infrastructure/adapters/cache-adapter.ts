@@ -22,11 +22,24 @@ type RedisClient = ReturnType<typeof createClient>;
 // failing fast on a genuinely dead socket (which keepAlive/pingInterval also detect ~30s).
 const REDIS_OP_TIMEOUT_MS = Number(process.env.REDIS_OP_TIMEOUT_MS || 2500);
 
+/** Emitted on every failed cache op (timeout or connection error) so the caller can meter it. */
+type CacheErrorCallback = (operation: string) => void;
+
 export class CacheAdapter implements ICachePort {
   private client: RedisClient;
+  private onError: CacheErrorCallback | null = null;
 
   constructor(client: RedisClient) {
     this.client = client;
+  }
+
+  /**
+   * Register a metrics hook fired whenever a cache op times out or errors. Wired to a Prometheus
+   * counter from the composition root so a stuck client (sustained op errors) is alertable —
+   * this is the signal that catches a half-open socket even while the client still reports "up".
+   */
+  setMetricsCallback(cb: CacheErrorCallback): void {
+    this.onError = cb;
   }
 
   private async withTimeout<T>(op: Promise<T>, label: string): Promise<T> {
@@ -41,6 +54,9 @@ export class CacheAdapter implements ICachePort {
           );
         }),
       ]);
+    } catch (err) {
+      this.onError?.(label);
+      throw err;
     } finally {
       if (timer) clearTimeout(timer);
     }
