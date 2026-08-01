@@ -107,6 +107,50 @@ function fail(res: Response, code: number, error: string, detail?: string) {
   return res.status(code).json({ error, ...(detail ? { detail } : {}) });
 }
 
+interface ChainRow {
+  direction: string; child_ecli: string; parent_ecli: string;
+  relation: string; method: string; outcome: string | null; depth: number;
+}
+
+/**
+ * One link between two documents must appear once, in the direction the
+ * publisher states.
+ *
+ * nl_instance_links holds 52,814 conclusion pairs twice, in opposite
+ * orientations, because two builders disagreed about which side is the child.
+ * The RDF builder follows psi:aanleg, so parent is the earlier instance and a
+ * PHR conclusion is the parent of the ruling it prepares; the case-number
+ * pairing builder wrote the same edge the other way round. Until the data is
+ * normalised (LEXAI-1901), the publisher-stated row wins here, so the answer
+ * does not depend on which of the two the walk happened to reach first.
+ *
+ * `direction` is recomputed from the surviving row whenever the link touches
+ * the queried decision, because dropping the mirror can otherwise leave a
+ * neighbour labelled from the orientation that was thrown away.
+ */
+function collapseMirrors(rows: ChainRow[], ecli: string) {
+  const best = new Map<string, ChainRow>();
+  for (const r of rows) {
+    const pair = [r.child_ecli, r.parent_ecli].sort();
+    const key = `${pair[0]}|${pair[1]}|${r.relation}`;
+    const kept = best.get(key);
+    if (!kept) { best.set(key, r); continue; }
+    // publisher-stated orientation first, then the shorter path
+    const better = (a: ChainRow, b: ChainRow) =>
+      a.method === b.method ? a.depth <= b.depth : a.method === 'rdf_relation';
+    if (better(r, kept)) best.set(key, r);
+  }
+  return [...best.values()]
+    .sort((a, b) => a.depth - b.depth)
+    .map(r => ({
+      direction: r.child_ecli === ecli ? 'earlier'
+        : r.parent_ecli === ecli ? 'later'
+          : r.direction,
+      from: r.child_ecli, to: r.parent_ecli,
+      relation: r.relation, outcome: r.outcome, depth: r.depth,
+    }));
+}
+
 export function createSubstrateRoutes(db: IDatabase): Router {
   const router = Router({ mergeParams: true });
 
@@ -134,7 +178,7 @@ export function createSubstrateRoutes(db: IDatabase): Router {
         { path: '/{j}/decisions/{ecli}/cited', returns: 'outbound citations, resolved' },
         { path: '/{j}/decisions/{ecli}/chain', returns: 'instance ladder with outcomes' },
         { path: '/{j}/legislation/{lawId}', params: 'as_of', returns: 'act and the edition in force' },
-        { path: '/{j}/legislation/{lawId}/case-law', params: 'article', returns: 'decisions applying it' },
+        { path: '/{j}/legislation/{lawId}/case-law', params: 'article, order', order: 'authority | date', returns: 'decisions applying it' },
         { path: '/{j}/resolve', params: 'ref', returns: 'canonical node for any citation string' },
         { path: '/{j}/changes', params: 'since, limit', returns: 'nodes changed since a timestamp' },
       ],
@@ -391,31 +435,41 @@ export function createSubstrateRoutes(db: IDatabase): Router {
       const ecli = String(req.params.ecli);
       // Recursive CTE rather than a graph store: NL ladders are at most four
       // deep, so a walk over an indexed edge table is the whole requirement.
+      //
+      // The walk carries the path it has already visited. Without that guard a
+      // pair stored in both orientations (52,814 of them, see collapseMirrors
+      // below) bounces the recursion back and forth until it hits the depth cap
+      // and reports a six-rung ladder between two documents.
       const rows = await db.query(
         `WITH RECURSIVE up AS (
-             SELECT child_ecli, parent_ecli, relation, outcome, 1 AS depth
+             SELECT child_ecli, parent_ecli, relation, method, outcome, 1 AS depth,
+                    ARRAY[child_ecli, parent_ecli] AS path
                FROM ${j.instanceLinksTable} WHERE child_ecli = $1
              UNION ALL
-             SELECT l.child_ecli, l.parent_ecli, l.relation, l.outcome, up.depth + 1
+             SELECT l.child_ecli, l.parent_ecli, l.relation, l.method, l.outcome,
+                    up.depth + 1, up.path || l.parent_ecli
                FROM ${j.instanceLinksTable} l JOIN up ON l.child_ecli = up.parent_ecli
-              WHERE up.depth < 6
+              WHERE up.depth < 6 AND NOT l.parent_ecli = ANY(up.path)
          ), down AS (
-             SELECT child_ecli, parent_ecli, relation, outcome, 1 AS depth
+             SELECT child_ecli, parent_ecli, relation, method, outcome, 1 AS depth,
+                    ARRAY[parent_ecli, child_ecli] AS path
                FROM ${j.instanceLinksTable} WHERE parent_ecli = $1
              UNION ALL
-             SELECT l.child_ecli, l.parent_ecli, l.relation, l.outcome, down.depth + 1
+             SELECT l.child_ecli, l.parent_ecli, l.relation, l.method, l.outcome,
+                    down.depth + 1, down.path || l.child_ecli
                FROM ${j.instanceLinksTable} l JOIN down ON l.parent_ecli = down.child_ecli
-              WHERE down.depth < 6
+              WHERE down.depth < 6 AND NOT l.child_ecli = ANY(down.path)
          )
-         SELECT 'earlier' AS direction, * FROM up
-         UNION ALL SELECT 'later', * FROM down`, [ecli]);
+         SELECT 'earlier' AS direction, child_ecli, parent_ecli, relation, method, outcome, depth
+           FROM up
+         UNION ALL
+         SELECT 'later', child_ecli, parent_ecli, relation, method, outcome, depth
+           FROM down
+         ORDER BY depth`, [ecli]);
 
       res.json({
         jurisdiction: j.code, ecli,
-        chain: rows.rows.map((r: any) => ({
-          direction: r.direction, from: r.child_ecli, to: r.parent_ecli,
-          relation: r.relation, outcome: r.outcome, depth: r.depth,
-        })),
+        chain: collapseMirrors(rows.rows, ecli),
       });
     } catch (err) {
       logger.error('[Substrate] chain failed', { error: String(err) });
@@ -431,23 +485,79 @@ export function createSubstrateRoutes(db: IDatabase): Router {
       let articleClause = '';
       if (req.query.article) { params.push(req.query.article); articleClause = `AND c.article = $${params.length}`; }
       params.push(clampLimit(req.query.limit, 50));
+      const limitParam = `$${params.length}`;
 
-      const rows = await db.query(
-        `SELECT DISTINCT ON (d.ecli) d.ecli, d.court_name, d.decision_date, c.article,
-                d.summary, coalesce(p.cited_by_count,0) AS cited_by_count
-           FROM ${j.statuteEdgesTable} c
-           JOIN ${j.decisionsTable} d ON d.ecli = c.from_ecli
-           LEFT JOIN ${j.precedentTable} p ON p.ecli = d.ecli
-          WHERE c.law_id = $1 ${articleClause}
-          ORDER BY d.ecli, d.decision_date DESC
-          LIMIT $${params.length}`, params);
+      // Ordering is explicit here for the same reason as in /search, and the
+      // ranking has to happen before the LIMIT rather than after the dedup.
+      // The old query deduplicated with DISTINCT ON (d.ecli), which forces
+      // ORDER BY d.ecli, and that sort then decided which rows survived: for
+      // article 162 of BW Boek 6 (175,461 citing decisions) the endpoint
+      // returned two uncited 2000-2001 tribunal rulings, alphabetically first.
+      //
+      // Both shapes below pick the N decisions cheaply and only then touch the
+      // 28GB decisions table for those N. Joining it for the whole candidate
+      // set instead costs 6.4s here and 22s on the criminal code.
+      const order = String(req.query.order || 'authority');
+
+      // The articles this decision cites from this act, for the returned rows
+      // only. Cheap per row through idx_nl_lc_from, and it answers "which
+      // provision" without a second call.
+      const articlesLateral =
+        `LEFT JOIN LATERAL (
+             SELECT array_agg(DISTINCT c2.article) FILTER (WHERE c2.article IS NOT NULL) AS articles
+               FROM ${j.statuteEdgesTable} c2
+              WHERE c2.from_ecli = d.ecli AND c2.law_id = $1
+         ) arts ON true`;
+
+      const sql = order === 'date'
+        // Newest first: walk decision_date backwards on its index and probe the
+        // edge table per row, so the sort never sees the candidate set. 1.0s
+        // worst case (criminal code, 1.05M edges) against 22s for a full join.
+        ? `WITH picked AS MATERIALIZED (
+               SELECT d.ecli FROM ${j.decisionsTable} d
+                WHERE EXISTS (SELECT 1 FROM ${j.statuteEdgesTable} c
+                               WHERE c.from_ecli = d.ecli AND c.law_id = $1 ${articleClause})
+                ORDER BY d.decision_date DESC NULLS LAST
+                LIMIT ${limitParam}
+           )
+           SELECT d.ecli, d.court_name, d.decision_date, d.summary,
+                  coalesce(p.cited_by_count,0) AS cited_by_count, arts.articles
+             FROM picked
+             JOIN ${j.decisionsTable} d ON d.ecli = picked.ecli
+             LEFT JOIN ${j.precedentTable} p ON p.ecli = d.ecli
+             ${articlesLateral}
+            ORDER BY d.decision_date DESC NULLS LAST`
+        // Most cited first: rank over nl_precedent_status (229k rows) rather
+        // than over the decisions table.
+        : `WITH cand AS MATERIALIZED (
+               SELECT DISTINCT c.from_ecli FROM ${j.statuteEdgesTable} c
+                WHERE c.law_id = $1 ${articleClause}
+           ), ranked AS MATERIALIZED (
+               SELECT cand.from_ecli, coalesce(p.cited_by_count,0) AS cited_by_count
+                 FROM cand LEFT JOIN ${j.precedentTable} p ON p.ecli = cand.from_ecli
+                ORDER BY cited_by_count DESC
+                LIMIT ${limitParam}
+           )
+           SELECT d.ecli, d.court_name, d.decision_date, d.summary,
+                  r.cited_by_count, arts.articles
+             FROM ranked r
+             JOIN ${j.decisionsTable} d ON d.ecli = r.from_ecli
+             ${articlesLateral}
+            ORDER BY r.cited_by_count DESC, d.decision_date DESC NULLS LAST`;
+
+      const rows = await db.query(sql, params);
 
       res.json({
         jurisdiction: j.code, law_id: req.params.lawId,
-        article: req.query.article ?? null, count: rows.rows.length,
+        article: req.query.article ?? null,
+        order,
+        order_note: order === 'date'
+          ? 'most recently decided first'
+          : 'most cited first, by inbound citations inside this corpus',
+        count: rows.rows.length,
         decisions: rows.rows.map((r: any) => ({
           ecli: r.ecli, court: r.court_name, date: r.decision_date,
-          article: r.article,
+          articles: r.articles ?? [],
           summary: r.summary ? String(r.summary).slice(0, 300) : null,
           cited_by_count: Number(r.cited_by_count),
         })),

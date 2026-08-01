@@ -58,7 +58,7 @@ default of "good law".
 | 4 | `GET /{j}/decisions/{ecli}/citing` | who cites it |
 | 5 | `GET /{j}/decisions/{ecli}/cited` | what it cites, resolved |
 | 6 | `GET /{j}/decisions/{ecli}/chain` | the instance ladder with outcomes |
-| 7 | `GET /{j}/legislation/{lawId}/case-law?article=` | decisions applying a provision |
+| 7 | `GET /{j}/legislation/{lawId}/case-law?article=&order=` | decisions applying a provision |
 | 8 | `GET /{j}/legislation/{lawId}?as_of=` | the act, as in force on a date |
 | 9 | `GET /{j}/resolve?ref=` | any citation string to a canonical node |
 | 10 | `GET /{j}/changes?since=` | what changed, for subscriptions |
@@ -82,6 +82,16 @@ outcome of each appeal attached. Worth stating that this does not need a graph
 store: Dutch ladders are at most four deep and the query is a few milliseconds.
 Reach for Neo4j when the graph is EDRSR-sized (135M edges), not at 1M.
 
+The walk has to carry the path it already visited, and the answer has to collapse
+a link stored in both orientations. Both are the same lesson for Finland: an edge
+table filled by more than one builder will disagree with itself about which side
+is the child. Here 52,814 conclusion pairs exist twice, because the RDF builder
+followed the publisher's `psi:aanleg` while the case-number builder wrote the
+same edge the other way round, and the walk bounced between the two documents
+until it hit the depth cap and reported six rungs where there are two. The rule
+worth copying: the orientation stated by the source wins, and one link between
+two documents appears once.
+
 **1, search, and why ordering is a parameter.** Ranking with `ts_rank` over the
 full text costs **42 seconds** on this corpus: Postgres recomputes the tsvector
 for every matching row before `LIMIT` can apply. Ranking over the summary alone
@@ -90,8 +100,25 @@ silently, `order` is `relevance` (default), `authority` or `date`, and the
 response says which signal was used. When vectors land, `relevance` changes
 meaning and the contract does not.
 
+**7, case law on a provision, and why it takes `order` too.** The set is large
+enough that the ordering decides the answer: article 162 of BW Boek 6 has
+175,461 citing decisions, so any two of them are a sample, not a result. The
+first implementation deduplicated with `DISTINCT ON (ecli)`, which forces a sort
+by ECLI, and that sort then chose which rows survived the `LIMIT` — the endpoint
+answered with alphabetically-first tribunal rulings nobody cites. `order` is
+`authority` (default, most cited) or `date`. Ranking has to happen before the
+limit and away from the decisions table: ranking over `nl_precedent_status`
+(229k rows) is 242ms, walking the date index backwards and probing per row is
+1.0s worst case, and joining the 28GB table for the whole candidate set is 6.4s
+on this article and 22s on the criminal code.
+
 **10, changes.** Returns `next_since`, which is the caller's cursor for the next
-poll: polling from it never re-delivers and never skips. This is the RegTech
+poll: polling from it never re-delivers and never skips. It is also the endpoint
+a subscriber polls in a loop, so it is the one that must never be a sequential
+scan: without an index on `updated_at` it read the whole 28GB table to return two
+rows, 11,932ms of server time per poll. With `idx_nl_recht_updated_at` it is
+0.07ms and five buffers. Any jurisdiction added to this contract needs that index
+before the feed is advertised. This is the RegTech
 primitive that turns a purchase into a subscription, so it should exist from day
 one even before webhooks — and it is also the export risk, see below.
 
