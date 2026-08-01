@@ -57,14 +57,13 @@ TOTAL=$(cat "$SD/batch_count.txt" 2>/dev/null || echo 0)
 say "prepared $TOTAL batches"
 [ "$TOTAL" -eq 0 ] && { say "nothing to do"; exit 1; }
 
-$AWS lambda put-function-concurrency --function-name uae-fetch \
-     --reserved-concurrent-executions $CONC >/dev/null 2>&1 && say "reserved concurrency = $CONC"
-
-ls "$SD"/payloads/*.json | xargs -P 8 -I{} sh -c \
-  "aws --profile uae --region me-central-1 lambda invoke --function-name uae-fetch \
-   --invocation-type Event --cli-binary-format raw-in-base64-out \
-   --payload file://{} /dev/null >/dev/null 2>&1"
-say "all $TOTAL invocations queued"
+# Synchronous invokes: async events are silently dropped for this function
+# (accepted with 202, never executed, zero Errors and zero AsyncEventsDropped).
+# Concurrency is controlled here by xargs -P, not by reserved concurrency.
+mkdir -p "$SD/resp"
+say "running $TOTAL batches synchronously, $CONC at a time"
+ls "$SD"/payloads/*.json | xargs -P "$CONC" -n 1 "$(dirname "$0")/fetch_batch.sh"
+say "all $TOTAL batches attempted"
 
 for i in $(seq 1 400); do
     DONE=$($AWS s3 ls "s3://$B/texts/" 2>/dev/null | wc -l | tr -d ' ')
