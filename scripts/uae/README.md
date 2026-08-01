@@ -23,6 +23,7 @@ harvest_adgm.py        ADGM judgments (PDF)          -> JSONL
 lambda/uae_fetch.py    UAE-resident proxy: fetch | walk | texts
 index_chain.sh         chained index walk per litigation stage
 texts_pipeline.sh      fan-out full-text fetch behind the index walk
+fetch_batch.sh         one text batch through the Lambda (idempotent)
 build_dubai_jsonl.py   join index metadata + texts   -> JSONL
 sql/01_create_table.sql
 sql/02_load_difc_adgm.sql
@@ -39,7 +40,7 @@ python3 harvest_adgm.py all adgm_all.jsonl
 # Dubai: needs the Lambda deployed in me-central-1 and an AWS profile for it
 export UAE_BUCKET=<harvest bucket>      # required
 export UAE_PROFILE=uae UAE_REGION=me-central-1
-./index_chain.sh                        # index walk, stage by stage
+UAE_STAGES="5 3" ./index_chain.sh       # index walk, stage by stage (5=cassation, 3=appeal, 1=first instance)
 ./texts_pipeline.sh                     # full texts for the indexed rows
 python3 build_dubai_jsonl.py <index_dir> <texts_dir> ae_dubai.jsonl
 ```
@@ -75,9 +76,18 @@ returning `RemoteDisconnected` after 20-50 pages. At 0.8 s it runs for the full
 Lambda budget without a single drop. `index_chain.sh` also sleeps 60 s between
 chunks.
 
-**Async Lambda invocations were unreliable here** — they started and died without
-writing anything, while CloudWatch reported zero errors and zero dropped events.
-Everything now uses synchronous invokes with `--cli-read-timeout 0`.
+**Async Lambda invocations do not work here.** They are accepted with 202 and
+never execute: zero `Invocations`, zero `Errors`, zero `AsyncEventsDropped`. It
+cost two silent stalls (the index walk, then 3114 queued text batches that fetched
+nothing). Everything uses synchronous invokes with `--cli-read-timeout 0`.
+
+**Two failure modes that report success — check counts, not exit codes.**
+`index_chain.sh` used to stop at its chunk cap and return 0, so an appeal walk that
+was 385 pages short looked complete; it now returns 2 and logs `TRUNCATED`. And BSD
+`xargs -I{}` with a long inline script dies with "command line cannot be assembled,
+too long" while the surrounding pipeline happily logs that every batch was
+launched — hence `fetch_batch.sh` as a separate file. Always compare the row count
+you got against the count you expected.
 
 **Resume is by saved session, not by re-walking.** Each chunk stores cookies +
 `__OSVSTATE` + the next page target in S3, so the next invocation continues with

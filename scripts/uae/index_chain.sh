@@ -29,7 +29,7 @@ chain() {
             n=0
         fi
     fi
-    while [ $n -lt 30 ]; do
+    while [ $n -lt ${UAE_MAX_CHUNKS:-80} ]; do
         n=$((n+1))
         local ck=$(printf "index/stage%s_c%02d.json.gz" "$S" "$n")
         local sk=$(printf "state/stage%s_c%02d.json.gz" "$S" "$n")
@@ -66,7 +66,8 @@ print('ok=%s rows=%s last_page=%s stopped_early=%s err=%s%s' % (
             say "$S" "no further state -> stage $S COMPLETE after $n chunks"; return 0
         fi
     done
-    say "$S" "hit 12-chunk cap"
+    say "$S" "TRUNCATED: hit the ${UAE_MAX_CHUNKS:-80}-chunk cap without reaching the end"
+    return 2
 }
 
 # Sequential: one stage at a time, no self-competition for the portal.
@@ -79,10 +80,12 @@ for i in $(seq 1 24); do
     sleep 30
 done
 
-for spec in "5 0.8" "3 0.8" "1 0.8"; do
-    set -- $spec
-    say "ALL" "=== starting stage $1 ==="
-    chain "$1" "$2"
-    say "ALL" "=== stage $1 returned $? ==="
+DELAY="${UAE_DELAY:-0.8}"
+for S in ${UAE_STAGES:-5 3}; do
+    say "ALL" "=== starting stage $S ==="
+    chain "$S" "$DELAY"
+    rc=$?
+    say "ALL" "=== stage $S returned $rc ==="
+    [ $rc -eq 2 ] && say "ALL" "WARNING: stage $S is INCOMPLETE (chunk cap) - rerun to continue"
 done
 say "ALL" "index chains finished"
