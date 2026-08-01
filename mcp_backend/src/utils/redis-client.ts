@@ -36,8 +36,16 @@ export async function getRedisClient(): Promise<ReturnType<typeof createClient> 
       logger.info('[Redis] Connected successfully');
     });
 
-    redisClient.on('disconnect', () => {
-      logger.warn('[Redis] Disconnected');
+    // node-redis emits 'end', not 'disconnect' — the old listener could never fire, so a socket
+    // that closed did it silently. 'reconnecting' is logged too: when the client is stuck writing
+    // into a dead socket (see CacheAdapter.forceReconnect) the absence of these lines is itself
+    // the diagnosis.
+    redisClient.on('end', () => {
+      logger.warn('[Redis] Connection closed');
+    });
+
+    redisClient.on('reconnecting', () => {
+      logger.warn('[Redis] Reconnecting');
     });
 
     await redisClient.connect();

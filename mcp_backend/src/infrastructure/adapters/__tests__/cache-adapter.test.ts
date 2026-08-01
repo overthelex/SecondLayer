@@ -52,3 +52,65 @@ describe('CacheAdapter — fast-fail on a hung Redis client', () => {
     await expect(adapter.ping()).resolves.toBe(false);
   });
 });
+
+/**
+ * Regression (LEXAI-1795, root cause found 2026-08-01): a deploy step re-attached the running
+ * container to the docker network, which changed its IP, and every socket the process already
+ * held became a black hole — writes are never delivered, and no RST or FIN comes back. node-redis
+ * therefore never emits an error and never reconnects, so every op fell to the timeout above for
+ * ~15 minutes, until the kernel's TCP keepalive finally killed the socket. The deploy no longer
+ * does that, but any future silent socket death must not need a human or a kernel timer: after a
+ * few consecutive timeouts the adapter drops the socket itself.
+ */
+describe('CacheAdapter — self-heal after repeated timeouts', () => {
+  const hang = () => new Promise(() => {});
+
+  function makeHungClient() {
+    return makeClient({
+      get: jest.fn(hang),
+      isOpen: true,
+      destroy: jest.fn(),
+      connect: jest.fn().mockResolvedValue(undefined),
+    });
+  }
+
+  it('does not touch the socket while timeouts are below the threshold', async () => {
+    const client = makeHungClient();
+    const adapter = new CacheAdapter(client);
+    await expect(adapter.get('k')).rejects.toThrow(/timed out/i);
+    await expect(adapter.get('k')).rejects.toThrow(/timed out/i);
+    expect(client.destroy).not.toHaveBeenCalled();
+  });
+
+  it('drops and re-opens the connection after three consecutive timeouts', async () => {
+    const client = makeHungClient();
+    const adapter = new CacheAdapter(client);
+    for (let i = 0; i < 3; i++) {
+      await expect(adapter.get('k')).rejects.toThrow(/timed out/i);
+    }
+    await new Promise(r => setImmediate(r));   // reconnect runs off the failing call
+    expect(client.destroy).toHaveBeenCalledTimes(1);
+    expect(client.connect).toHaveBeenCalledTimes(1);
+  });
+
+  it('forgets the streak once an op succeeds', async () => {
+    const get = jest.fn()
+      .mockImplementationOnce(hang)
+      .mockImplementationOnce(hang)
+      .mockResolvedValueOnce('5')
+      .mockImplementationOnce(hang)
+      .mockImplementationOnce(hang);
+    const client = makeHungClient();
+    client.get = get;
+    const adapter = new CacheAdapter(client);
+
+    await expect(adapter.get('k')).rejects.toThrow(/timed out/i);
+    await expect(adapter.get('k')).rejects.toThrow(/timed out/i);
+    await expect(adapter.get('k')).resolves.toBe('5');
+    await expect(adapter.get('k')).rejects.toThrow(/timed out/i);
+    await expect(adapter.get('k')).rejects.toThrow(/timed out/i);
+
+    await new Promise(r => setImmediate(r));
+    expect(client.destroy).not.toHaveBeenCalled();
+  });
+});
