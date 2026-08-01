@@ -95,12 +95,17 @@ describe('redis-client', () => {
       expect(logger.warn).toHaveBeenCalled();
     });
 
-    it('should register event handlers on the client', async () => {
+    // The names must be the ones node-redis actually emits. This test used to require
+    // 'disconnect', which node-redis has never emitted, so it locked in a listener that could
+    // never fire and a closed socket was logged nowhere.
+    it('should register event handlers the client actually emits', async () => {
       await getRedisClient();
       const eventNames = mockRedisOn.mock.calls.map((c: any[]) => c[0]);
       expect(eventNames).toContain('error');
       expect(eventNames).toContain('connect');
-      expect(eventNames).toContain('disconnect');
+      expect(eventNames).toContain('end');
+      expect(eventNames).toContain('reconnecting');
+      expect(eventNames).not.toContain('disconnect');
     });
   });
 

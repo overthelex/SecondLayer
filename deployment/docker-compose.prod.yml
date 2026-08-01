@@ -319,7 +319,9 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - secondlayer-prod-network
+      secondlayer-prod-network:
+        aliases:
+        - rada-mcp-app-prod
     deploy:
       resources:
         limits:
@@ -393,7 +395,9 @@ services:
       start_period: 30s
     restart: unless-stopped
     networks:
-      - secondlayer-prod-network
+      secondlayer-prod-network:
+        aliases:
+        - app-openreyestr-prod
     deploy:
       resources:
         limits:
@@ -674,7 +678,9 @@ services:
       start_period: 60s
     restart: unless-stopped
     networks:
-    - secondlayer-prod-network
+      secondlayer-prod-network:
+        aliases:
+        - app-prod
     deploy:
       resources:
         limits:
@@ -1089,7 +1095,9 @@ services:
       start_period: 60s
     restart: unless-stopped
     networks:
-    - secondlayer-prod-network
+      secondlayer-prod-network:
+        aliases:
+        - app-prod
     deploy:
       resources:
         limits:
@@ -1146,7 +1154,9 @@ services:
       retries: 3
       start_period: 30s
     networks:
-      - secondlayer-prod-network
+      secondlayer-prod-network:
+        aliases:
+        - rada-mcp-app-prod
     deploy:
       resources:
         limits:
@@ -1195,7 +1205,9 @@ services:
       start_period: 30s
     restart: unless-stopped
     networks:
-      - secondlayer-prod-network
+      secondlayer-prod-network:
+        aliases:
+        - app-openreyestr-prod
     deploy:
       resources:
         limits:

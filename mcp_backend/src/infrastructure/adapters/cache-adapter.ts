@@ -22,17 +22,67 @@ type RedisClient = ReturnType<typeof createClient>;
 // failing fast on a genuinely dead socket (which keepAlive/pingInterval also detect ~30s).
 const REDIS_OP_TIMEOUT_MS = Number(process.env.REDIS_OP_TIMEOUT_MS || 2500);
 
+// How many consecutive timeouts mean the socket is gone rather than busy. Three is past any
+// plausible burst of slowness (that is 7.5s of nothing) and still well inside the ~15 minutes
+// the kernel used to take to notice — see forceReconnect below.
+const RECONNECT_AFTER_TIMEOUTS = Number(process.env.REDIS_RECONNECT_AFTER_TIMEOUTS || 3);
+
 export class CacheAdapter implements ICachePort {
   private client: RedisClient;
+  private consecutiveTimeouts = 0;
+  private reconnecting = false;
 
   constructor(client: RedisClient) {
     this.client = client;
   }
 
+  /**
+   * Drop the socket ourselves when it stops answering.
+   *
+   * A TCP connection can die without anyone being told: on 2026-08-01 a deploy step re-attached
+   * the running container to the docker network, its IP changed under the live process, and every
+   * open socket became a black hole. Writes queued in the kernel (13,728 bytes stuck in tx_queue),
+   * no RST or FIN came back, so node-redis never emitted an error, never ran its reconnect
+   * strategy, and kept writing into it. Redis was healthy the whole time; a fresh client from the
+   * same container answered in 1ms. Recovery only came when TCP keepalive gave up, about 15
+   * minutes later, and until then every cache read cost the full timeout above and the rate
+   * limiter ran on per-process memory.
+   *
+   * The deploy no longer does that (aliases are set at container creation), but a client that can
+   * only be rescued by a kernel timer is a client with a hole in it. Consecutive timeouts are the
+   * one signal available, since the socket itself reports nothing, so past the threshold we
+   * destroy it and reconnect. destroy() rather than quit(): a graceful QUIT writes to the same
+   * dead socket and waits for a reply that will never come.
+   */
+  private async forceReconnect(): Promise<void> {
+    if (this.reconnecting) return;
+    this.reconnecting = true;
+    try {
+      logger.warn('[Cache] Redis unresponsive, dropping the socket and reconnecting', {
+        consecutiveTimeouts: this.consecutiveTimeouts,
+      });
+      const client = this.client as unknown as { destroy?: () => void; disconnect?: () => Promise<void> };
+      if (typeof client.destroy === 'function') {
+        client.destroy();
+      } else if (typeof client.disconnect === 'function') {
+        await client.disconnect();
+      }
+      await this.client.connect();
+      this.consecutiveTimeouts = 0;
+      logger.info('[Cache] Redis reconnected');
+    } catch (err) {
+      // Leave the counter high so the next timeout tries again rather than waiting for a fresh
+      // streak; node-redis reconnectStrategy also keeps retrying once the socket is really closed.
+      logger.error('[Cache] Redis reconnect failed', { error: String(err) });
+    } finally {
+      this.reconnecting = false;
+    }
+  }
+
   private async withTimeout<T>(op: Promise<T>, label: string): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      return await Promise.race([
+      const result = await Promise.race([
         op,
         new Promise<never>((_, reject) => {
           timer = setTimeout(
@@ -41,6 +91,18 @@ export class CacheAdapter implements ICachePort {
           );
         }),
       ]);
+      this.consecutiveTimeouts = 0;
+      return result;
+    } catch (err) {
+      if (err instanceof Error && err.message.includes('timed out after')) {
+        this.consecutiveTimeouts += 1;
+        if (this.consecutiveTimeouts >= RECONNECT_AFTER_TIMEOUTS) {
+          // deliberately not awaited: the caller is already degrading to its fallback and must
+          // not wait for a reconnect on top of the timeout it just paid
+          void this.forceReconnect();
+        }
+      }
+      throw err;
     } finally {
       if (timer) clearTimeout(timer);
     }

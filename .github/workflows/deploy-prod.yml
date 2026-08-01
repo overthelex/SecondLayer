@@ -875,26 +875,25 @@ jobs:
             # --- 5. Save active colors ---
             printf 'backend=%s\nfrontend=%s\n' "\$BACKEND_COLOR" "\$FRONTEND_COLOR" > .active-colors
 
-            # --- 5a. Add canonical DNS aliases for opendata-sync ---
-            # opendata-sync connects to app-prod:3000 and app-openreyestr-prod:3005
-            # but blue-green containers have color suffixes — add aliases so DNS resolves
-            NETWORK="deployment_secondlayer-prod-network"
-            if [ "\$BACKEND_COLOR" = "green" ]; then
-              BE_CONTAINER="secondlayer-app-prod-green"
-              OR_CONTAINER="openreyestr-app-prod-green"
-              RADA_CONTAINER="rada-mcp-app-prod-green"
-            else
-              BE_CONTAINER="secondlayer-app-prod"
-              OR_CONTAINER="openreyestr-app-prod"
-              RADA_CONTAINER="rada-mcp-app-prod"
-            fi
-            echo "Adding canonical DNS aliases (app-prod, app-openreyestr-prod, rada-mcp-app-prod) to \$BE_CONTAINER, \$OR_CONTAINER, \$RADA_CONTAINER"
-            docker network disconnect "\$NETWORK" "\$BE_CONTAINER" 2>/dev/null || true
-            docker network connect --alias app-prod "\$NETWORK" "\$BE_CONTAINER" || true
-            docker network disconnect "\$NETWORK" "\$OR_CONTAINER" 2>/dev/null || true
-            docker network connect --alias app-openreyestr-prod "\$NETWORK" "\$OR_CONTAINER" || true
-            docker network disconnect "\$NETWORK" "\$RADA_CONTAINER" 2>/dev/null || true
-            docker network connect --alias rada-mcp-app-prod "\$NETWORK" "\$RADA_CONTAINER" || true
+            # --- 5a. Canonical DNS aliases ---
+            # opendata-sync dials app-prod:3000, app-openreyestr-prod:3005 and
+            # rada-mcp-app-prod:3001, while blue-green containers carry a colour
+            # suffix. Those aliases now live in docker-compose.prod.yml under each
+            # service's networks: block, so a container is created with them.
+            #
+            # They used to be attached here, to the already-running container, with
+            # docker network disconnect + connect --alias. That re-attach hands the
+            # container a NEW IP (measured 172.18.0.34 -> 172.18.0.4 about a minute
+            # after start), and every TCP connection the process had already opened
+            # keeps a source address that no longer exists on eth0. Nothing those
+            # sockets send is delivered and no RST or FIN comes back, so node-redis,
+            # which has no per-command timeout, never sees an error and never
+            # reconnects: it writes into a black hole (13,728 bytes stuck in tx_queue
+            # when this was caught). Every cache read then costs the full 2500ms
+            # CacheAdapter guard, the rate limiter silently falls back to per-process
+            # memory, and only the kernel's TCP keepalive ends it, about 15 minutes
+            # later. That was LEXAI-1795, once per deploy, for every one of the three
+            # services listed above. Do not re-attach a live container to a network.
 
             # Restart monitoring if needed
             if [ "${MONITORING_CHANGED}" = "true" ]; then
