@@ -98,6 +98,19 @@ polling status returns the previous "Successful" and you end up testing stale co
 `28 Jan 2014`; `build_dubai_jsonl.py` handles Arabic, Levantine and English month
 names plus Arabic-Indic digits.
 
+**The text extractor must anchor on `ut_verdict`, case-sensitively.** The judgment body
+lives in `<div class="ut_verdict">`; `ut_VerdictWeb` is the small parties block and appears
+*earlier* in the page, so a case-insensitive match silently returns ~150 characters instead
+of the judgment. The original greedy `<div class="...content...">(.*)</div>` ran to the last
+`</div>` on the page and swallowed the site nav and footer — **~3.7k identical characters per
+document, 29% of the corpus**, which is harmless for a citation graph and ruinous for a
+vector index. If you change this function, check the output length distribution, not just
+that it returned something.
+
+**Delete the invoke output file before every `lambda invoke`.** A failed invoke leaves the
+previous response in place, and it reads exactly like a fresh one — this produced two
+false "the fix doesn't work" diagnoses in a row.
+
 ## Legal note
 
 Dubai Courts' terms of use prohibit reproducing the service in whole or in part

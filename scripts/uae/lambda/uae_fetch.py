@@ -95,11 +95,46 @@ VERDICT_URL = ("https://www.dc.gov.ae/PublicServices/VerdictPreview.aspx?"
                "lang=&DecisionNumber=%(decision_no)s&OpenedLitigationStage=%(stage)s")
 
 
+# The judgment always opens with the Basmala; everything before it is site
+# navigation, and everything from the loading widget on is the page footer.
+# The old greedy `<div class="...content...">(.*)</div>` swallowed both — about
+# 3.7k characters of identical chrome per document, ~29% of the corpus.
+BASMALA = "بِسْمِ"
+FOOTER = "جاري التحميل"
+
+
+def _strip_chrome(t):
+    i = t.find(BASMALA)
+    if i == -1:
+        i = t.find("باسم صاحب السمو")
+    if 0 < i < 8000:
+        t = t[i:]
+    j = t.rfind(FOOTER)
+    if j > 500:
+        t = t[:j]
+    return t.strip()
+
+
 def _text(doc):
+    """Judgment text from the ut_verdict container.
+
+    Case-SENSITIVE on the class: 'ut_VerdictWeb' is the small parties block and
+    appears earlier in the page. The old greedy
+    `<div class="...content...">(.*)</div>` swallowed the site nav and footer -
+    about 3.7k characters of identical chrome per document, ~29% of the corpus.
+    """
     t = re.sub(r"(?is)<(script|style)[^>]*>.*?</\1>", " ", doc)
-    m = re.search(r'(?is)<div[^>]*class="[^"]*content[^"]*"[^>]*>(.*)</div>', t)
-    if m and len(m.group(1)) > 500:
-        t = m.group(1)
+    m = re.search(r'<div[^>]*class="[^"]*ut_verdict[\s"]', t)
+    if m:
+        start = t.find(">", m.start()) + 1
+        depth, end = 1, len(t)
+        for mm in re.finditer(r"<(/?)div\b", t[start:]):
+            depth += 1 if not mm.group(1) else -1
+            if depth == 0:
+                end = start + mm.start()
+                break
+        if end - start > 500:
+            t = t[start:end]
     t = re.sub(r"(?i)<br\s*/?>", "\n", t)
     t = re.sub(r"(?i)</(p|div|tr|li|h[1-6])>", "\n", t)
     t = re.sub(r"(?s)<[^>]+>", " ", t)
@@ -109,9 +144,7 @@ def _text(doc):
     t = t.replace("\x00", "").replace("\x01", " ").replace("\x02", " ")
     t = re.sub(r"[ \t]+", " ", t)
     t = re.sub(r"\n\s*\n+", "\n\n", t)
-    return t.strip()
-
-
+    return _strip_chrome(t.strip())
 
 
 def _dump_cookies(cj):
@@ -191,6 +224,18 @@ def lambda_handler(event, context):
             return _read(r)
 
     resumed_at = None
+
+    def _attempt(fn, tries=4):
+        """Network calls here face abrupt TLS EOFs; one must not kill a chunk."""
+        last = None
+        for a in range(tries):
+            try:
+                return fn()
+            except Exception as e:  # noqa: BLE001
+                last = e
+                time.sleep(5 * (a + 1) ** 2)
+        raise last
+
     try:
         if event.get("resume_state_key"):
             st = _s3_get(event["resume_state_key"])
@@ -201,16 +246,18 @@ def lambda_handler(event, context):
             fields["__EVENTTARGET"] = st["next_target"][1]
             fields["__EVENTARGUMENT"] = ""
             fields["__AJAX"] = "1440,3200,%s,2400,300,0,0,700,2450," % st["next_target"][0]
-            raw = post(fields)
+            raw = _attempt(lambda: post(fields))
             inner = _unescape_partial(raw)
             view = (inner + "\n" + raw) if inner else raw
         else:
-            with op.open(LIST_URL, timeout=timeout) as r:
-                doc = _read(r)
+            def _fresh():
+                with op.open(LIST_URL, timeout=timeout) as r:
+                    return _read(r)
+            doc = _attempt(_fresh)
             f = _hidden(doc)
             f.update(filters)
             f[P + "wtUT_SearchButton"] = "بحث"
-            view = post(f)
+            view = _attempt(lambda: post(f))
     except Exception as e:  # noqa: BLE001
         return {"ok": False, "phase": "search/resume",
                 "err": "%s: %s" % (type(e).__name__, e)}
