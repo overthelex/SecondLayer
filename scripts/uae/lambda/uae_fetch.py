@@ -183,6 +183,9 @@ def lambda_handler(event, context):
                      ("Accept-Language", "ar,en;q=0.8")]
 
     if mode == "fetch":
+        for k, v in (event.get("headers") or {}).items():
+            op.addheaders = [(a, b) for a, b in op.addheaders if a.lower() != k.lower()]
+            op.addheaders.append((k, v))
         try:
             with op.open(event["url"], timeout=timeout) as r:
                 body = _read(r)
@@ -205,6 +208,38 @@ def lambda_handler(event, context):
         if event.get("s3_key"):
             return {"ok": True, "count": len(out), "s3": _s3_put(event["s3_key"], out)}
         return {"ok": True, "count": len(out), "items": out}
+
+    if mode == "grab":
+        """Fetch a list of URLs and park each PDF in S3. Used for the UAE legislation
+        portal, where every law is at /ar/legislations/<id>/download and a missing id
+        answers 200 with a ~650 KB HTML shell instead of a 404."""
+        hdrs = {"Accept": "*/*", "Accept-Language": "ar-AE,ar;q=0.9",
+                "Referer": "https://uaelegislation.gov.ae/ar/legislations",
+                "Sec-Fetch-Dest": "document", "Sec-Fetch-Mode": "navigate",
+                "Upgrade-Insecure-Requests": "1"}
+        hdrs.update(event.get("headers") or {})
+        op.addheaders = [(k, v) for k, v in hdrs.items()] + [("User-Agent", UA)]
+        s3 = boto3.client("s3")
+        out = []
+        for it in event.get("items", []):
+            rec = {"id": it["id"]}
+            try:
+                req = urllib.request.Request(it["url"])
+                with op.open(req, timeout=timeout) as r:
+                    body = r.read()
+                if body[:4] == b"%PDF":
+                    key = "%s%s.pdf" % (event.get("s3_prefix", "leg/"), it["id"])
+                    s3.put_object(Bucket=BUCKET, Key=key, Body=body,
+                                  ContentType="application/pdf")
+                    rec.update(ok=True, kind="pdf", bytes=len(body), key=key)
+                else:
+                    rec.update(ok=True, kind="missing", bytes=len(body))
+            except Exception as e:  # noqa: BLE001
+                rec.update(ok=False, err="%s: %s" % (type(e).__name__, e))
+            out.append(rec)
+            time.sleep(float(event.get("delay", 0.2)))
+        found = sum(1 for r in out if r.get("kind") == "pdf")
+        return {"ok": True, "count": len(out), "pdfs": found, "items": out}
 
     stage = str(event.get("stage", "5"))
     pages = int(event.get("pages", 5))

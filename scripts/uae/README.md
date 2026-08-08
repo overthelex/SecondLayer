@@ -111,6 +111,45 @@ that it returned something.
 previous response in place, and it reads exactly like a fresh one — this produced two
 false "the fix doesn't work" diagnoses in a row.
 
+## Federal legislation (uaelegislation.gov.ae)
+
+```bash
+# 1. enumerate + download: every act is a PDF at /ar/legislations/<id>/download
+#    ids are contiguous 1000-4556; a missing id answers 200 with a ~650 KB HTML
+#    shell, so validity is judged by the %PDF magic bytes, never by status code
+#    (uae-fetch "grab" mode does this and puts each PDF in s3://$UAE_BUCKET/leg/)
+
+# 2. OCR - the embedded text layer is unusable, see below
+export TESSDATA_PREFIX=$PWD/tessdata OMP_THREAD_LIMIT=1
+curl -sL -o tessdata/ara.traineddata \
+  https://github.com/tesseract-ocr/tessdata_fast/raw/main/ara.traineddata
+./run_ocr.sh                       # 5 nice'd workers, 200 dpi
+
+# 3. load
+python3 build_leg.py legocr ae_legislation.jsonl
+psql -f sql/04_create_legislation.sql && psql -f sql/05_load_legislation.sql
+```
+
+**The portal answers 403 to a plain request** and 200 once you send a full browser header
+set (`Sec-Fetch-*`, `Accept-Language`, `Cache-Control`, `Upgrade-Insecure-Requests`). That
+is bot protection, not a country block — it looked closed on first contact for this reason.
+Listings and law text are injected by JS and the data endpoint is in neither the bundles nor
+a sitemap, so the download route is the way in. `/print`, `/text` and `/articles` all return
+the same not-found shell.
+
+**Never trust this portal's PDF text layer.** Of 2 862 acts only 46 extract cleanly.
+`pdftotext` emits `U+FFFD` where the font lacks a ToUnicode entry (`بعض` → `�عض`), and
+PyMuPDF is worse: it loses nothing and maps the same glyphs to *wrong* codepoints
+(`المخزون` → `اݝخزون`), so the text looks whole and is silently corrupt. NFKC over
+presentation forms also reorders lam-alef (`الإمارات` → `اإلمارات`) in 1 668 of them.
+`build_leg.py` records `glyph_loss`, `odd_script` and `extraction_ok` per row so a consumer
+can always tell. OCR fixed all of it: 0 lost glyphs, 98.5% correct ligatures.
+
+**`OMP_THREAD_LIMIT=1` when running tesseract in parallel.** It is OpenMP-multithreaded by
+default, so 8 workers × 8 threads on an 8-core box means 64 threads: load average 32,
+~13 s/page, 16 documents in 2.5 h. One thread per worker gives 1.3 s/page. On a shared
+machine add `nice -n 19` and `ionice -c3` and leave cores for the app.
+
 ## Legal note
 
 Dubai Courts' terms of use prohibit reproducing the service in whole or in part
