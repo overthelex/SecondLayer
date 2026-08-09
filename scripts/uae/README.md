@@ -9,11 +9,11 @@ Tools for building the `ae_court_decisions` corpus (DIFC, ADGM, Dubai Courts).
 | DIFC Courts | HTML | none | yes |
 | ADGM Courts | PDF | none | yes |
 | Dubai Courts | HTML | none | **no — UAE IP required** |
-| MOJ / Federal Supreme Court | HTML | none | no (blocks AWS ranges too) |
+| MOJ / Federal Supreme Court | JSON + PDF | none | yes |
 | ADJD (Abu Dhabi) | HTML | **UAE Pass** | not obtainable |
 
-DIFC and ADGM run anywhere. Dubai Courts geo-blocks non-UAE IPs, so requests go
-through a Lambda deployed in `me-central-1` (`lambda/uae_fetch.py`).
+DIFC, ADGM and the MOJ run anywhere. Dubai Courts geo-blocks non-UAE IPs, so its
+requests go through a Lambda deployed in `me-central-1` (`lambda/uae_fetch.py`).
 
 ## Layout
 
@@ -25,9 +25,11 @@ index_chain.sh         chained index walk per litigation stage
 texts_pipeline.sh      fan-out full-text fetch behind the index walk
 fetch_batch.sh         one text batch through the Lambda (idempotent)
 build_dubai_jsonl.py   join index metadata + texts   -> JSONL
+moj/                   Federal Supreme Court (see below)
 sql/01_create_table.sql
 sql/02_load_difc_adgm.sql
 sql/03_load_dubai.sql
+sql/06_load_moj_fsc.sql
 ```
 
 ## Usage
@@ -149,6 +151,52 @@ can always tell. OCR fixed all of it: 0 lost glyphs, 98.5% correct ligatures.
 default, so 8 workers × 8 threads on an 8-core box means 64 threads: load average 32,
 ~13 s/page, 16 documents in 2.5 h. One thread per worker gives 1.3 s/page. On a shared
 machine add `nice -n 19` and `ionice -c3` and leave cores for the app.
+
+## Federal Supreme Court (moj.gov.ae)
+
+```bash
+cd moj
+./fetch_index.sh index.json               # 4 469 records in one response
+CONC=8 ./download_pdfs.sh index.json pdf  # resumable, %PDF-checked
+python3 fetch_docx.py index.json txt      # the 3 records that are Word files
+python3 extract_all.py pdf txt report.jsonl
+./run_ocr.sh report.jsonl pdf txt         # only the documents the report flagged
+python3 build_jsonl.py index.json txt report.jsonl ae_moj_fsc.jsonl
+psql -f ../sql/06_load_moj_fsc.sql
+```
+
+**It was never geo-blocked — the endpoint just needed the right parameters.** The
+listing widget posts to `services/AjaxHandler.asmx/LoadCategorizeAssetsList`; the
+ASMX help page and `?WSDL` are disabled and any wrong parameter set answers a bare
+500, which reads exactly like a block. The working body is
+`{pageIndex, pageSize, languageId, languageCode, isArchived, thumbnailSizeFactor,
+excludeItems}` from `fi.listing.js` merged with `{keyword, openDataTypeID,
+categoryId, year, apiLink}` from `categorize-assets-listing.js` — note
+`openDataTypeID`, capital `ID`, unlike every neighbouring key. `openDataTypeID`
+450 is the Federal Supreme Court and **`pageSize: -1` returns all 4 469 records in
+one 7 MB response**, so there is no pagination to walk. `isArchived: true` returns
+the same set.
+
+**Two PDF generations, two different kinds of damage.** Newer files store
+logical-order Arabic but emit every lam-alef ligature reversed, as alef+lam:
+`الأربعاء` arrives as `األربعاء` and `جلال` as `جالل`. Orthography cannot separate
+that from the definite article `ال` — but geometry can, because **the decomposed
+alef carries zero width** while a real article's alef does not. `moj_text.py`
+drives the swap off the glyph boxes for that reason; a regex would eat every
+article in the corpus. Older files (roughly 2011-2015) instead store presentation
+forms plus kashidas the font maps to stray codepoints such as `ѧ`; NFKC and a
+script filter fix those completely.
+
+**Some documents carry the court's own bad OCR, and no decoder can save them.**
+Letters are dropped and kashidas come through as doubled letters (`قاتل` →
+`قاتاال`) — pdftotext and PyMuPDF agree, so it is the source. The rate of doubled
+Arabic letters separates the populations cleanly, 5-11 per 1000 Arabic characters
+for good documents against 20-170 for broken ones, so `extract_all.py` gates at 15
+and `run_ocr.sh` re-OCRs whatever fails. Genuine gemination is written with shadda,
+not by repeating the letter, which is why the measure works at all.
+
+**The mime type in the index lies.** Three records are declared
+`application/pdf` and link to `.docx`; go by the link extension.
 
 ## Legal note
 
