@@ -89,6 +89,14 @@ SELECT (amend_year / 10) * 10 AS decade, count(*)
 FROM ae_legislation_amendments WHERE amend_year IS NOT NULL GROUP BY 1 ORDER BY 1;
 
 \echo '=== most-amended acts ==='
-SELECT a.law_id, count(*) AS amendments, left(l.title, 70) AS title
+-- Identify acts by number and year, never by a prefix of the text: both left()
+-- and substring() raise a spurious "invalid byte sequence" on these columns.
+SELECT a.law_id, l.law_type, l.law_number, l.law_year, count(*) AS amendments
 FROM ae_legislation_amendments a LEFT JOIN ae_legislation l USING (law_id)
-GROUP BY a.law_id, l.title ORDER BY 2 DESC LIMIT 10;
+GROUP BY 1, 2, 3, 4 ORDER BY 5 DESC LIMIT 10;
+
+\echo '=== most recent article changes ==='
+SELECT law_id, article_label, amend_date,
+       length(text_before) AS len_before, length(text_after) AS len_after
+FROM ae_legislation_article_history
+WHERE text_changed ORDER BY amend_date DESC LIMIT 8;

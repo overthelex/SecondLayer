@@ -198,6 +198,45 @@ not by repeating the letter, which is why the measure works at all.
 **The mime type in the index lies.** Three records are declared
 `application/pdf` and link to `.docx`; go by the link extension.
 
+## Amendment history (uaelegislation.gov.ae)
+
+```bash
+cd leg
+python3 fetch_modifications.py ids.txt mods     # amendment pages, ~2.2 s/act
+python3 fetch_law_meta.py need_meta.txt lawmeta # dates+status for acts never amended
+python3 parse_modifications.py mods parsed
+python3 parse_modifications.py lawmeta parsedmeta
+python3 fetch_amendment_pdfs.py parsed/amendments.jsonl amendpdf
+psql -f ../sql/07_create_amendments.sql && psql -f ../sql/08_load_amendments.sql
+```
+
+**Cloudflare here scores the TLS fingerprint, not the IP.** Plain `curl` with a
+perfect browser header set gets 403 from a laptop, from prod and from the UAE
+Lambda alike, which looks exactly like an IP ban and is not one; `curl_cffi` with
+`impersonate` gets 200 from those same hosts. Profiles are scored individually
+and inconsistently — `chrome` and `safari17_0` do not always agree, and the same
+profile can pass then fail — so rotate profiles, warm a session on `/ar` first
+and reuse it.
+
+**The article-level history is not in the PDFs.** Only 2 of 2 862 downloaded
+acts carry an inline "this text is per the latest amendment" note; the real
+record is
+`POST /ar/legislations/<id>/modifications/list` with `{_token, year}`, where the
+token is scraped from the modifications page and must share that page's session.
+It returns, per amending act, the new text of every article touched *beside the
+text it replaced*. `/ar/materials/<id>/previous` gives the same per article.
+
+**An act with no amendments has no modifications page and answers 500.** That is
+the portal's way of saying "none", not a transient error — retrying it wastes the
+whole budget. Publication metadata for those acts is on the act's own page
+instead, which is why `fetch_law_meta.py` exists: without it, `status` and
+`issue_date` would only ever describe the 8% of acts that were amended.
+
+**Amendments are recorded even when the article bodies are not.** Repealed acts
+in particular list the amending act, its date and its PDF with an empty body, so
+count amendments and article changes separately — 427 amendments across 232 acts
+produced 1 313 article changes across 166 acts.
+
 ## Legal note
 
 Dubai Courts' terms of use prohibit reproducing the service in whole or in part
