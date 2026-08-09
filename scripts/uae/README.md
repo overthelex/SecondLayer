@@ -237,6 +237,43 @@ in particular list the amending act, its date and its PDF with an empty body, so
 count amendments and article changes separately — 427 amendments across 232 acts
 produced 1 313 article changes across 166 acts.
 
+## Judgment -> legislation citations
+
+```bash
+cd leg
+./run_citations.sh citations.jsonl        # streams 3.9 GB out of Postgres, ~25 min
+psql -f ../sql/10_load_citations.sql      # load + the two exact resolution passes
+psql -f ../sql/11_resolve_citations.sql   # the relaxed passes, re-runnable
+```
+
+**Every gap in the citation pattern has to be optional.** Judgments name an act as
+`<kind> رقم <n> لسنة <year>`, but the PDFs behind these texts glue words to numbers
+(`رقم5 لسنة2012`) and scatter parentheses (`رقم ( 38 )لسنة 2022`), and Arabic-Indic
+digits turn up. Acts cited by name alone (`قانون الإثبات`) are deliberately not
+matched: without a number and year they cannot be resolved without a name index,
+and guessing would put false edges in the graph.
+
+**Do not break ties by how specific the instrument type is.** That rule resolves
+everything and is confidently wrong: it turned the Arbitration Law 6/2018 into the
+supplementary budget decree 6/2018, an edge that looks entirely plausible in the
+data. The subject phrase the judgment gives beside the number (`بشأن التحكيم`) is
+what actually distinguishes them.
+
+**Use `word_similarity`, not `similarity`, to match that subject.** The subject is
+a short phrase and the title is long, so plain trigram similarity drowns the
+signal — on decree-law 33/2021 it scored the right act 0.095 against the wrong
+one's 0.057, while `word_similarity` gave 0.42 against 0.16. The pass also
+requires the winner to clear the runner-up by 40%, so an undecidable pair stays
+unresolved instead of being decided by noise.
+
+**A third of citations point at acts the corpus does not contain**, and that is
+the real ceiling, not the matcher: Civil Procedure Law 11/1992 alone accounts for
+29 322 of them. It was repealed and replaced by 42/2022, and the portal only
+serves what is current. Emirate-level Dubai legislation is the other large block.
+
+DIFC and ADGM contribute nothing here — they are English-language common-law
+courts and the extractor only runs over `language = 'ar'`.
+
 ## Legal note
 
 Dubai Courts' terms of use prohibit reproducing the service in whole or in part
