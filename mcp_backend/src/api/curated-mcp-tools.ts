@@ -10,10 +10,18 @@
  *   • /api/v2/mcp  (Streamable HTTP, buildMcpServerV2)
  *   • /sse         (legacy SSE transport, MCPSSEServer)
  *
+ * The two transports do NOT advertise the same number of tools. /sse lists local
+ * handlers only (ToolRegistry.getLocalToolDefinitions), so the proxied openreyestr_*
+ * entries below are silently absent there; /api/v2/mcp resolves them through
+ * getAllToolDefinitions and advertises the full Set. Both filter by this whitelist,
+ * so neither can ever exceed it.
+ *
  * IMPORTANT: keep this in sync with the actual handler names registered in
- * factories/tool-services.ts. Every name here must resolve to a LOCAL handler so
- * it appears in ToolRegistry.getLocalToolDefinitions() (the SSE transport only
- * lists local tools).
+ * factories/tool-services.ts. A local name that does not resolve is logged as
+ * "Curated tools missing from local registry" rather than failing loudly.
+ *
+ * Do not restate the tool count in prose anywhere. This Set is the count; comments
+ * that hardcoded "15" drifted and stayed wrong for weeks.
  */
 export const V2_TOOL_NAMES = new Set<string>([
   // Legislation (6)
