@@ -49,13 +49,37 @@ for ip in "${IPS[@]}"; do
   echo "  probe $ip canary=$code source=${SRCS[$((${#SRCS[@]}-1))]}"
 done
 
+# An external Ukrainian-IP node (local.lex) can take a reserved slice of the work. It reaches
+# zakon.rada at 4.24 req/s with zero transients, where our AWS IPs manage 0.045 req/s, and it
+# hits a DIFFERENT origin than data.rada, so its capacity is purely additive.
+#
+# The slice is reserved by hash partition rather than coordinated at runtime: both sides
+# compute part(row) = md5(row) % 100 and take disjoint ranges, so neither can fetch the other's
+# rows and no lock is needed. The reservation is only honoured while that node's heartbeat is
+# fresh — if it dies or is switched off, prod reclaims the whole list on its next round instead
+# of leaving 60% of the corpus stranded.
+LEX_SHARE=${LEX_SHARE:-60}          # percent of partitions reserved, ~its share of throughput
+LEX_HEARTBEAT=$BASE/texts/node_lex/heartbeat
+LEX_STALE_S=${LEX_STALE_S:-1800}
+RESERVE=0
+if [ -f "$LEX_HEARTBEAT" ]; then
+  age=$(( $(date +%s) - $(stat -c %Y "$LEX_HEARTBEAT") ))
+  if [ "$age" -lt "$LEX_STALE_S" ]; then
+    RESERVE=$LEX_SHARE
+    echo "  external node alive (heartbeat ${age}s old) -> reserving ${RESERVE}% of partitions"
+  else
+    echo "  external node heartbeat is ${age}s old (stale) -> reclaiming its partitions"
+  fi
+fi
+
 mkdir -p "$BASE/pending"
 # split into N weighted buckets, skipping anything already in a done.txt (so a round's
 # buckets hold only real work and the weights mean what they say).
-python3 - "$PENDING" "$BASE/pending" "$BASE/texts" "${WEIGHTS[@]}" <<'PY'
-import sys, glob, os, itertools, random
+python3 - "$PENDING" "$BASE/pending" "$BASE/texts" "$RESERVE" "${WEIGHTS[@]}" <<'PY'
+import sys, glob, os, itertools, random, hashlib
 src, out, texts = sys.argv[1], sys.argv[2], sys.argv[3]
-weights = [int(x) for x in sys.argv[4:]]
+reserve = int(sys.argv[4])
+weights = [int(x) for x in sys.argv[5:]]
 n = len(weights)
 
 done = set()
@@ -63,8 +87,19 @@ for p in glob.glob(os.path.join(texts, "*", "done.txt")):
     with open(p, encoding="utf-8") as f:
         done.update(l.rstrip("\n") for l in f if l.strip())
 
+
+def part(row):
+    """Partition of a row, 0-99. MUST match run_lex_node.sh exactly — the two sides stay
+    disjoint by both computing this and taking opposite ranges."""
+    return int(hashlib.md5(row.encode("utf-8")).hexdigest(), 16) % 100
+
+
 rows = [l.rstrip("\n") for l in open(src, encoding="utf-8")]
 rows = [r for r in rows if r and r not in done]
+if reserve:
+    before = len(rows)
+    rows = [r for r in rows if part(r) >= reserve]
+    print(f"reserved {before - len(rows)} rows (partitions 0-{reserve - 1}) for the external node")
 # pending.tsv is sorted by ed_date, so its early stretch is almost entirely pre-1991 rows that
 # 403/404 everywhere. Left in order, one node would eat the whole dead zone (wrecking both the
 # ETA and the ban guard's read of the traffic). Fixed seed: reproducible, and re-splitting is
