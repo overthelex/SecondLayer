@@ -18,36 +18,51 @@ SCRIPTS=${SCRIPTS:-$HOME/rada_npa/scripts}
 # is kept as a low-rate side channel (it still resolves 404s, and it answers OpenData's 403s).
 # Stepping 0.5 -> 0.7 held: 0.63-0.69/s persisted per node, transients still ~0. Step further
 # only by measuring retry_later in the node logs, and drop straight back if it starts climbing.
-RATE=${RATE:-0.7}            # per-IP req/s for OpenData nodes
-ZRATE=${ZRATE:-0.4}          # per-IP req/s for zakon nodes
+RATE=${RATE:-0.7}            # per-IP req/s for OpenData nodes (global origin ceiling)
+ZRATE=${ZRATE:-4.0}          # per-IP req/s for zakon nodes (per-IP ceiling ~4-5/s, 3.90 measured)
 WORKERS=${WORKERS:-4}
+ZWORKERS=${ZWORKERS:-6}      # zakon challenges above ~10 concurrent per IP - stay under
 # secondary private IPs on ens5, each mapped to a distinct EIP (verified reachable).
 # NOTE: 12 IPs / ~96 concurrent conns tripped a Rada /20 prefix-level block (all IPs → 000).
 # 6 IPs @ 8 workers (~48 conns) runs sustainably. Do NOT exceed ~6 here.
-IPS=(172.31.28.109 172.31.27.31 172.31.31.40 172.31.21.47 172.31.29.20 172.31.22.206)
-N=${#IPS[@]}
-
-# Per-node source is PROBED each round, not hardcoded: OpenData bans are per IP and expire on
-# their own schedule (the 2026-07 ban was still live a month later, then lifted on 4 of the 6).
-# A node that regains OpenData is worth ~15x a zakon one, so probing lets the fleet heal itself
-# instead of waiting for someone to notice and edit this file.
-#
-# Weights follow the measured gap, and getting them wrong costs more than it looks: a round
-# ends only when the SLOWEST node drains, so an over-weighted zakon node leaves every OpenData
-# node idle for hours (10:1 had zakon finishing 12h after the rest). Measured 0.67/s vs
-# 0.045/s is ~15:1; 50:1 keeps the zakon buckets well clear of the critical path.
+# The two sources scale in opposite ways, which decides how IPs are assigned:
+#   data.rada saturates GLOBALLY (4 nodes x 1.0/s took it from 2.4s to 11-14s), so adding IPs
+#     there buys nothing. Cap it at the few IPs that are still allowed on it.
+#   zakon.rada throttles PER IP (~4-5/s each: one IP driven at ~10/s took transients from 0 to
+#     496, and stopped accumulating the moment the extra load went away), so it scales with IPs.
+# Hence: a small fixed OpenData pool, and every other IP put on zakon.
+OD_POOL=(172.31.28.109 172.31.27.31 172.31.31.40 172.31.21.47)
+# EIPs allocated in 2026-07 and never used. Measured 2026-08-10: 3.90 req/s on zakon with ZERO
+# transients, which settles the question of whether zakon penalises AWS as a class - it does
+# not. Our 172.31.29.20 and 172.31.22.206 are simply burned from being hammered in July (403 on
+# OpenData a month later, 0.045 req/s on zakon), so they are left out entirely: they contribute
+# almost nothing and still count against the prefix-block budget.
+ZK_POOL=(172.31.19.142 172.31.19.20 172.31.17.145 172.31.16.240 172.31.21.126)
+# 2026-07: 12 IPs x 8 workers (~96 conns from our /20) got the WHOLE prefix blocked and the
+# harvest died. Keep total concurrency well under that: 4x4 + 5x6 = 46.
 CANARY_URL="https://data.rada.gov.ua/laws/show/183-2006-%D1%80/ed20060405"
-SRCS=(); WEIGHTS=()
-for ip in "${IPS[@]}"; do
+
+# Weights are proportional to measured req/s, because a round ends only when the SLOWEST node
+# drains: 0.67/s OpenData vs 3.9/s zakon -> 7 : 39.
+IPS=(); SRCS=(); WEIGHTS=()
+for ip in "${OD_POOL[@]}"; do
+  # OpenData bans are per IP and expire on their own schedule, so eligibility is probed rather
+  # than assumed; an IP that has lost OpenData still earns its keep on zakon.
   code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 --interface "$ip" \
            -H 'User-Agent: OpenData' "$CANARY_URL" 2>/dev/null || echo 000)
+  IPS+=("$ip")
   if [ "$code" = "200" ]; then
-    SRCS+=(opendata); WEIGHTS+=(50)
+    SRCS+=(opendata); WEIGHTS+=(7)
   else
-    SRCS+=(zakon); WEIGHTS+=(1)
+    SRCS+=(zakon); WEIGHTS+=(39)
   fi
   echo "  probe $ip canary=$code source=${SRCS[$((${#SRCS[@]}-1))]}"
 done
+for ip in "${ZK_POOL[@]}"; do
+  IPS+=("$ip"); SRCS+=(zakon); WEIGHTS+=(39)
+  echo "  $ip -> zakon (fresh EIP)"
+done
+N=${#IPS[@]}
 
 # An external Ukrainian-IP node (local.lex) can take a reserved slice of the work. It reaches
 # zakon.rada at 4.24 req/s with zero transients, where our AWS IPs manage 0.045 req/s, and it
@@ -58,7 +73,11 @@ done
 # rows and no lock is needed. The reservation is only honoured while that node's heartbeat is
 # fresh — if it dies or is switched off, prod reclaims the whole list on its next round instead
 # of leaving 60% of the corpus stranded.
-LEX_SHARE=${LEX_SHARE:-60}          # percent of partitions reserved, ~its share of throughput
+# Percent of partitions reserved, tracking its share of total throughput. It was 60 when prod
+# only had its OpenData nodes (4.2/s external vs 2.7/s here); once the fresh zakon EIPs joined,
+# prod does ~22/s and the external node's fair share dropped to ~15. Keep this in step with
+# run_lex_node.sh: a mismatch either double-fetches a range or strands one.
+LEX_SHARE=${LEX_SHARE:-15}
 LEX_HEARTBEAT=$BASE/texts/node_lex/heartbeat
 LEX_STALE_S=${LEX_STALE_S:-1800}
 RESERVE=0
@@ -125,12 +144,12 @@ for i in $(seq 0 $((N-1))); do
   ip=${IPS[$i]}
   source=${SRCS[$i]}
   outdir=$BASE/texts/node$i
-  rate=$RATE
-  [ "$source" = "zakon" ] && rate=$ZRATE
+  rate=$RATE; nworkers=$WORKERS
+  [ "$source" = "zakon" ] && { rate=$ZRATE; nworkers=$ZWORKERS; }
   mkdir -p "$outdir"
   rm -f "$outdir/worker.pid"       # stale PID from a killed run would read as "still running"
   setsid nohup env SRC_IP="$ip" SOURCE="$source" PENDING="$BASE/pending/bucket_$i.tsv" \
-    OUTDIR="$outdir" RATE="$rate" WORKERS="$WORKERS" \
+    OUTDIR="$outdir" RATE="$rate" WORKERS="$nworkers" \
     python3 -u "$SCRIPTS/03_fetch_texts.py" </dev/null >>"$outdir/fetch.log" 2>&1 &
 done
 sleep 8

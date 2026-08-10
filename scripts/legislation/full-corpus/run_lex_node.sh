@@ -24,7 +24,7 @@ RSCRIPTS=${RSCRIPTS:-rada_npa/scripts}     # ...but the scripts live in prod's h
                                            # whereas "$HOME/..." would be expanded locally.
 BASE=${BASE:-/data/rada_lex}
 SCRIPT=$BASE/03_fetch_texts.py
-LEX_SHARE=${LEX_SHARE:-60}
+LEX_SHARE=${LEX_SHARE:-15}          # MUST match run_fetch_multiip.sh (see the note there)
 RATE=${RATE:-5.0}                  # 4.24/s achieved with zero transients; raise only on evidence
 WORKERS=${WORKERS:-8}              # zakon challenges above ~10 concurrent per IP - stay under
 PUSH_EVERY=${PUSH_EVERY:-300}
