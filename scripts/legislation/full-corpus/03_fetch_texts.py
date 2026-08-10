@@ -295,13 +295,31 @@ def main():
                        for i in range(SHARDS)}
         donef = open(os.path.join(OUTDIR, "done.txt"), "a", encoding="utf-8")
         n, ok, skip, t0, last, last_flush = 0, 0, 0, time.time(), time.time(), time.time()
+
+        def report():
+            """Progress MUST also print while nothing is being persisted. This used to sit on
+            the persist path, so a node in a pure transient storm went completely silent and
+            its last log line stayed frozen — indistinguishable from a node working fine.
+            Two nodes looked healthy for minutes that way while resolving nothing."""
+            nonlocal last
+            now = time.time()
+            if now - last <= 15:
+                return
+            rate = n / max(1e-3, now - t0)
+            eta = (total - n) / max(1e-3, rate) / 3600
+            print(f"[03] persisted={n}/{total} ({100*n/total:.1f}%) ok={ok} "
+                  f"retry_later={skip} {rate:.2f}/s ETA {eta:.1f}h", flush=True)
+            last = now
+
         while not (finished.is_set() and results.empty()):
             try:
                 nreg, ed_date, status, ln, h, text, src = results.get(timeout=1.0)
             except queue.Empty:
+                report()
                 continue
             if status not in (200, 404):               # persist only definitive; rest stay pending
                 skip += 1
+                report()
                 continue
             rec = {"nreg": nreg, "ed_date": ed_date, "http_status": status,
                    "char_len": ln, "text_hash": h, "text": text, "src": src}
@@ -313,12 +331,7 @@ def main():
                 for f in shard_files.values():
                     f.flush()
                 donef.flush(); last_flush = now
-            if now - last > 15:
-                rate = n / max(1e-3, now - t0)
-                eta = (total - n) / max(1e-3, rate) / 3600
-                print(f"[03] persisted={n}/{total} ({100*n/total:.1f}%) ok={ok} "
-                      f"retry_later={skip} {rate:.2f}/s ETA {eta:.1f}h", flush=True)
-                last = now
+            report()
         for f in shard_files.values():
             f.flush(); f.close()
         donef.flush(); donef.close()
