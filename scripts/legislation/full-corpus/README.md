@@ -33,7 +33,28 @@ setsid nohup ./supervise.sh </dev/null >>/data/rada_npa/supervise.log 2>&1 &
 #   progress: cat /data/rada_npa/texts/*/done.txt | wc -l
 #   finished: /data/rada_npa/STAGE2_COMPLETE.flag appears
 
-# Stage 3: chunk → JSONL shards
+# Stage 2b: audit before loading anything. One pass over the shards produces both the
+# consistency verdicts and the numbers the schema decisions rest on (how much of the corpus
+# has an article layer, how much text is duplicated, length distribution).
+python3 audit_extract.py /data/rada_npa/audit.tsv
+bash audit_load.sh
+
+# Stage 3: into postgres. Schema npa in secondlayer_prod; the live legislation* tables in
+# public stay untouched until cutover.
+psql -f npa_schema.sql
+bash load_meta.sh                    # → npa.act, npa.edition (+ 900/901 verdicts on bad texts)
+python3 emit_text.py dups.tsv text.csv article.csv current.tsv
+bash load_text.sh                    # COPY, then FKs, then indexes, then ANALYZE
+
+# Stage 3b: recover the acts whose registry number contains a slash. See the note below —
+# this is 15% of the corpus and it looked like a source limitation, not a bug.
+bash run_fix_fleet.sh
+bash apply_fix.sh                    # merges them and rebuilds the article layer
+
+# Stage 3c: confirm edition dates where it matters (structured acts only, ~80 min)
+python3 verify_dates.py pending.tsv verified.tsv
+
+# Stage 4: chunk → JSONL shards
 python3 04_chunk.py --shards 8 --out /data/rada_npa/shards
 
 # --- ship shards prod → brev ---
@@ -72,6 +93,27 @@ Rates are set by measurement, not by what the sources tolerate (see the header c
   known-200 document; the canary decides, and a confirmed ban drops that node to zakon.
 - Liveness is the worker-written `texts/node*/worker.pid` + `kill -0`, never a `ps`/`pgrep`
   pattern (every pattern also matches the ssh/bash command line containing the script name).
+
+## Two traps that cost a night
+
+**A slash in the registry number is a PATH SEPARATOR.** `quote(nreg, safe="")` turned
+`254к/96-вр` into `254%D0%BA%2F96-...` and Rada answered 404 for every such act — 52 278 acts,
+60 876 editions, 15% of the corpus, the Constitution and every presidential decree among them.
+All of it was recorded as "the document does not exist".
+
+It survived every consistency check, because the bug was perfectly consistent: those acts always
+404'd and were always recorded as resolved. Exact bijection between metadata and fetched set,
+zero orphans, zero unattempted rows — all true, all useless. The 404 rate even looked like a
+plausible source ceiling and was written up as one. It surfaced only on looking up one document
+whose content was known in advance: the Constitution, 10 editions, 0 texts. **Put a few landmark
+records with known answers into any audit; aggregates cannot tell "absent upstream" from "we
+asked wrong".**
+
+**The requested edition date is not the edition you get.** When `/ed{date}` is not a real edition
+boundary Rada serves the CURRENT text, so `ed_date` is a fetch key, not a fact about the text —
+hence `declared_date` / `date_verified` as separate columns. `validate_amend_date.py` is kept in
+this directory as a **negative result**: deriving the date from the amendment preamble scored
+17.3% precision against 15 000 known-truth rows and must not be revived.
 
 ## Notes
 - Rada OpenData API requires header `User-Agent: OpenData`.

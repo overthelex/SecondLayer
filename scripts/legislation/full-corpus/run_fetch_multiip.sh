@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Launch N Stage-2 fetchers on prod, one per secondary IP/EIP, in a tmux session.
+# Launch N Stage-2 fetchers on prod, one per secondary IP/EIP, each detached via setsid.
 # Each fetcher: RATE req/s on its own EIP, own bucket of the pending list, own OUTDIR.
 #
 # Re-splitting is SAFE and is how the fleet rebalances: 03_fetch_texts.py loads a GLOBAL
@@ -19,7 +19,8 @@ SCRIPTS=${SCRIPTS:-$HOME/rada_npa/scripts}
 # Stepping 0.5 -> 0.7 held: 0.63-0.69/s persisted per node, transients still ~0. Step further
 # only by measuring retry_later in the node logs, and drop straight back if it starts climbing.
 RATE=${RATE:-0.7}            # per-IP req/s for OpenData nodes (global origin ceiling)
-ZRATE=${ZRATE:-4.0}          # per-IP req/s for zakon nodes (per-IP ceiling ~4-5/s, 3.90 measured)
+ZRATE=${ZRATE:-3.0}          # per-IP req/s for zakon nodes. 3.90/s is reachable on a fresh EIP,
+                             # but sustained for hours it earns a block, so the default backs off.
 WORKERS=${WORKERS:-4}
 ZWORKERS=${ZWORKERS:-6}      # zakon challenges above ~10 concurrent per IP - stay under
 # secondary private IPs on ens5, each mapped to a distinct EIP (verified reachable).
@@ -73,11 +74,13 @@ N=${#IPS[@]}
 # rows and no lock is needed. The reservation is only honoured while that node's heartbeat is
 # fresh — if it dies or is switched off, prod reclaims the whole list on its next round instead
 # of leaving 60% of the corpus stranded.
-# Percent of partitions reserved, tracking its share of total throughput. It was 60 when prod
-# only had its OpenData nodes (4.2/s external vs 2.7/s here); once the fresh zakon EIPs joined,
-# prod does ~22/s and the external node's fair share dropped to ~15. Keep this in step with
-# run_lex_node.sh: a mismatch either double-fetches a range or strands one.
-LEX_SHARE=${LEX_SHARE:-15}
+# Percent of partitions reserved for the external node. Instantaneous throughput says ~15 once
+# prod's fresh zakon EIPs are running (prod ~22/s against 4.2/s there), but that ratio does not
+# hold: prod's IPs degrade over a long harvest and were 403ing on both sources after eight
+# hours, while the Ukrainian node held its rate with no penalty at all. Start the external share
+# high rather than raise it after prod is already throttled.
+# Keep in step with run_lex_node.sh: a mismatch either double-fetches a range or strands one.
+LEX_SHARE=${LEX_SHARE:-60}
 LEX_HEARTBEAT=$BASE/texts/node_lex/heartbeat
 LEX_STALE_S=${LEX_STALE_S:-1800}
 RESERVE=0
