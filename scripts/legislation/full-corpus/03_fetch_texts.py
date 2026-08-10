@@ -194,7 +194,11 @@ def shard_of(nreg: str) -> int:
 
 def fetch_one(kind: str, nreg: str, ed_date: str):
     """One source. Returns (status, text, hash); status 0 = transient, leave pending."""
-    enc = quote(nreg, safe="")
+    # The slash in a registry number ("254к/96-вр", "1/2020") is a PATH SEPARATOR on Rada, not
+    # data. Percent-encoding it returns 404 for every such act — 52 278 acts / 60 876 editions,
+    # including the Constitution and every presidential decree, all silently recorded as "the
+    # document does not exist". Verified: safe="" -> 404, safe="/" -> 200, on every sample.
+    enc = quote(nreg, safe="/")
     url = (f"{OPENDATA}/{enc}/ed{ed_date}" if kind == "opendata"
            else f"{ZAKON}/{enc}/ed{ed_date}/print")
     sess = get_session(kind)
