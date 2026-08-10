@@ -25,13 +25,29 @@ WORKERS=${WORKERS:-4}
 # NOTE: 12 IPs / ~96 concurrent conns tripped a Rada /20 prefix-level block (all IPs → 000).
 # 6 IPs @ 8 workers (~48 conns) runs sustainably. Do NOT exceed ~6 here.
 IPS=(172.31.28.109 172.31.27.31 172.31.31.40 172.31.21.47 172.31.29.20 172.31.22.206)
-# Per-node source. The last two IPs earned a multi-hour OpenData 403 ban in 2026-07 and were
-# still banned on 2026-08-10, so they stay on zakon; re-probe before flipping them back.
-SRCS=(opendata opendata opendata opendata zakon zakon)
-# Relative share of the pending list. OpenData is ~10x zakon, so it gets ~10x the rows;
-# any residual imbalance is corrected by the next supervise.sh round.
-WEIGHTS=(10 10 10 10 1 1)
 N=${#IPS[@]}
+
+# Per-node source is PROBED each round, not hardcoded: OpenData bans are per IP and expire on
+# their own schedule (the 2026-07 ban was still live a month later, then lifted on 4 of the 6).
+# A node that regains OpenData is worth ~15x a zakon one, so probing lets the fleet heal itself
+# instead of waiting for someone to notice and edit this file.
+#
+# Weights follow the measured gap, and getting them wrong costs more than it looks: a round
+# ends only when the SLOWEST node drains, so an over-weighted zakon node leaves every OpenData
+# node idle for hours (10:1 had zakon finishing 12h after the rest). Measured 0.67/s vs
+# 0.045/s is ~15:1; 50:1 keeps the zakon buckets well clear of the critical path.
+CANARY_URL="https://data.rada.gov.ua/laws/show/183-2006-%D1%80/ed20060405"
+SRCS=(); WEIGHTS=()
+for ip in "${IPS[@]}"; do
+  code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 20 --interface "$ip" \
+           -H 'User-Agent: OpenData' "$CANARY_URL" 2>/dev/null || echo 000)
+  if [ "$code" = "200" ]; then
+    SRCS+=(opendata); WEIGHTS+=(50)
+  else
+    SRCS+=(zakon); WEIGHTS+=(1)
+  fi
+  echo "  probe $ip canary=$code source=${SRCS[$((${#SRCS[@]}-1))]}"
+done
 
 mkdir -p "$BASE/pending"
 # split into N weighted buckets, skipping anything already in a done.txt (so a round's
