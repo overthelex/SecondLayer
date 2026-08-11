@@ -257,24 +257,36 @@ export class EdsrVectorizerService {
    * and a keyword index cannot serve a range filter at all. Verified that Qdrant
    * parses both the stored form ("2012-12-27 22:00:00+00") and the "YYYY-MM-DD"
    * bounds the tools pass.
+   *
+   * `judge` is `text` with the word tokenizer, because the tools advertise partial
+   * names — see the filter construction in `semanticSearch` for why an exact-match
+   * index is the wrong shape here.
+   *
+   * Schemas are sent as given. The integer fields stay bare strings on purpose: the
+   * object form makes Qdrant apply only the sub-indexes named in it, so spelling out
+   * `{ lookup: true }` without `range: true` would quietly cost integer range
+   * filters. The string form keeps Qdrant's defaults, which enable both.
    */
   private async _ensurePayloadIndexes(): Promise<void> {
     const indexes: Array<{ field: string; schema: any }> = [
-      { field: 'edrsr_doc_id', schema: { type: 'integer', lookup: true, is_principal: true } },
-      { field: 'court_code', schema: { type: 'integer', lookup: true } },
-      { field: 'justice_kind', schema: { type: 'integer', lookup: true } },
-      { field: 'instance_code', schema: { type: 'integer', lookup: true } },
-      { field: 'judgment_code', schema: { type: 'integer', lookup: true } },
-      { field: 'chunk_index', schema: { type: 'integer', lookup: true } },
+      { field: 'edrsr_doc_id', schema: 'integer' },
+      { field: 'court_code', schema: 'integer' },
+      { field: 'justice_kind', schema: 'integer' },
+      { field: 'instance_code', schema: 'integer' },
+      { field: 'judgment_code', schema: 'integer' },
+      { field: 'chunk_index', schema: 'integer' },
       { field: 'adjudication_date', schema: { type: 'datetime' } },
-      { field: 'judge', schema: { type: 'keyword', lookup: true } },
+      {
+        field: 'judge',
+        schema: { type: 'text', tokenizer: 'word', lowercase: true, min_token_len: 2, max_token_len: 30 },
+      },
     ];
 
     for (const idx of indexes) {
       try {
         await this.qdrant.createPayloadIndex(COLLECTION_NAME, {
           field_name: idx.field,
-          field_schema: idx.schema.type as any,
+          field_schema: idx.schema,
           wait: false,
         });
       } catch {
@@ -433,22 +445,26 @@ export class EdsrVectorizerService {
       must.push({ key: 'justice_kind', match: { value: Number(filters.justice_kind) } });
     }
 
-    // Exact match against the `judge` keyword index. This was `match: { text: ... }`,
-    // which needs a full-text index the collection does not have — so it degenerated
-    // into a payload scan and hit Qdrant's 60 s timeout, returning zero hits.
+    // Full-text match against the `judge` text index (word tokenizer, lowercased).
+    // The index was missing entirely until 2026-08-11, so this filter degenerated into
+    // a payload scan and hit Qdrant's 60 s internal timeout, returning zero hits.
     //
-    // Payload stores the canonical full name; verified byte-identical to
-    // `edrsr_documents.judge` ("Писана Таміла Олександрівна", doc_id 95159410), so an
-    // exact match resolves whenever the caller passes a whole name.
+    // Text match — not `match: { value }` — is deliberate: every tool that exposes this
+    // filter advertises partial names ("ПІБ судді або частина ПІБ" in
+    // edrsr-unified-search-tool / edrsr-search-tools / edrsr-hybrid-tools), so callers
+    // legitimately pass a surname alone. An exact-match index would have silently
+    // returned nothing for those and dropped the vector leg out of hybrid search, while
+    // the FTS leg (LOWER(d.judge) LIKE %v%) kept matching.
     //
-    // ⚠ Deliberate divergence from the FTS leg, which matches judge as a
-    // case-insensitive substring (`edrsr-fts-service.ts`: LOWER(d.judge) LIKE %v%).
-    // A partial value ("Писана") therefore still matches in FTS but not here, so a
-    // hybrid search on a surname alone loses its vector leg. Closing that gap needs
-    // either a full-text index on `judge` (~40 GiB across 42 segments) or resolving
-    // the fragment to canonical names in Postgres and passing `match: { any: [...] }`.
+    // Resolving a fragment to canonical names via Postgres was considered and rejected:
+    // `judges_current` holds only sitting judges (5 952 rows) and is missing judges from
+    // older decisions, so historical cases would lose the vector leg instead.
+    //
+    // Residual gap: the word tokenizer matches whole tokens, so "Писана" and "Таміла"
+    // both hit but a mid-word prefix ("Писан") does not, where the FTS leg would. A
+    // `prefix` tokenizer closes that at an index size that expands with every token.
     if (filters?.judge) {
-      must.push({ key: 'judge', match: { value: filters.judge.trim() } });
+      must.push({ key: 'judge', match: { text: filters.judge.trim() } });
     }
 
     if (filters?.date_from || filters?.date_to) {
