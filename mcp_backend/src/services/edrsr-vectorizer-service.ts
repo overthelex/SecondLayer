@@ -484,12 +484,27 @@ export class EdsrVectorizerService {
         filter: qdrantFilter,
         with_payload: true,
         ...(threshold !== undefined && Number.isFinite(threshold) ? { score_threshold: threshold } : {}),
-        // `edrsr_serving` keeps full vectors on disk with binary quantization in
-        // RAM. Rescore re-reads full f32 vectors from the gp3 volume and stalls
-        // past the request timeout under concurrency, so it defaults OFF —
-        // scoring runs from the in-RAM quantized vectors with a wider hnsw_ef to
-        // recover recall. Set QDRANT_EDRSR_RESCORE=true to restore full-vector
-        // rescore with oversampling (higher recall, disk-bound under load).
+        // The collection keeps full f32 vectors on disk with binary quantization in
+        // RAM, so scoring can run either on the 1-bit codes alone (rescore off) or
+        // on the originals (rescore on). Prod sets QDRANT_EDRSR_RESCORE=true.
+        //
+        // This used to default off, on the grounds that rescore "stalls past the
+        // request timeout under concurrency". Re-measured on the current serving
+        // node (2026-08-11, 30 distinct queries at concurrency 6, LEXAI-1922) that
+        // is not true and the cost of leaving it off is severe:
+        //
+        //             p50    p95    p99    max      overlap@10   top-1 agreement
+        //   off      13ms   30ms   68ms   72ms        1.50/10           1/30
+        //   on       14ms   38ms   49ms   62ms        8.57/10          25/30
+        //
+        // (agreement measured against full-precision ranking at the same hnsw_ef,
+        // so only rescore differs; f32 originals are ~0% resident and stay that
+        // way — rescore reads ~20 vectors per segment, peaking at ~1.1k IOPS.)
+        //
+        // Scoring on 1-bit codes alone got the top result right in 1 query out of
+        // 30. Rescore costs no measurable latency here — the worst request was
+        // 62 ms against QDRANT_EDRSR_TIMEOUT_MS=20000. Turn it off only with a
+        // fresh measurement on the node you are actually serving from.
         params: {
           hnsw_ef: Number(process.env.QDRANT_EDRSR_HNSW_EF || 128),
           quantization:
