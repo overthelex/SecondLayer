@@ -1,0 +1,16 @@
+[
+  {
+    "tokenizer": "o200k_base (GPT-4o/5)",
+    "cpt_en": 5.0,
+    "cpt_ua": 2.866,
+    "ua_underestimate_pct": 39.6,
+    "en_error_pct": -20.0
+  },
+  {
+    "tokenizer": "DeepSeek-V3",
+    "cpt_en": 4.979,
+    "cpt_ua": 2.33,
+    "ua_underestimate_pct": 71.7,
+    "en_error_pct": -19.7
+  }
+]

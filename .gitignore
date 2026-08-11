@@ -171,3 +171,10 @@ rlhf-signals/
 
 # Opendata importer runtime state (resume checkpoints, temp data)
 services/opendata-importers/_data/
+
+# Harvey LAB review packages: 1.4 MB of generated docx, rebuilt by
+# scripts/harvey-lab/review-package/build_riabchuk2.py
+docs/lab-harness/validaciya-2.zip
+docs/lab-harness/validaciya-riabchuk/
+docs/lab-harness/validaciya-riabchuk-2/
+docs/lab-harness/review-pack/

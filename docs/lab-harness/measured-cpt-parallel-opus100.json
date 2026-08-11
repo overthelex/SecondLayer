@@ -1,0 +1,18 @@
+[
+  {
+    "tokenizer": "o200k_base (GPT-4o/5)",
+    "cpt_en": 4.333,
+    "cpt_uk": 2.947,
+    "est_over_real_en": 1.083,
+    "est_over_real_uk": 0.737,
+    "misrank_factor": 1.47
+  },
+  {
+    "tokenizer": "DeepSeek-V3",
+    "cpt_en": 4.188,
+    "cpt_uk": 2.459,
+    "est_over_real_en": 1.047,
+    "est_over_real_uk": 0.615,
+    "misrank_factor": 1.7
+  }
+]
