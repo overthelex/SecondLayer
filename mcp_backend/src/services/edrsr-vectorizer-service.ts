@@ -18,15 +18,16 @@ import { v4 as uuidv4 } from 'uuid';
 
 const EMBEDDING_DIM = 1024;
 const EMBEDDING_MODEL = 'bge-m3';
-// Default to the live unified collection. The old `edrsr_decisions` collection
-// was deleted at the edrsr_serving cutover (2026-06-21); defaulting to it would
-// make semantic search silently return nothing if the env var is ever missing.
-const COLLECTION_NAME = process.env.QDRANT_EDRSR_COLLECTION || 'edrsr_serving';
+// Default to the live collection. `edrsr_serving` — the previous default — has
+// not existed since the qdrant.lex node was terminated (2026-07-05); leaving it
+// as the fallback meant a missing env var sent every search at a collection that
+// is gone, and semantic search silently returned nothing.
+const COLLECTION_NAME = process.env.QDRANT_EDRSR_COLLECTION || 'edrsr_decisions';
 const EMBED_BATCH_SIZE = 64; // TEI supports larger batches than VoyageAI
 const QDRANT_UPSERT_BATCH = 100; // Qdrant upsert sub-batch
 const DEFAULT_CONCURRENCY = 5;
-// Cap concurrent Qdrant searches against edrsr_serving (LEXAI-1758). Each search
-// fans across ~293 on-disk-graph segments; more than ~2 in flight saturates the
+// Cap concurrent Qdrant searches against the serving collection (LEXAI-1758). Each
+// search fans across every segment (44 as of 2026-08-11); too many in flight saturates the
 // serving node's cores and blows the request timeout (aborts → hybrid loses its
 // vector leg). Tunable via env.
 const QDRANT_SEARCH_CONCURRENCY = Math.max(1, Number(process.env.QDRANT_EDRSR_MAX_CONCURRENCY || 2));
@@ -240,12 +241,32 @@ export class EdsrVectorizerService {
     logger.info(`[EdsrVectorizer] Created Qdrant collection: ${COLLECTION_NAME}`);
   }
 
+  /**
+   * Declare every payload field `semanticSearch` filters on.
+   *
+   * Every field listed here MUST have an index, and the index type must match how
+   * the field is queried — an unindexed (or wrongly-typed) filter field does not
+   * fail loudly, it makes Qdrant fall back to scanning the payload store. Measured
+   * on the 189M-point serving collection on 2026-08-11, with `adjudication_date`
+   * and `judge` missing: an indexed `court_code` filter answered in 4.5 ms, an
+   * `adjudication_date` range took 20-60 s, and a `judge` match hit Qdrant's 60 s
+   * internal timeout and returned nothing at all. The backend's own
+   * QDRANT_EDRSR_TIMEOUT_MS is 20 s, so those searches simply failed in prod.
+   *
+   * `adjudication_date` is `datetime`, not `keyword`: it is queried with `range`,
+   * and a keyword index cannot serve a range filter at all. Verified that Qdrant
+   * parses both the stored form ("2012-12-27 22:00:00+00") and the "YYYY-MM-DD"
+   * bounds the tools pass.
+   */
   private async _ensurePayloadIndexes(): Promise<void> {
     const indexes: Array<{ field: string; schema: any }> = [
       { field: 'edrsr_doc_id', schema: { type: 'integer', lookup: true, is_principal: true } },
       { field: 'court_code', schema: { type: 'integer', lookup: true } },
       { field: 'justice_kind', schema: { type: 'integer', lookup: true } },
-      { field: 'adjudication_date', schema: { type: 'keyword', lookup: true } },
+      { field: 'instance_code', schema: { type: 'integer', lookup: true } },
+      { field: 'judgment_code', schema: { type: 'integer', lookup: true } },
+      { field: 'chunk_index', schema: { type: 'integer', lookup: true } },
+      { field: 'adjudication_date', schema: { type: 'datetime' } },
       { field: 'judge', schema: { type: 'keyword', lookup: true } },
     ];
 
@@ -412,8 +433,22 @@ export class EdsrVectorizerService {
       must.push({ key: 'justice_kind', match: { value: Number(filters.justice_kind) } });
     }
 
+    // Exact match against the `judge` keyword index. This was `match: { text: ... }`,
+    // which needs a full-text index the collection does not have — so it degenerated
+    // into a payload scan and hit Qdrant's 60 s timeout, returning zero hits.
+    //
+    // Payload stores the canonical full name; verified byte-identical to
+    // `edrsr_documents.judge` ("Писана Таміла Олександрівна", doc_id 95159410), so an
+    // exact match resolves whenever the caller passes a whole name.
+    //
+    // ⚠ Deliberate divergence from the FTS leg, which matches judge as a
+    // case-insensitive substring (`edrsr-fts-service.ts`: LOWER(d.judge) LIKE %v%).
+    // A partial value ("Писана") therefore still matches in FTS but not here, so a
+    // hybrid search on a surname alone loses its vector leg. Closing that gap needs
+    // either a full-text index on `judge` (~40 GiB across 42 segments) or resolving
+    // the fragment to canonical names in Postgres and passing `match: { any: [...] }`.
     if (filters?.judge) {
-      must.push({ key: 'judge', match: { text: filters.judge } });
+      must.push({ key: 'judge', match: { value: filters.judge.trim() } });
     }
 
     if (filters?.date_from || filters?.date_to) {
