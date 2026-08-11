@@ -324,15 +324,32 @@ export class EdsrUnifiedSearchTool extends BaseToolHandler {
     // Whitelisted slot → SQL mapping, assembled by the shared safe builder.
     // Field order preserved for param-index parity; scalar-vs-array branches
     // (court_code, category) and military→kupap→category precedence mirror the
-    // previous inline logic exactly. judge uses ILIKE (idx_edrsr_docs_judge is a
-    // plain b-tree, unusable under a leading-wildcard LIKE either way, so ILIKE
-    // is result-identical to the former LOWER(judge) LIKE LOWER()).
+    // previous inline logic exactly.
     const fields: FieldDef[] = [];
     const filters: Record<string, any> = {};
     const add = (def: FieldDef, value: any) => { fields.push(def); filters[def.name] = value; };
 
+    // judge was `match: 'ilike'`, and the comment here used to note that the b-tree
+    // is unusable under a leading wildcard "either way" — true, and the reason this
+    // seq-scanned all 26 partitions of edrsr_documents (135.8M rows) for 83 s. The
+    // fragment is now resolved to exact spellings against the distinct-judge lookup,
+    // so `eq_any` can use those b-trees. Matching semantics are unchanged.
+    let resolvedJudgeNames: string[] | null = null;
+    if (args.judge && this.ftsService) {
+      resolvedJudgeNames = await this.ftsService.resolveJudgeNames(args.judge, this.db);
+    }
+
     if (args.cause_num) add({ name: 'cause_num', match: 'exact', columns: ['d.cause_num'] }, args.cause_num);
-    if (args.judge) add({ name: 'judge', match: 'ilike', columns: ['d.judge'] }, args.judge);
+    if (args.judge) {
+      if (resolvedJudgeNames === null) {
+        // Lookup unavailable (no FTS service, or migration 183 not applied) — keep
+        // the old slow-but-correct predicate rather than returning unfiltered rows.
+        add({ name: 'judge', match: 'ilike', columns: ['d.judge'] }, args.judge);
+      } else {
+        // Empty array is deliberate: no judge matched, so match nothing.
+        add({ name: 'judge', match: 'eq_any', columns: ['d.judge'] }, resolvedJudgeNames);
+      }
+    }
     if (args.court_code) add({ name: 'court_code', match: 'exact', columns: ['d.court_code'] }, args.court_code);
     else if (resolvedCourtCodes?.length) add({ name: 'court_codes', match: 'eq_any', columns: ['d.court_code'] }, resolvedCourtCodes);
     if (args.justice_kind) add({ name: 'justice_kind', match: 'exact', columns: ['d.justice_kind'] }, args.justice_kind);

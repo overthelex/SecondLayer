@@ -213,3 +213,73 @@ describe('EdsrFtsService dedicated EDRSR pool', () => {
     expect(passed.query).toHaveBeenCalled();
   });
 });
+
+/**
+ * judge filter — resolved through edrsr_judges_distinct rather than scanned.
+ *
+ * The old predicate `LOWER(d.judge) LIKE LOWER('%v%')` seq-scanned all 26
+ * partitions of edrsr_documents (135.8M rows). These pin the three outcomes,
+ * because getting the middle one wrong returns unrelated judges rather than
+ * an empty result — a silent correctness bug, not a visible failure.
+ */
+describe('EdsrFtsService.searchFulltext judge filter', () => {
+  // first query is the judge resolve, second is the actual search
+  const makeDbWithJudges = (judgeRows: any[] | Error) => {
+    const calls: { sql: string; params: any[] }[] = [];
+    let seen = 0;
+    return {
+      calls,
+      query: jest.fn((sql: string, params: any[]) => {
+        calls.push({ sql, params });
+        if (seen++ === 0 && sql.includes('edrsr_judges_distinct')) {
+          if (judgeRows instanceof Error) return Promise.reject(judgeRows);
+          return Promise.resolve({ rows: judgeRows });
+        }
+        return Promise.resolve({ rows: [] });
+      }),
+    };
+  };
+
+  it('resolves the fragment and filters by equality, not LIKE', async () => {
+    const svc = new EdsrFtsService();
+    const db = makeDbWithJudges([
+      { judge: 'Писана Таміла Олександрівна' },
+      { judge: 'Писана Т.О.' },
+    ]);
+    await svc.searchFulltext('спір', db as any, { judge: 'Писана' });
+
+    expect(db.calls[0].sql).toContain('edrsr_judges_distinct');
+    expect(db.calls[0].params[0]).toBe('%Писана%');
+
+    const search = db.calls[1];
+    expect(search.sql).toContain('d.judge = ANY(');
+    expect(search.sql).not.toContain('LOWER(d.judge) LIKE');
+    // both spellings of the same judge are carried through
+    expect(search.params).toContainEqual([
+      'Писана Таміла Олександрівна',
+      'Писана Т.О.',
+    ]);
+  });
+
+  it('matches nothing when no judge matches the fragment', async () => {
+    const svc = new EdsrFtsService();
+    const db = makeDbWithJudges([]);
+    await svc.searchFulltext('спір', db as any, { judge: 'Неіснуючий' });
+
+    const search = db.calls[1];
+    // must NOT silently drop the filter and return every judge
+    expect(search.sql).toContain('FALSE');
+    expect(search.sql).not.toContain('d.judge = ANY(');
+  });
+
+  it('falls back to the substring predicate when the lookup is unavailable', async () => {
+    const svc = new EdsrFtsService();
+    const db = makeDbWithJudges(new Error('relation "edrsr_judges_distinct" does not exist'));
+    await svc.searchFulltext('спір', db as any, { judge: 'Писана' });
+
+    const search = db.calls[1];
+    // slow, but correct — never unfiltered
+    expect(search.sql).toContain('LOWER(d.judge) LIKE LOWER(');
+    expect(search.params).toContain('%Писана%');
+  });
+});
