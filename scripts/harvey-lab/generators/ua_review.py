@@ -54,6 +54,26 @@ class Lawful:
 
 
 @dataclass
+class Inconsistency:
+    """Two clauses of the draft that cannot both be followed, each lawful on its own.
+
+    Every other defect here is found by comparing one clause against one provision. This one is
+    invisible to that method: the Act permits both clauses, and the conflict exists only between
+    them. Planted because the measured pass rate on ordinary defects is 104/106 — comparing a
+    clause to a provision is something the model does reliably, so it stops discriminating.
+    """
+    clause_a: str
+    text_a: str
+    clause_b: str
+    text_b: str
+    art: int            # the provision that makes each clause lawful in isolation
+    cite: str
+    quote: str
+    conflict: str       # why they cannot both hold
+    resolve: str        # what a correct opinion must say follows
+
+
+@dataclass
 class Omission:
     art: int
     cite: str
@@ -76,6 +96,8 @@ class Spec:
     defects: list
     lawful: list
     omission: Omission
+    omissions_extra: list = field(default_factory=list)
+    inconsistency: Inconsistency = None
     filler: list = field(default_factory=list)
 
 
@@ -133,6 +155,17 @@ SPECS = [
                    "either party may ask for the lease to be notarised, so the clause "
                    "takes away a right the Act gives",
                    "notarisation at the wish of either party"),
+            # Lawful under Article 15, which lets the parties agree "інші умови" — and broken
+            # by Article 32, which reserves early termination to a court. Punishes matching a
+            # clause against the obvious provision and stopping there.
+            Defect("9.5", "Одностороннє розірвання",
+                   "Орендодавець має право достроково розірвати договір в односторонньому "
+                   "порядку, попередивши орендаря за 30 днів.",
+                   32, "частина перша статті 32",
+                   "може бути достроково розірваний за рішенням суду",
+                   "early termination at the demand of one party goes through a court; the "
+                   "freedom to agree other terms under Article 15 does not reach this",
+                   "termination by court decision on the demand of a party"),
             Defect("9.3", "Наслідки недійсності",
                    "У разі визнання договору недійсним орендодавець повертає орендарю "
                    "всю сплачену орендну плату.",
@@ -148,12 +181,72 @@ SPECS = [
                    21, "стаття 21", "якщо інше не передбачено договором оренди",
                    "indexation is the default only where the contract is silent, and the "
                    "Act lets the contract provide otherwise"),
-            Lawful("2.2", "Кілька ділянок",
-                   "Цей договір поширюється на дві земельні ділянки одного орендодавця.",
-                   15, "частина четверта статті 15",
-                   "надання в оренду декількох земельних ділянок",
-                   "one lease may cover several plots of the same lessor"),
+            # Two traps of the shape that actually catches: a clause that reads as one party
+            # imposing something, and is in fact the Act's own rule restated. The traps that
+            # failed to catch anything all quoted a permission stated outright; the ones that
+            # worked in the charter task quoted a qualifier attached to a stated default.
+            Lawful("6.4", "Мовчання орендодавця про суборенду",
+                   "Якщо орендодавець протягом одного місяця не надішле письмової згоди або "
+                   "заперечення щодо суборенди, ділянка може бути передана в суборенду.",
+                   8, "частина перша статті 8",
+                   "Якщо протягом одного місяця орендодавець не надішле письмового повідомлення "
+                   "щодо своєї згоди чи заперечення, орендована земельна ділянка або її частина "
+                   "може бути передана в суборенду",
+                   "this is not the tenant helping itself: the silence rule is the Act's own, "
+                   "written in those words"),
+            # THE hypothesis, built properly this time. Article 11 states the default loudly —
+            # risk of accidental destruction sits with the LESSOR — and hides the permission to
+            # vary it in a trailing qualifier. A clause moving that risk to the tenant reads as
+            # the lessor offloading its own risk, and is expressly allowed. The traps that
+            # caught nothing last round were a different shape ("a statutory duty restated");
+            # this one is the shape the measurement pointed at and I failed to build.
+            Lawful("7.3", "Ризик випадкового знищення",
+                   "Ризик випадкового знищення або пошкодження об'єкта оренди несе орендар.",
+                   11, "стаття 11",
+                   "несе орендодавець, якщо інше не передбачено договором оренди землі",
+                   "the Act puts that risk on the lessor only as a default and lets the "
+                   "contract say otherwise, so moving it to the tenant is permitted however "
+                   "one-sided it looks"),
+            Lawful("9.6", "Плата при розірванні з ініціативи орендаря",
+                   "У разі розірвання договору з ініціативи орендаря орендодавець має право на "
+                   "орендну плату за шість місяців.",
+                   32, "частина друга статті 32",
+                   "орендодавець має право на отримання орендної плати на землях "
+                   "сільськогосподарського призначення за шість місяців",
+                   "it reads as a penalty on the tenant, and it is the rule the Act itself "
+                   "lays down for agricultural land"),
         ],
+        # Three particulars of the rent term, all named in the same sentence of Article 15 and
+        # all absent. Omissions are the one thing the model reliably misses — 0/24 measured —
+        # so this task carries several instead of one.
+        omissions_extra=[
+            Omission(15, "стаття 15",
+                     "порядку її внесення і перегляду",
+                     "the rent clause fixes an amount and a payment date but says nothing about "
+                     "how the rent is to be revised, which Article 15 names among the essential "
+                     "terms",
+                     "a term on the procedure for revising the rent"),
+            Omission(15, "стаття 15",
+                     "способу та умов розрахунків",
+                     "the draft never states the method and conditions of settlement — whether "
+                     "rent is paid in money or in kind, and on what conditions — which Article 15 "
+                     "names among the essential terms",
+                     "a term on the method and conditions of settlement"),
+        ],
+        # Neither clause breaks the Act; they break each other. Article 21 leaves the amount,
+        # conditions and dates of payment to the parties, so each is lawful read alone.
+        inconsistency=Inconsistency(
+            "5.2", "Орендна плата вноситься щоквартально до 30 числа місяця, наступного за "
+                   "звітним кварталом.",
+            "5.9", "Орендна плата вноситься одним платежем авансом за рік до 1 лютого "
+                   "поточного року.",
+            21, "стаття 21",
+            "Розмір, умови і строки внесення орендної плати за землю встановлюються за згодою "
+            "сторін у договорі оренди",
+            "the two clauses prescribe payment schedules that cannot both be performed — "
+            "quarterly in arrears and annually in advance",
+            "the contradiction must be raised and one of the two clauses removed or reconciled; "
+            "the Act does not decide which, because it leaves the schedule to the parties"),
         omission=Omission(15, "стаття 15", "відповідальності за її несплату",
                           "the rent clause says nothing about liability for non-payment, "
                           "which the Act lists among the essential terms",
@@ -165,8 +258,6 @@ SPECS = [
                                      "48,6 га, кадастровий номер 3222483600:04:012:0117."),
             ("5.1", "Розмір орендної плати", "Орендна плата становить 12 відсотків "
                                              "нормативної грошової оцінки на рік."),
-            ("5.2", "Строки внесення", "Орендна плата вноситься щоквартально до 30 числа "
-                                       "місяця, наступного за звітним кварталом."),
             ("6.1", "Обов'язки орендаря", "Орендар зобов'язаний використовувати ділянку "
                                           "за цільовим призначенням, додержуватися вимог "
                                           "земельного законодавства."),
@@ -245,6 +336,24 @@ SPECS = [
                           "the policy never says who the data are passed to, although the "
                           "data subject has a right to that information",
                           "a statement of the third parties the data are transferred to"),
+        omissions_extra=[
+            Omission(8, "пункт 5 частини другої статті 8",
+                     "пред'являти вмотивовану вимогу",
+                     "the policy never mentions the right to object to processing by a reasoned "
+                     "demand, which is one of the rights Article 8 confers",
+                     "a statement of the right to object to processing"),
+        ],
+        inconsistency=Inconsistency(
+            "3.1", "Дані збираються безпосередньо від суб'єкта під час оформлення заявки на "
+                   "обслуговування.",
+            "3.7", "Товариство також отримує дані клієнтів від партнерських сервісних центрів "
+                   "без участі суб'єкта.",
+            12, "частина друга статті 12",
+            "в момент збору персональних даних, якщо персональні дані збираються у суб'єкта",
+            "the policy describes collection as direct from the data subject and then describes "
+            "collection from third parties, and the notification duty differs between the two",
+            "the two routes must be stated as what they are, because each carries a different "
+            "notification deadline"),
         filler=[
             ("1.1", "Загальні положення", "Ця Політика визначає порядок обробки "
                                           "персональних даних у ТОВ \"МЕДТЕХ СЕРВІС\"."),
@@ -328,6 +437,15 @@ SPECS = [
                           "signature about working conditions and the hazards not yet "
                           "eliminated at the workplace",
                           "informing the worker against signature on hiring"),
+        inconsistency=Inconsistency(
+            "3.1", "На підприємстві створюється служба охорони праці у складі двох осіб.",
+            "3.6", "Функції служби охорони праці виконує за сумісництвом головний інженер.",
+            15, "стаття 15",
+            "Служба охорони праці підпорядковується безпосередньо роботодавцю",
+            "a standing service of two people and those functions being discharged part-time by "
+            "the chief engineer cannot both describe the same arrangement",
+            "the contradiction must be raised, because the two describe different structures "
+            "with different subordination"),
         filler=[
             ("1.1", "Призначення положення", "Це Положення визначає систему управління "
                                              "охороною праці на підприємстві."),
@@ -393,6 +511,22 @@ SPECS = [
                           "the draft never describes the mortgaged property in terms "
                           "sufficient to identify it, which is an essential term",
                           "a description of the mortgaged property sufficient to identify it"),
+        omissions_extra=[
+            Omission(18, "пункт 1 частини першої статті 18",
+                     "ідентифікаційний код в Єдиному державному реєстрі",
+                     "the contract names the parties but gives neither identification code, "
+                     "which Article 18 lists among the essential terms",
+                     "the identification codes of both parties"),
+        ],
+        inconsistency=Inconsistency(
+            "2.2", "Строк повернення кредиту - 60 місяців з дати видачі.",
+            "2.4", "Кредит підлягає поверненню на першу вимогу іпотекодержателя у будь-який час.",
+            18, "пункт 2 частини першої статті 18",
+            "строк і порядок його виконання",
+            "a fixed sixty-month term and repayment on demand at any time cannot both describe "
+            "the same obligation",
+            "the contradiction must be raised and one of the two removed, since the essential "
+            "term is the term of performance and the draft states two of them"),
         filler=[
             ("1.1", "Сторони", "Договір укладено між ТОВ \"ФІНАНСОВА КОМПАНІЯ ОРІОН\" "
                                "(Іпотекодержатель) та ТОВ \"СКЛАДСЬКІ РІШЕННЯ\" "
@@ -478,6 +612,27 @@ SPECS = [
                           "the offer never sets out the price and the conditions and rules "
                           "of purchase, which the consumer is entitled to before buying",
                           "the price and the conditions and rules of purchase"),
+        omissions_extra=[
+            Omission(12, "пункт 2 частини другої статті 12",
+                     "найменування та місцезнаходження продавця",
+                     "the offer never gives the seller's location, which Article 12 requires a "
+                     "distance contract to contain",
+                     "the seller's name and location"),
+            Omission(12, "пункт 7 частини другої статті 12",
+                     "права та обов'язки сторін договору",
+                     "the offer sets out the consumer's obligations but never states the rights "
+                     "and obligations of the parties as such, which Article 12 requires",
+                     "a statement of the rights and obligations of both parties"),
+        ],
+        inconsistency=Inconsistency(
+            "3.1", "Доставка здійснюється перевізником протягом п'яти робочих днів.",
+            "3.6", "Товар передається споживачеві в момент оплати замовлення.",
+            12, "пункт 5 частини другої статті 12",
+            "строк виконання робіт (надання послуг)",
+            "delivery within five working days by a carrier and handover at the moment of "
+            "payment cannot both be the performance term",
+            "the contradiction must be raised, because the performance term is required "
+            "information and the offer states two incompatible ones"),
         filler=[
             ("1.1", "Загальні положення", "Ця оферта є пропозицією ТОВ \"ТЕХНОДІМ "
                                           "УКРАЇНА\" укласти договір купівлі-продажу."),
@@ -547,6 +702,22 @@ SPECS = [
                           "the documentation contains no instruction on how to prepare a "
                           "tender, which the Act lists first among its required contents",
                           "an instruction for preparing tender proposals"),
+        omissions_extra=[
+            Omission(22, "пункт 2 частини другої статті 22",
+                     "інформація про спосіб підтвердження відповідності учасників",
+                     "the documentation names qualification criteria but never says how a "
+                     "bidder is to demonstrate that it meets them",
+                     "the method of confirming that bidders meet the criteria"),
+        ],
+        inconsistency=Inconsistency(
+            "2.3", "Поставка та монтаж - до 30 листопада поточного року.",
+            "2.5", "Строк виконання договору становить 12 місяців з дати його укладення.",
+            22, "частина друга статті 22",
+            "У тендерній документації зазначаються такі відомості",
+            "a fixed calendar deadline of 30 November and a twelve-month term from signature "
+            "cannot both govern the same delivery",
+            "the contradiction must be raised, because a bidder cannot price a delivery whose "
+            "deadline the documentation states twice and differently"),
         filler=[
             ("1.1", "Замовник", "Комунальне підприємство \"МІСЬКЕ ОСВІТЛЕННЯ\"."),
             ("2.1", "Предмет закупівлі", "Світлодіодні світильники та роботи з монтажу."),
@@ -607,6 +778,15 @@ SPECS = [
                    "a tenant who took the lease at auction has that right under the Act"),
         ],
         omission=None,
+        inconsistency=Inconsistency(
+            "3.1", "Орендна плата за результатами аукціону становить 184 000,00 грн на місяць.",
+            "3.4", "Орендна плата переглядається щомісяця за домовленістю сторін.",
+            16, "частина перша статті 16",
+            "Договір оренди формується на підставі примірного договору оренди",
+            "an auction-determined rent and a rent revised monthly by agreement cannot both "
+            "hold: the first is the outcome the auction fixed",
+            "the contradiction must be raised, because a rent set at auction is not a figure "
+            "the parties may renegotiate at will"),
         filler=[
             ("1.1", "Сторони", "Договір укладено між Регіональним відділенням Фонду "
                                "державного майна та ТОВ \"ПРОСТІР ЛОГІСТИКА\"."),
@@ -636,6 +816,10 @@ def check_grounding(spec) -> None:
     items += [(l.art, l.quote, f"lawful {l.clause}") for l in spec.lawful]
     if spec.omission:
         items.append((spec.omission.art, spec.omission.quote, "omission"))
+    items += [(o.art, o.quote, f"omission {o.missing[:30]}") for o in spec.omissions_extra]
+    if spec.inconsistency:
+        ic = spec.inconsistency
+        items.append((ic.art, ic.quote, f"inconsistency {ic.clause_a}/{ic.clause_b}"))
     for art, quote, what in items:
         q = norm(quote)
         if q in arts.get(art, ""):
@@ -662,6 +846,10 @@ def build(spec, root: Path) -> Path:
                  "переписувати те, що закон дозволяє.")])
 
     rows = [(x.clause, x.heading, x.text) for x in spec.defects + spec.lawful] + spec.filler
+    if spec.inconsistency:
+        ic = spec.inconsistency
+        rows += [(ic.clause_a, "Строки внесення орендної плати", ic.text_a),
+                 (ic.clause_b, "Порядок внесення орендної плати", ic.text_b)]
     rows.sort(key=lambda r: [int(y) for y in r[0].split(".")])
     doc(d / "proyekt-dokumenta.docx", spec.instrument.upper(),
         [x for clause, heading, text in rows
@@ -705,6 +893,29 @@ def build(spec, root: Path) -> Path:
         add(f"ISSUE_{k:03d} (missing): says what must be added",
             f"PASS if the opinion says the document must include {o.add}. FAIL if the gap "
             f"is noted without saying what has to go in.", "expert")
+
+    for k, o in enumerate(spec.omissions_extra, len(spec.defects) + 2):
+        add(f"ISSUE_{k:03d} (missing): identifies the omission",
+            f"PASS if the opinion states that {o.missing}, citing {o.cite}. FAIL if the "
+            f"omission is not raised.")
+        add(f"ISSUE_{k:03d} (missing): says what must be added",
+            f"PASS if the opinion says the document must include {o.add}. FAIL if the gap is "
+            f"noted without saying what has to go in.", "expert")
+
+    if spec.inconsistency:
+        ic = spec.inconsistency
+        add(f"INTERNAL: reports both clause {ic.clause_a} and clause {ic.clause_b}",
+            f"PASS if the opinion reports what clause {ic.clause_a} and clause {ic.clause_b} "
+            f"each provide. FAIL if either is absent.")
+        add(f"INTERNAL: states that {ic.clause_a} and {ic.clause_b} contradict each other",
+            f"PASS if the opinion says in terms that these two clauses cannot both be "
+            f"performed, because {ic.conflict}. FAIL if both are reported without the conflict "
+            f"being named — which is the whole point, since each clause is lawful read alone.",
+            "expert")
+        add(f"INTERNAL: does not blame the Act for the contradiction",
+            f"PASS if the opinion attributes the conflict to the drafting rather than to the "
+            f"Act, and conveys that {ic.resolve} FAIL if it reports one of the clauses as "
+            f"breaching {ic.cite}.", "expert")
 
     for i, lw in enumerate(spec.lawful, 1):
         add(f"OVER-FLAGGING {i}: does not treat clause {lw.clause} as unlawful",
