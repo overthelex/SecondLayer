@@ -10,8 +10,8 @@ legislation pilot used MEAN and its documents ended up in a different space from
 searching them — self-similarity 0.70-0.77 instead of 1.0. That is why the target collection is
 named `amcu_bge_cls`.
 
-One instance is enough: ~165K chunks at the measured ~307 chunks/s on A10G is about nine minutes,
-so the fleet-splitting machinery the НПА run needed is pointless here.
+One instance is enough: the 174 382 chunks this corpus produced ran in about seven minutes on a
+single A10G, so the fleet-splitting machinery the НПА run needed is pointless here.
 
 **S3 prefix.** Everything lives under `rada-npa/amcu-decisions/` rather than a top-level `amcu/`
 because the prod EC2 role's inline policy grants object actions only under `rada-npa/*`.
