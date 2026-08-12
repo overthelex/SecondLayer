@@ -11,9 +11,13 @@
  *   • /sse         (legacy SSE transport, MCPSSEServer)
  *
  * IMPORTANT: keep this in sync with the actual handler names registered in
- * factories/tool-services.ts. Every name here must resolve to a LOCAL handler so
- * it appears in ToolRegistry.getLocalToolDefinitions() (the SSE transport only
- * lists local tools).
+ * factories/tool-services.ts (local tools) and with the remote routes in
+ * tool-registry.ts (rada_* / openreyestr_*).
+ *
+ * Local vs remote matters per transport: /api/v2/mcp merges remote definitions via
+ * getAllToolDefinitions(), so prefixed tools resolve there. /sse lists only
+ * getLocalToolDefinitions(), so every prefixed (rada_, openreyestr_) name below is
+ * skipped on that transport and logged as missing — expected, not a regression.
  */
 export const V2_TOOL_NAMES = new Set<string>([
   // Legislation (6)
@@ -49,4 +53,35 @@ export const V2_TOOL_NAMES = new Set<string>([
   'openreyestr_search_arma_seized_assets',
   'openreyestr_search_nazk_declarations',
   'openreyestr_search_notaries',
+  // ЄДР — решта OpenReyestr: податковий борг, ЄСВ, єдиний податок, припинення,
+  // арбітражні керуючі, спеціальні форми, зведена статистика реєстрів.
+  'openreyestr_search_tax_debt',
+  'openreyestr_search_esv_debt',
+  'openreyestr_search_single_tax_payers',
+  'openreyestr_search_termination_started',
+  'openreyestr_search_arbitration_managers',
+  'openreyestr_search_special_forms',
+  'openreyestr_get_statistics',
+  // Парламент — remote (rada_*). Законопроєкти, супровідні документи (висновки
+  // ГНЕУ/комітетів/ГЮУ), депутати, голосування.
+  // rada_search_legislation_text свідомо НЕ включено: rada.legislation — поверхневий
+  // кеш карток, його full_text_plain містить навігаційний мотлох, а не текст акта.
+  'rada_search_parliament_bills',
+  'rada_search_bill_documents',
+  'rada_get_deputy_info',
+  'rada_analyze_voting_record',
+  // Відкриті дані України — local handlers.
+  'search_public_spending',        // Є-Data: spending_acts 8.8M, addendums 2M
+  'search_edrnpa',                 // ЄДРНПА Мін'юсту: 141K карток + тексти
+  'search_court_case_status',      // стан розгляду справ (лише Верховний Суд, 1.25M)
+  'search_court_hearing_schedule', // розклад засідань, 481K
+  'search_invalid_passports',      // недійсні паспорти, 2.89M + 195K закордонних
+  'search_judges',                 // судді: judges_current + історія
+  'search_vrp_judges_discipline',  // ВРП: звільнені / відсторонені / втручання
+  'search_vkks',                   // ВККС: судді, оцінювання, декларації, вакансії
+  // Інтелектуальна власність — ip_objects 820K + ip_object_events 2.0M.
+  'search_ip_objects',
+  'get_ip_object',
+  'get_trademark_dossier',
+  'find_similar_trademarks',
 ]);
