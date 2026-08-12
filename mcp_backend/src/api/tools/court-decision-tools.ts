@@ -20,6 +20,9 @@ import type { IEmbeddingPort } from '../../domain/ports/index.js';
 import { LegalPatternStore } from '../../services/legal-pattern-store.js';
 import type { CitationGraphService } from '../../services/citation-graph-service.js';
 import { SectionType } from '../../types/index.js';
+
+/** Preview kept on get_court_decision when the same text is already returned as sections. */
+const FULL_TEXT_PREVIEW_CHARS = 2000;
 import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { generateCaseNumberVariations, extractSnippets, resolveCauseNumber, edrsrPool } from '../tool-utils.js';
@@ -518,7 +521,23 @@ total_resolved_links=0 означає відсутність даних граф
       url,
       depth,
       sections: sections.slice(0, depth),
-      full_text: fullText || undefined,
+      // When sections were extracted they already contain this text, so shipping full_text too
+      // doubled the payload for zero information: doc 117473073 came back as 282K characters —
+      // 139.7K of sections plus 139.6K of the same text again — and blew an MCP client's token
+      // limit outright. Only ~0.4% of decisions exceed 60K chars, but the ones that do are
+      // exactly the long cassation rulings worth opening.
+      //
+      // Safe to trim: chat never forwards full_text to the model (chat-result-compactor:
+      // "Never sends full_text to LLM — extracts key sections instead") and reads it only as a
+      // fallback when sections are missing. So keep it whole when there are no sections, and
+      // reduce it to a preview when there are. Raw text remains available via load_full_texts.
+      ...(sections.length > 0 && fullText.length > FULL_TEXT_PREVIEW_CHARS
+        ? {
+            full_text_preview: fullText.slice(0, FULL_TEXT_PREVIEW_CHARS),
+            full_text_truncated: true,
+            full_text_hint: 'Повний текст не дублюється тут, бо він уже розібраний у sections. Потрібен суцільний текст — використайте load_full_texts.',
+          }
+        : { full_text: fullText || undefined }),
       full_text_length: fullText.length,
     };
 
