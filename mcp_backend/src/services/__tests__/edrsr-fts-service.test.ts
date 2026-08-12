@@ -173,6 +173,33 @@ describe('EdsrFtsService.countByParty', () => {
     expect(res.sample).toBeUndefined(); // sampleLimit defaults to 0
   });
 
+  it('separates distinct cases from documents (ЕВЕРЛІҐАЛ read 684 "справ" against 591 real)', async () => {
+    const svc = new EdsrFtsService();
+    const db = {
+      calls: [] as any[],
+      query: jest.fn((sql: string, params: any[]) => {
+        (db as any).calls.push({ sql, params });
+        // Every row carries the same global distinct_cases via CROSS JOIN; by_court counts
+        // DOCUMENTS, so summing it must NOT be what ends up labelled as cases.
+        return Promise.resolve({
+          rows: [
+            { candidates: 684, distinct_cases: 591, court_code: 4824, n: 400 },
+            { candidates: 684, distinct_cases: 591, court_code: 1003, n: 284 },
+          ],
+        });
+      }),
+    };
+    const res = await svc.countByParty('ЕВЕРЛІҐАЛ', undefined, db);
+
+    // documents: the sum of by_court
+    expect(res.total).toBe(684);
+    // cases: the global count(DISTINCT cause_num), never the sum — a case appears once per
+    // instance it passed through, so summing per-court counts double-counts it
+    expect(res.distinct_cases).toBe(591);
+    expect(res.distinct_cases).toBeLessThan(res.total);
+    expect(db.calls[0].sql).toContain('count(DISTINCT d.cause_num)');
+  });
+
   it('applies date/justice filters and fetches a sample when requested', async () => {
     const svc = new EdsrFtsService();
     const db = {
