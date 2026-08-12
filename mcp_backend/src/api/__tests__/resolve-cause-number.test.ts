@@ -115,6 +115,16 @@ describe('resolveCauseNumber', () => {
     expect(res.resolved).toBe('905/1234/2020-ад');
   });
 
+  it('still rewrites a legacy VSU number to its canonical slash spelling', async () => {
+    // The suffix guard must not read the hyphen inside a pre-2017 Supreme Court identifier
+    // as a caller-chosen suffix: "5-15кс12" would then never match "5-15/12", which has no
+    // suffix at all, and the guard would block the very rewrite the VSU branch exists for.
+    const db = makeDb([{ cause_num: '5-15/12', member_count: 6 }]);
+    const res = await resolveCauseNumber('5-15кс12', db);
+
+    expect(res.resolved).toBe('5-15/12');
+  });
+
   it('resolves to nothing when the number matches no case at all', async () => {
     const res = await resolveCauseNumber('999/999/99', makeDb([]));
 

@@ -187,13 +187,21 @@ const CAUSE_NUM_SUFFIXES = [
 const HAS_SUFFIX_RE = /-[а-яіїєґА-ЯІЇЄҐ]+$/;
 
 /**
- * A trailing "-token" the caller typed, where the token carries at least one letter in any
- * alphabet. Broader than HAS_SUFFIX_RE on purpose: candidate generation only ever produces
+ * A procedural suffix the caller typed, captured in group 1.
+ *
+ * Broader than HAS_SUFFIX_RE in one direction: candidate generation only ever produces
  * Cyrillic suffixes, but the guard against swapping one has to recognise a suffix we would
  * never generate — a Latin or otherwise unmeasured tail is still the caller saying which
- * case they mean. The letter requirement keeps numeric tails like "5-15" out of it.
+ * case they mean.
+ *
+ * Anchored to the modern digits/digits/year shape in the other direction, because a bare
+ * trailing "-token" is not always a suffix. Pre-2017 Supreme Court numbers put a hyphen in
+ * the middle of the identifier itself: "5-15кс12" would otherwise read as suffix "-15кс12"
+ * and then fail to match its own canonical spelling "5-15/12", which carries no suffix at
+ * all — so the guard would have blocked exactly the rewrite the VSU branch of
+ * generateCaseNumberVariations exists to perform.
  */
-const ASKED_SUFFIX_RE = /-[^/\s-]*[A-Za-zА-Яа-яІіЇїЄєҐґ][^/\s-]*$/;
+const ASKED_SUFFIX_RE = /^\d+\/\d+\/\d{2,4}(-[^/\s-]*[A-Za-zА-Яа-яІіЇїЄєҐґ][^/\s-]*)$/;
 
 /**
  * Case-number spellings worth probing against the corpus — the variations above, plus a
@@ -279,9 +287,9 @@ export async function resolveCauseNumber(caseNumber: string, dbPool: any): Promi
     // measured suffixes as candidates, and resolve to 905/1234/20-ц — a different real case
     // answered as if it were the one asked about. Year expansion still works, because an
     // expanded variant keeps the same suffix.
-    const askedSuffix = input.match(ASKED_SUFFIX_RE)?.[0] ?? null;
+    const askedSuffix = input.match(ASKED_SUFFIX_RE)?.[1] ?? null;
     const matches = askedSuffix
-      ? all.filter((m: { cause_num: string }) => (m.cause_num.match(ASKED_SUFFIX_RE)?.[0] ?? null) === askedSuffix)
+      ? all.filter((m: { cause_num: string }) => (m.cause_num.match(ASKED_SUFFIX_RE)?.[1] ?? null) === askedSuffix)
       : all;
 
     if (matches.length === 0) return empty;
