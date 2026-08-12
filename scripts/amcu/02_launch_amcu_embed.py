@@ -41,6 +41,11 @@ IMAGE = (f"763104351884.dkr.ecr.{REGION}.amazonaws.com/"
 INSTANCE = "ml.g5.2xlarge"
 USD_H = 1.890
 ENTRY = "../legislation/sagemaker/embed_entry.py"
+# Must ship alongside the entry script: SageMaker pip-installs requirements.txt from the source
+# directory before running it. Leaving it out fails the job at import with
+# "ModuleNotFoundError: No module named 'transformers'" — the DLC image has torch but not
+# transformers. The file's upper bound (<4.41) is load-bearing against this image's torch 2.1.0.
+REQS = "../legislation/sagemaker/requirements.txt"
 
 
 def log(m):
@@ -48,10 +53,13 @@ def log(m):
 
 
 def pack_code(s3, key):
-    """SageMaker wants the entry script inside a tar.gz; embed_entry.py has no local imports."""
+    """SageMaker wants the entry script inside a tar.gz, together with the requirements.txt it
+    pip-installs before running it. embed_entry.py has no local imports, so those two files are
+    the whole payload."""
     tmp = "/tmp/amcu_source.tar.gz"
     with tarfile.open(tmp, "w:gz") as t:
         t.add(ENTRY, arcname="embed_entry.py")
+        t.add(REQS, arcname="requirements.txt")
     s3.upload_file(tmp, BUCKET, key)
     return f"s3://{BUCKET}/{key}"
 

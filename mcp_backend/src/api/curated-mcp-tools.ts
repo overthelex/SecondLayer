@@ -42,6 +42,8 @@ export const V2_TOOL_NAMES = new Set<string>([
   'get_citation_graph',
   // Реєстри відкритих даних — local handler (ТМ/патенти, санкції, АМКУ, стенограми, фінзвітність)
   'search_registry',
+  // Семантичний пошук практики АМКУ — доповнює keyword-пошук у search_registry
+  'search_amcu_practice',
   // Державні реєстри OpenReyestr — remote (proxied via getAllToolDefinitions on /api/v2/mcp).
   // company/EDRPOU, beneficiaries, debtors, enforcement, bankruptcy, Prozorro, sanctions, ARMA, NAZK, notaries.
   'openreyestr_get_by_edrpou',
