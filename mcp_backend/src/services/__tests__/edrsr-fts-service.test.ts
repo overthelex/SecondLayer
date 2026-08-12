@@ -197,7 +197,14 @@ describe('EdsrFtsService.countByParty', () => {
     // instance it passed through, so summing per-court counts double-counts it
     expect(res.distinct_cases).toBe(591);
     expect(res.distinct_cases).toBeLessThan(res.total);
-    expect(db.calls[0].sql).toContain('count(DISTINCT d.cause_num)');
+    const sql = db.calls[0].sql;
+    expect(sql).toContain('count(DISTINCT d.cause_num)');
+    // Structural guard: a mocked db never executes the SQL, so a missing comma between CTEs
+    // passes every behavioural assertion and only fails in production. That exact bug shipped
+    // once — 'syntax error at or near "tot"'.
+    expect(sql).toMatch(/\)\s*,\s*tot AS \(/);
+    // No CTE may follow another without a comma: `) name AS (` is always malformed here.
+    expect(sql).not.toMatch(/\)\s*\n\s*[a-z_]+ AS \(/);
   });
 
   it('applies date/justice filters and fetches a sample when requested', async () => {

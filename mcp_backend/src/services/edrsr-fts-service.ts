@@ -1172,7 +1172,7 @@ export class EdsrFtsService {
           FROM cand JOIN edrsr_documents d ON d.doc_id = cand.doc_id
           ${docWhere}
           GROUP BY d.court_code
-        )
+        ),
         tot AS (
           SELECT count(DISTINCT d.cause_num)::int AS distinct_cases
           FROM cand JOIN edrsr_documents d ON d.doc_id = cand.doc_id
