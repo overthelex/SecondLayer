@@ -217,12 +217,17 @@ describe('EdsrFtsService.countByParty', () => {
     const db = makeDb();
     await svc.countByParty('ЕВЕРЛІҐАЛ', undefined, db, {}, 10);
 
-    // Counter-intuitive but measured: ORDER BY doc_id DESC with LIMIT 2000 or 5000
-    // times out (>90s) where LIMIT 25000 returns in ~1.5s, because the small limit
-    // tempts the planner into walking idx_ef_p_*_docid backwards. Both paths use it.
+    // Counter-intuitive but measured: on the ordered leg, LIMIT 2000 or 5000 times out
+    // (>90s) where LIMIT 25000 returns in ~1.5s, because the small limit tempts the
+    // planner into walking idx_ef_p_*_docid backwards. Both paths use the same cap.
     for (const call of db.calls) {
       expect(call.sql).toContain('ORDER BY f.doc_id DESC');
       expect(call.sql).toContain('LIMIT 25000');
+    }
+    // ...and the ordering must appear ONLY on the older leg. Sorting the recent band is
+    // what made a 400k-document party unanswerable, so exactly one ORDER BY on doc_id.
+    for (const call of db.calls) {
+      expect(call.sql.match(/ORDER BY f\.doc_id DESC/g)).toHaveLength(1);
     }
     // The sample must materialize the join too, or ORDER BY adjudication_date DESC
     // LIMIT n walks the date index probing for matches (111s measured).
@@ -265,6 +270,29 @@ describe('EdsrFtsService.countByParty', () => {
 
     expect(res.capped).toBe(true);
     expect(res.candidate_cap).toBe(25000);
+  });
+
+  it('splits candidates into an unsorted recent band and an ordered older remainder', async () => {
+    const svc = new EdsrFtsService();
+    const db = makeDb();
+    await svc.countByParty('ПРИВАТБАНК', undefined, db);
+
+    const sql = db.calls[0].sql;
+    // The recent band carries the year predicate and no sort — that is the whole fix for
+    // a party matching hundreds of thousands of documents (>90s timeout -> 2.26s).
+    expect(sql).toContain('recent AS MATERIALIZED');
+    expect(sql).toContain('f.adj_year >=');
+    expect(sql).toContain('older AS MATERIALIZED');
+    expect(sql).toContain('f.adj_year <');
+    // The older leg's limit is whatever the recent band left unfilled, so a party that
+    // already reached the cap gets LIMIT 0 and Postgres skips the ordered scan entirely.
+    expect(sql).toContain('GREATEST(0, 25000 - (SELECT count(*) FROM recent))');
+    // Both legs feed one candidate set; the legs are disjoint so nothing is double counted.
+    expect(sql).toContain('SELECT doc_id FROM recent');
+    expect(sql).toContain('UNION ALL');
+    expect(sql).toContain('SELECT doc_id FROM older');
+    // Split year is bound, never interpolated.
+    expect(db.calls[0].params).toContain(new Date().getFullYear() - 1);
   });
 
   it('still reports capped when doc-side filters drop every candidate', async () => {
