@@ -1176,12 +1176,16 @@ total_resolved_links=0 означає відсутність даних граф
         party_name: partyName,
         party_type: partyType,
         matched_name: cleanedName,
-        total_cases: counts.total,
+        // total_cases used to carry counts.total, which is a DOCUMENT count — it read as
+        // 684 "справ" for ЕВЕРЛІҐАЛ against 591 real cases, because one case yields a
+        // document at every instance it passes through.
+        total_cases: counts.distinct_cases,
+        total_documents: counts.total,
         courts_count: counts.by_court.length,
         by_court,
         time_taken_ms: Date.now() - startTime,
         method: 'fts_party_anchor',
-        note: 'Назва/роль — це FTS-прив\'язка по тексту рішення, не структурний фільтр сторони. Точне визначення ролі — після впровадження parties-таблиці (LEXAI-1760).',
+        note: 'total_cases — кількість УНІКАЛЬНИХ справ (за номером справи); total_documents — кількість документів, вона завжди більша, бо одна справа дає документи в кожній інстанції. У by_court рахуються ДОКУМЕНТИ по судах, тому сума by_court дорівнює total_documents, а не total_cases. Назва/роль — це FTS-прив\'язка по тексту рішення, не структурний фільтр сторони. Точне визначення ролі — після впровадження parties-таблиці (LEXAI-1760).',
       };
       if (counts.capped) {
         // Never let a truncated aggregate read as an exact count.

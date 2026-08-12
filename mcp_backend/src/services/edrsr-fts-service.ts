@@ -120,7 +120,19 @@ export interface EdsrFtsSearchResponse {
 }
 
 export interface PartyCaseCount {
+  /**
+   * DOCUMENT count. One case produces many documents (ухвали, рішення, постанови at each
+   * instance), so this is always >= the number of cases. Kept as `total` for callers that
+   * genuinely want documents; anything user-facing that says "справ" must use `distinct_cases`.
+   */
   total: number;
+  /**
+   * Distinct `cause_num` across the whole candidate set. Cannot be derived from `by_court` —
+   * summing per-court case counts would count a case once per instance it passed through,
+   * which is exactly how `total` came to overstate ЕВЕРЛІҐАЛ as 684 "справ" against 591 real
+   * ones. Rows with a null cause_num are excluded by count(DISTINCT ...).
+   */
+  distinct_cases: number;
   by_court: Array<{ court_code: number; count: number }>;
   sample?: Array<{ doc_id: number; cause_num: string | null; court_code: number | null; justice_kind: number | null; adjudication_date: string | null }>;
   /** True when the FTS fallback hit PARTY_COUNT_CAND_CAP — `total` is then a floor, not an exact count. */
@@ -475,6 +487,21 @@ export class EdsrFtsService {
         .map((r: any) => ({ court_code: r.court_code, count: r.n }));
       const total = countResult.rows.reduce((s: number, r: any) => s + r.n, 0);
 
+      // `total` above counts DOCUMENTS (distinct doc_id). edrsr_parties carries no cause_num,
+      // so distinct cases need the documents table — same distinction the FTS path makes, kept
+      // here so this route cannot silently report documents as "справ" if it ever goes live.
+      const casesResult = await dbPool.query(
+        `SELECT count(DISTINCT d.cause_num)::int AS distinct_cases
+           FROM edrsr_parties p JOIN edrsr_documents d ON d.doc_id = p.doc_id
+          WHERE ${whereClause.replace(/\bname_norm\b/g, 'p.name_norm')
+                              .replace(/\badj_year\b/g, 'p.adj_year')
+                              .replace(/\brole\b/g, 'p.role')
+                              .replace(/\badjudication_date\b/g, 'p.adjudication_date')
+                              .replace(/\bjustice_kind\b/g, 'p.justice_kind')}`,
+        params
+      );
+      const distinct_cases = Number(casesResult.rows[0]?.distinct_cases ?? 0);
+
       let sample: PartyCaseCount['sample'];
       if (sampleLimit > 0) {
         const safeSample = Math.min(Math.max(sampleLimit, 1), 1000);
@@ -497,9 +524,9 @@ export class EdsrFtsService {
       }
 
       logger.info('[EdsrFtsService] countByParty (fast/parties-table)', {
-        party_name: partyName, party_role: partyRole ?? 'any', years: [yFrom, yTo], total, courts: by_court.length,
+        party_name: partyName, party_role: partyRole ?? 'any', years: [yFrom, yTo], total, distinct_cases, courts: by_court.length,
       });
-      return { total, by_court, ...(sample ? { sample } : {}) };
+      return { total, distinct_cases, by_court, ...(sample ? { sample } : {}) };
     } catch (err: any) {
       logger.warn('[EdsrFtsService] countByPartyFast failed; falling back to FTS', { error: err.message, party_name: partyName });
       return null;
@@ -1146,8 +1173,14 @@ export class EdsrFtsService {
           ${docWhere}
           GROUP BY d.court_code
         )
-        SELECT c.candidates, a.court_code, a.n
+        tot AS (
+          SELECT count(DISTINCT d.cause_num)::int AS distinct_cases
+          FROM cand JOIN edrsr_documents d ON d.doc_id = cand.doc_id
+          ${docWhere}
+        )
+        SELECT c.candidates, t.distinct_cases, a.court_code, a.n
         FROM (SELECT count(*)::int AS candidates FROM cand) c
+        CROSS JOIN tot t
         LEFT JOIN agg a ON TRUE
         ORDER BY a.n DESC NULLS LAST`;
       const countResult = await dbPool.query(countSql, params);
@@ -1162,6 +1195,7 @@ export class EdsrFtsService {
         .map((r: any) => ({ court_code: r.court_code, count: r.n }));
       const total = by_court.reduce((s: number, r: any) => s + r.count, 0);
       const candidates = Number(countResult.rows[0]?.candidates ?? 0);
+      const distinct_cases = Number(countResult.rows[0]?.distinct_cases ?? 0);
       // `cand` is LIMIT-ed to the cap, so count(*) over it tops out AT the cap and this is
       // effectively `=== cap`. A party matching exactly PARTY_COUNT_CAND_CAP documents is
       // therefore flagged capped even though its count is complete. Accepted: reading
@@ -1198,11 +1232,12 @@ export class EdsrFtsService {
       logger.info('[EdsrFtsService] countByParty', {
         party_name: partyName, party_role: partyRole ?? 'any',
         filters: Object.keys(filters).filter(k => (filters as any)[k] !== undefined),
-        total, courts: by_court.length, candidates, capped,
+        total, distinct_cases, courts: by_court.length, candidates, capped,
       });
 
       return {
         total,
+        distinct_cases,
         by_court,
         ...(sample ? { sample } : {}),
         ...(capped ? { capped: true, candidate_cap: PARTY_COUNT_CAND_CAP } : {}),
