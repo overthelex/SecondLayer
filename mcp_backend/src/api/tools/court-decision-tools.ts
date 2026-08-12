@@ -22,7 +22,7 @@ import type { CitationGraphService } from '../../services/citation-graph-service
 import { SectionType } from '../../types/index.js';
 import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
-import { generateCaseNumberVariations, extractSnippets } from '../tool-utils.js';
+import { generateCaseNumberVariations, extractSnippets, resolveCauseNumber, edrsrPool } from '../tool-utils.js';
 
 export class CourtDecisionTools extends BaseToolHandler {
   constructor(
@@ -46,7 +46,7 @@ export class CourtDecisionTools extends BaseToolHandler {
    * to this.db — byte-identical to the previous behaviour.
    */
   private edrsrDb(): any {
-    return this.ftsService?.getDedicatedPool() ?? this.db;
+    return edrsrPool(this.ftsService, this.db);
   }
 
   /** True when reads are routed to the dedicated EDRSR pool (stage). */
@@ -590,8 +590,22 @@ total_resolved_links=0 означає відсутність даних граф
       groupByInstance
     });
 
-    const caseVariations = generateCaseNumberVariations(caseNumber);
-    logger.info('Generated case number variations', { variations: caseVariations });
+    // Resolve the procedural suffix first. The chat model strips it on the way in (asked
+    // about 369/6892/15-ц, called with 369/6892/15), and the bare number matches no
+    // cause_num at all, so the chain came back empty and the answer said the case does not
+    // exist. resolveCauseNumber only rewrites when exactly one real case fits; an ambiguous
+    // base is left alone rather than merged, since ~1 base in 700 covers two distinct cases.
+    const resolution = await resolveCauseNumber(caseNumber, this.edrsrDb());
+    const effectiveCaseNumber = resolution.resolved || caseNumber;
+
+    const caseVariations = generateCaseNumberVariations(effectiveCaseNumber);
+    logger.info('Generated case number variations', {
+      variations: caseVariations,
+      ...(resolution.resolved && resolution.resolved !== caseNumber
+        ? { requested: caseNumber, resolved: resolution.resolved }
+        : {}),
+      ...(resolution.ambiguous ? { ambiguous: resolution.matches.map(m => m.cause_num) } : {}),
+    });
 
     // Query edrsr_documents directly with all case number variations
     const fulltextJoin = includeFullText
@@ -656,7 +670,17 @@ total_resolved_links=0 означає відсутність даних граф
         total_documents: 0,
         documents: [],
         search_stats: { variations_tried: caseVariations },
-        message: `Документів не знайдено за номером справи: ${caseNumber} (перевірено варіації: ${caseVariations.join(', ')})`,
+        ...(resolution.ambiguous
+          ? {
+              ambiguous_case_number: {
+                requested: caseNumber,
+                candidates: resolution.matches.map(m => m.cause_num),
+              },
+            }
+          : {}),
+        message: resolution.ambiguous
+          ? `Номер справи ${caseNumber} без суфікса відповідає кільком різним справам (${resolution.matches.map(m => m.cause_num).join(', ')}). Уточніть номер повністю.`
+          : `Документів не знайдено за номером справи: ${caseNumber} (перевірено варіації: ${caseVariations.join(', ')})`,
       });
     }
 
@@ -731,7 +755,12 @@ total_resolved_links=0 означає відсутність даних граф
     }
 
     const payload: any = {
-      case_number: caseNumber,
+      case_number: effectiveCaseNumber,
+      // Same rewrite metadata check_precedent_status emits, spelled the same way, so a
+      // client can detect a resolved suffix uniformly across both tools.
+      ...(resolution.resolved && resolution.resolved !== caseNumber
+        ? { resolved_case_number: resolution.resolved, requested_case_number: caseNumber }
+        : {}),
       total_documents: mappedDocs.length,
       documents: groupByInstance ? undefined : mappedDocs,
       grouped_documents: groupByInstance ? groupedDocs : undefined,
