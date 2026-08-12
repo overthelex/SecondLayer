@@ -27,6 +27,9 @@ export const V2_TOOL_NAMES = new Set<string>([
   'get_legislation_structure',
   'get_legislation_history',
   'list_legislation_editions',
+  // Повний корпус НПА (schema `npa`) — 293K актів / 439K редакцій, поза кураторськими ~655
+  'search_npa',
+  'get_npa_act',
   // Court decisions — ЄДРСР (9)
   'search_court_decisions',
   'get_court_decision',
