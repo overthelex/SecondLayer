@@ -22,7 +22,7 @@ import type { CitationGraphService } from '../../services/citation-graph-service
 import { SectionType } from '../../types/index.js';
 import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
-import { generateCaseNumberVariations, extractSnippets, resolveCauseNumber } from '../tool-utils.js';
+import { generateCaseNumberVariations, extractSnippets, resolveCauseNumber, edrsrPool } from '../tool-utils.js';
 
 export class CourtDecisionTools extends BaseToolHandler {
   constructor(
@@ -46,7 +46,7 @@ export class CourtDecisionTools extends BaseToolHandler {
    * to this.db — byte-identical to the previous behaviour.
    */
   private edrsrDb(): any {
-    return this.ftsService?.getDedicatedPool() ?? this.db;
+    return edrsrPool(this.ftsService, this.db);
   }
 
   /** True when reads are routed to the dedicated EDRSR pool (stage). */

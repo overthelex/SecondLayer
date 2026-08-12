@@ -28,7 +28,7 @@ import { HallucinationGuard } from '../services/hallucination-guard.js';
 import { logger } from '../utils/logger.js';
 import { LegislationTools } from './legislation-tools.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
-import { extractSourceStrings, generateCaseNumberVariations, resolveCauseNumber } from './tool-utils.js';
+import { extractSourceStrings, generateCaseNumberVariations, resolveCauseNumber, edrsrPool } from './tool-utils.js';
 import type { CitationGraphService } from '../services/citation-graph-service.js';
 import type { EdsrFtsService } from '../services/edrsr-fts-service.js';
 
@@ -68,13 +68,12 @@ export class MCPQueryAPI extends BaseToolHandler {
   }
 
   /**
-   * Pool holding edrsr_case_index. When EDRSR_DATABASE_URL is set the corpus lives in its
-   * own database, and looking a cause_num up in the main pool finds no such table — the
-   * resolver would fail closed and quietly stop rewriting case numbers in exactly the
-   * deployments that read EDRSR remotely. Mirrors CourtDecisionTools.edrsrDb().
+   * Pool holding edrsr_case_index — see edrsrPool. Looking a cause_num up in the main pool
+   * when the corpus is remote finds no such table, so the resolver would fail closed and
+   * quietly stop rewriting case numbers in exactly those deployments.
    */
   private edrsrDb(): any {
-    return this.ftsService?.getDedicatedPool() ?? this.db;
+    return edrsrPool(this.ftsService, this.db);
   }
 
   private async classifyIntentTool(args: any) {

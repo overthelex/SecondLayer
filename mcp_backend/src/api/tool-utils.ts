@@ -187,6 +187,15 @@ const CAUSE_NUM_SUFFIXES = [
 const HAS_SUFFIX_RE = /-[а-яіїєґА-ЯІЇЄҐ]+$/;
 
 /**
+ * A trailing "-token" the caller typed, where the token carries at least one letter in any
+ * alphabet. Broader than HAS_SUFFIX_RE on purpose: candidate generation only ever produces
+ * Cyrillic suffixes, but the guard against swapping one has to recognise a suffix we would
+ * never generate — a Latin or otherwise unmeasured tail is still the caller saying which
+ * case they mean. The letter requirement keeps numeric tails like "5-15" out of it.
+ */
+const ASKED_SUFFIX_RE = /-[^/\s-]*[A-Za-zА-Яа-яІіЇїЄєҐґ][^/\s-]*$/;
+
+/**
  * Case-number spellings worth probing against the corpus — the variations above, plus a
  * suffixed form of every unsuffixed one.
  *
@@ -210,6 +219,18 @@ export function generateCaseNumberCandidates(caseNumber: string): string[] {
     }
   }
   return Array.from(candidates);
+}
+
+/**
+ * Pool holding the EDRSR corpus tables (edrsr_documents / edrsr_fulltext / edrsr_case_index).
+ *
+ * When EDRSR_DATABASE_URL is set the corpus lives in its own database and EdsrFtsService
+ * opens a dedicated pool for it; otherwise it is co-located with the application data and
+ * the caller's own pool is right. Shared rather than copied per tool class, so the rule has
+ * one home and cannot drift between the tools that read the corpus.
+ */
+export function edrsrPool(ftsService: { getDedicatedPool(): any } | undefined, fallback: any): any {
+  return ftsService?.getDedicatedPool() ?? fallback;
 }
 
 export interface CauseNumberResolution {
@@ -250,7 +271,19 @@ export async function resolveCauseNumber(caseNumber: string, dbPool: any): Promi
         ORDER BY member_count DESC NULLS LAST`,
       [generateCaseNumberCandidates(input)],
     );
-    const matches = rows.map((r: any) => ({ cause_num: r.cause_num as string, member_count: Number(r.member_count) }));
+    const all = rows.map((r: any) => ({ cause_num: r.cause_num as string, member_count: Number(r.member_count) }));
+
+    // A suffix the caller typed is a statement about WHICH case they mean, so it may be
+    // completed but never swapped. Without this, "905/1234/20-XYZ" (a suffix outside the
+    // measured set, hence not in the corpus) would strip down to "905/1234/20", pick up the
+    // measured suffixes as candidates, and resolve to 905/1234/20-ц — a different real case
+    // answered as if it were the one asked about. Year expansion still works, because an
+    // expanded variant keeps the same suffix.
+    const askedSuffix = input.match(ASKED_SUFFIX_RE)?.[0] ?? null;
+    const matches = askedSuffix
+      ? all.filter((m: { cause_num: string }) => (m.cause_num.match(ASKED_SUFFIX_RE)?.[0] ?? null) === askedSuffix)
+      : all;
+
     if (matches.length === 0) return empty;
     if (matches.some((m: { cause_num: string }) => m.cause_num === input)) {
       return { resolved: input, matches, ambiguous: false };

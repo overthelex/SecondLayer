@@ -91,6 +91,30 @@ describe('resolveCauseNumber', () => {
     expect(res.matches.map((m) => m.cause_num)).toEqual(['123/456/20-ц', '123/456/20-а']);
   });
 
+  it('never swaps a suffix the caller actually typed for a different one', async () => {
+    // Regression guard. Widening the variations regex to accept multi-letter suffixes made
+    // it strip unmeasured ones too, so 905/1234/20-XYZ decayed to 905/1234/20, picked the
+    // measured suffixes up as candidates, and would have resolved to 905/1234/20-ц — a
+    // different real case answered as though it were the one asked about.
+    const db = makeDb([{ cause_num: '905/1234/20-ц', member_count: 30 }]);
+    const res = await resolveCauseNumber('905/1234/20-XYZ', db);
+
+    expect(res.resolved).toBeNull();
+    expect(res.ambiguous).toBe(false);
+
+    // Same rule for a measured suffix that simply does not exist: -а must not become -ц.
+    const db2 = makeDb([{ cause_num: '905/1234/20-ц', member_count: 30 }]);
+    expect((await resolveCauseNumber('905/1234/20-а', db2)).resolved).toBeNull();
+  });
+
+  it('still completes a missing suffix and honours year expansion within one suffix', async () => {
+    const db = makeDb([{ cause_num: '905/1234/2020-ад', member_count: 5 }]);
+    const res = await resolveCauseNumber('905/1234/20-ад', db);
+
+    // Same suffix, different year spelling — allowed, because the suffix is not being swapped.
+    expect(res.resolved).toBe('905/1234/2020-ад');
+  });
+
   it('resolves to nothing when the number matches no case at all', async () => {
     const res = await resolveCauseNumber('999/999/99', makeDb([]));
 
