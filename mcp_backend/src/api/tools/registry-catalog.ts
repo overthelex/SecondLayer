@@ -292,6 +292,50 @@ export const REGISTRY_CATALOG: Record<string, RegistryDef> = {
     ],
   },
 
+  law_firms: {
+    title: 'Юридичні фірми та адвокатські об’єднання',
+    description: 'Пошук юридичних фірм, адвокатських об’єднань і юридичних компаній (КВЕД 69.10 — діяльність у сфері права)\n\n10.7K записів. Пошук за назвою, ЄДРПОУ, email, сайтом.\nУВАГА: назви в реєстрі — у формі «НАЗВА, ОРГ-ФОРМА» (наприклад «ЕВЕРЛІҐАЛ, АДВОКАТСЬКЕ ОБ’ЄДНАННЯ»), тому шукати варто за коренем назви. Одна фірма може мати кілька юросіб з різними ЄДРПОУ.',
+    table: 'opendata_law_firms',
+    selectColumns: 'edrpou, name, email, phone, website, kved, source',
+    orderBy: 'name',
+    emptyMessage: 'Юридичних фірм не знайдено',
+    fields: [
+      { name: 'name', description: 'Назва фірми або адвокатського об’єднання', match: 'ilike', columns: ['name'] },
+      { name: 'edrpou', description: 'Код ЄДРПОУ', match: 'exact', columns: ['edrpou'] },
+      { name: 'email', description: 'Email', match: 'ilike', columns: ['email'] },
+      { name: 'website', description: 'Вебсайт', match: 'ilike', columns: ['website'] },
+    ],
+  },
+
+  bankruptcy_announcements: {
+    title: 'Оголошення про банкрутство та неплатоспроможність',
+    description: 'Пошук офіційних оголошень у справах про банкрутство/неплатоспроможність: відкриття провадження, санація, ліквідація, аукціони\n\n74.7K записів. Пошук за назвою або ЄДРПОУ боржника, номером справи, судом, типом оголошення.\nНЕ плутати з openreyestr_search_bankruptcy_cases — там картки справ з ЄДР, а тут стрічка публікацій. Поле case_number — це номер справи в ЄДРСР, за ним можна одразу підняти рішення через search_court_decisions.',
+    table: 'opendata_bankruptcy',
+    selectColumns: "case_num, publish_date, case_type, firm_edrpou, firm_name, case_number, court_name, start_date_auc, end_date_auc, end_registration_date",
+    orderBy: "to_date(NULLIF(publish_date, ''), 'DD.MM.YYYY') DESC NULLS LAST",
+    emptyMessage: 'Оголошень про банкрутство не знайдено',
+    fields: [
+      { name: 'firm_name', description: 'Назва боржника (юрособа або ПІБ ФОП/фізособи)', match: 'ilike', columns: ['firm_name'] },
+      { name: 'firm_edrpou', description: 'ЄДРПОУ або ІПН боржника', match: 'exact', columns: ['firm_edrpou'] },
+      { name: 'case_number', description: 'Номер судової справи (як у ЄДРСР)', match: 'exact', columns: ['case_number'] },
+      { name: 'court_name', description: 'Назва суду', match: 'ilike', columns: ['court_name'] },
+      { name: 'case_type', description: 'Тип оголошення (відкриття провадження, санація, ліквідація, аукціон)', match: 'ilike', columns: ['case_type'] },
+    ],
+  },
+
+  judge_candidates: {
+    title: 'Кандидати на посаду судді',
+    description: 'Пошук у рейтинговому списку кандидатів на посаду судді (ВККС)\n\n645 записів. Пошук за ПІБ; є місце в рейтингу, бали тестування й практичного завдання, дата затвердження та строк дії.',
+    table: 'opendata_judge_candidates',
+    selectColumns: 'rank_position, full_name, gender, test_score, practical_score, total_score, approval_date::text AS approval_date, expiry_date::text AS expiry_date',
+    orderBy: 'rank_position NULLS LAST',
+    emptyMessage: 'Кандидатів на посаду судді не знайдено',
+    fields: [
+      { name: 'full_name', description: 'ПІБ кандидата', match: 'ilike', columns: ['full_name'] },
+      { name: 'gender', description: 'Стать (Ч/Ж)', match: 'exact', columns: ['gender'] },
+    ],
+  },
+
   vrp_decisions: {
     title: 'Рішення ВРП',
     description: 'Пошук рішень Вищої ради правосуддя (ВРП)\n\n16.5K записів. Пошук за назвою, органом, номером рішення, датою.\nВключає голосування та тексти рішень.',
