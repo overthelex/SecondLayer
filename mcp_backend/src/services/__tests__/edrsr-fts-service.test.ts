@@ -224,10 +224,9 @@ describe('EdsrFtsService.countByParty', () => {
       expect(call.sql).toContain('ORDER BY f.doc_id DESC');
       expect(call.sql).toContain('LIMIT 25000');
     }
-    // ...and the ordering must appear ONLY on the older leg. Sorting the recent band is
-    // what made a 400k-document party unanswerable, so exactly one ORDER BY on doc_id.
+    // One ORDER BY per candidate leg — see the three-leg test for why each leg keeps it.
     for (const call of db.calls) {
-      expect(call.sql.match(/ORDER BY f\.doc_id DESC/g)).toHaveLength(1);
+      expect(call.sql.match(/ORDER BY f\.doc_id DESC/g)).toHaveLength(3);
     }
     // The sample must materialize the join too, or ORDER BY adjudication_date DESC
     // LIMIT n walks the date index probing for matches (111s measured).
@@ -272,26 +271,30 @@ describe('EdsrFtsService.countByParty', () => {
     expect(res.candidate_cap).toBe(25000);
   });
 
-  it('splits candidates into an unsorted recent band and an ordered older remainder', async () => {
+  it('takes candidates newest-year-first across three ordered legs', async () => {
     const svc = new EdsrFtsService();
     const db = makeDb();
     await svc.countByParty('ПРИВАТБАНК', undefined, db);
 
     const sql = db.calls[0].sql;
-    // The recent band carries the year predicate and no sort — that is the whole fix for
-    // a party matching hundreds of thousands of documents (>90s timeout -> 2.26s).
-    expect(sql).toContain('recent AS MATERIALIZED');
-    expect(sql).toContain('f.adj_year >=');
+    // Per-year legs are the whole fix: each prunes to one partition, so it sorts only that
+    // partition instead of the corpus (>90s timeout -> 2.41s for a 400k-document party).
+    expect(sql).toContain('r0 AS MATERIALIZED');
+    expect(sql).toContain('r1 AS MATERIALIZED');
     expect(sql).toContain('older AS MATERIALIZED');
-    expect(sql).toContain('f.adj_year <');
-    // The older leg's limit is whatever the recent band left unfilled, so a party that
-    // already reached the cap gets LIMIT 0 and Postgres skips the ordered scan entirely.
-    expect(sql).toContain('GREATEST(0, 25000 - (SELECT count(*) FROM recent))');
-    // Both legs feed one candidate set; the legs are disjoint so nothing is double counted.
-    expect(sql).toContain('SELECT doc_id FROM recent');
-    expect(sql).toContain('UNION ALL');
+    // Every leg stays ordered. Dropping the sort on the recent leg is faster still, but it
+    // returns physical heap order, so a capped party's "newest" decisions were whatever the
+    // scan hit first — measured as a sample topping out at 2025-12-31 while the corpus ran
+    // to 2026-07-13. Ordering every leg is what makes the union exactly the newest N.
+    expect(sql.match(/ORDER BY f\.doc_id DESC/g)).toHaveLength(3);
+    // Each later leg only takes what its predecessors left; at 0 Postgres skips the scan.
+    expect(sql).toContain('GREATEST(0, 25000 - (SELECT count(*) FROM r0))');
+    expect(sql).toContain('GREATEST(0, 25000 - (SELECT count(*) FROM r0) - (SELECT count(*) FROM r1))');
+    expect(sql).toContain('SELECT doc_id FROM r0');
+    expect(sql).toContain('SELECT doc_id FROM r1');
     expect(sql).toContain('SELECT doc_id FROM older');
-    // Split year is bound, never interpolated.
+    // Year boundaries are bound, never interpolated.
+    expect(db.calls[0].params).toContain(new Date().getFullYear());
     expect(db.calls[0].params).toContain(new Date().getFullYear() - 1);
   });
 

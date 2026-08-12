@@ -143,11 +143,11 @@ export interface PartyCaseCount {
 // the join doc_id index lookups in every case: 59.4s → 1.4s for the same rare name.
 //
 // The cap bounds the high-volume tail (НАФТОГАЗ matches 343,089 documents, ПРИВАТБАНК more
-// than 400,000, where even the materialized join runs into minutes). A truncated run sets
-// `capped` so a floor is never reported as an exact count. How the capped subset is chosen
-// differs by leg — see candCte: the ordered "newest first" rule holds for parties that fit
-// inside the cap, while a party that overflows it is answered from the recent year band
-// without a global sort, because the sort was the thing that made it unanswerable.
+// than 400,000, where even the materialized join runs into minutes). The capped subset is
+// always the NEWEST `cap` documents — candCte assembles it from per-year legs precisely so
+// that stays true without a corpus-wide sort. A truncated run sets `capped`, so a floor is
+// never reported as an exact count; note that by_court is then a distribution over those
+// newest documents, not over the party's whole history.
 //
 // The same cap is used for the sample path, and it must NOT be lowered "because the sample
 // only needs ten rows". Measured on prod, sample latency for the same rare name:
@@ -1069,57 +1069,70 @@ export class EdsrFtsService {
     const ftsWhere = ftsConditions.join(' AND ');
     const docWhere = docConditions.length ? `WHERE ${docConditions.join(' AND ')}` : '';
 
-    // Split point between the "recent" and "older" candidate legs (see candCte). Two years
-    // rather than one: a single-year band would be nearly empty each January, so a
-    // high-volume party would stop filling its cap from `recent` and fall back onto the
-    // expensive ordered leg for a few weeks a year.
-    const recentFromYear = new Date().getFullYear() - 1;
-    const splitParam = p; params.push(recentFromYear); p++;
+    // Year boundaries between the three candidate legs (see candCte). Two single-year legs
+    // ahead of the remainder, rather than one two-year band: each is pruned to a single
+    // partition, which is what keeps its sort cheap, and the second one carries a
+    // high-volume party through January, when the current-year partition is still too thin
+    // to fill the cap on its own.
+    const thisYear = new Date().getFullYear();
+    const y0Param = p; params.push(thisYear); p++;
+    const y1Param = p; params.push(thisYear - 1); p++;
 
-    // Candidates, in two disjoint legs. MATERIALIZED is load-bearing throughout: see
-    // PARTY_COUNT_CAND_CAP for why the un-materialized join collapses.
+    // Candidates, in three disjoint legs taken newest year first. MATERIALIZED is
+    // load-bearing throughout: see PARTY_COUNT_CAND_CAP for why the un-materialized join
+    // collapses.
     //
-    // `recent` deliberately has NO ORDER BY. Sorting is what made a high-volume party
-    // unanswerable: picking "the newest 25000" globally forces the GIN scan to read every
-    // match first, so ПРИВАТБАНК (400k+ documents) blew past 90s. The year band already
-    // guarantees recency, which is all the ordering was buying, so without it the bitmap
-    // scan simply stops once the cap is full — the same query drops to 2-4s.
+    // The problem this shape solves is that "the newest 25000" as ONE global top-N forces
+    // the GIN scan to read every match before it can answer, so a party with hundreds of
+    // thousands of documents was unanswerable: ПРИВАТБАНК (400k+) ran past 90s and blew
+    // the 60s tool timeout. Splitting by year fixes it without giving up the ordering,
+    // because each leg is pruned to a single partition and sorts only that partition:
+    // `r0` alone satisfies a high-volume party and the rest are skipped.
     //
-    // `older` keeps ORDER BY, because it genuinely has to pick the newest of what remains,
-    // and its LIMIT is whatever `recent` left unfilled. When `recent` already reached the
-    // cap that expression is 0 and Postgres skips the leg without scanning, so a
-    // high-volume party never pays for the ordered path at all. The legs are disjoint, so
-    // for everyone else the total work is the same rows as a single scan, split in two.
+    // Every leg after the first is limited to whatever its predecessors left unfilled.
+    // When the cap is already full that expression is 0 and Postgres returns from the leg
+    // without scanning it, which is what makes the skip free. Because the legs are
+    // disjoint and consumed in descending year order, the union is EXACTLY the newest
+    // `cap` documents — the same answer a global ORDER BY would give, assembled from
+    // partition-local sorts instead of one corpus-wide one.
     //
-    // Cost of the split, measured on prod, paired and cache-fair: a rare name pays one
-    // extra band scan (ЕВЕРЛІҐАЛ 1.18s -> 1.63s) and a mid-volume one pays nothing
-    // (ЛУЇ ДРЕЙФУС 0.26s both ways). That buys ПРИВАТБАНК going from a hard timeout —
-    // which the model then relayed as a confident wrong count — to 2.26s.
+    // Measured on prod, paired and cache-fair. High-volume parties become answerable:
+    // ПРИВАТБАНК >90s timeout -> 2.41s count / 2.72s sample, НАФТОГАЗ 50.5s -> 2.50s, and
+    // both sample the true corpus maximum (2026-07-13). The price is one extra leg scan
+    // for a rare name (ЕВЕРЛІҐАЛ 1.18s -> 1.66s) and nothing for a mid-volume one
+    // (ЛУЇ ДРЕЙФУС 0.26s either way).
     //
-    // Consequence to keep in mind for the sample: a party that fills its cap from `recent`
-    // is answered from that band in partition order, so its newest returned decision is
-    // the newest of the FIRST year in the band, not of the corpus (ПРИВАТБАНК sampled
-    // 2025-12-31 while a sub-cap party sampled 2026-07-06). Only capped parties are
-    // affected — anything under the cap still comes back strictly newest-first through the
-    // ordered leg — and `capped` plus its note tell the caller the subset is recent-years,
-    // not latest. Narrowing the band to one year would restore exact recency but reopens
-    // the timeout every January, when that partition is too thin to fill the cap.
+    // Two single-year legs rather than one two-year band, for two independent reasons.
+    // Cost: ordering a two-year band costs 44s cold for ПРИВАТБАНК versus 2.4s for a
+    // single year. Calendar: a lone current-year leg is too thin every January to fill the
+    // cap, which would drop high-volume parties back onto the corpus-wide ordered leg for
+    // weeks — verified by running the split a year ahead (2.44s, still fine).
     const candCte = (cap: number) => `
-        recent AS MATERIALIZED (
+        r0 AS MATERIALIZED (
           SELECT f.doc_id
           FROM edrsr_fulltext f
-          WHERE ${ftsWhere} AND f.adj_year >= $${splitParam}
+          WHERE ${ftsWhere} AND f.adj_year >= $${y0Param}
+          ORDER BY f.doc_id DESC
           LIMIT ${cap}
+        ),
+        r1 AS MATERIALIZED (
+          SELECT f.doc_id
+          FROM edrsr_fulltext f
+          WHERE ${ftsWhere} AND f.adj_year >= $${y1Param} AND f.adj_year < $${y0Param}
+          ORDER BY f.doc_id DESC
+          LIMIT GREATEST(0, ${cap} - (SELECT count(*) FROM r0))
         ),
         older AS MATERIALIZED (
           SELECT f.doc_id
           FROM edrsr_fulltext f
-          WHERE ${ftsWhere} AND f.adj_year < $${splitParam}
+          WHERE ${ftsWhere} AND f.adj_year < $${y1Param}
           ORDER BY f.doc_id DESC
-          LIMIT GREATEST(0, ${cap} - (SELECT count(*) FROM recent))
+          LIMIT GREATEST(0, ${cap} - (SELECT count(*) FROM r0) - (SELECT count(*) FROM r1))
         ),
         cand AS MATERIALIZED (
-          SELECT doc_id FROM recent
+          SELECT doc_id FROM r0
+          UNION ALL
+          SELECT doc_id FROM r1
           UNION ALL
           SELECT doc_id FROM older
         )`;
