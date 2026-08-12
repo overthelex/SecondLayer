@@ -273,8 +273,11 @@ export function generateCaseNumberVariations(caseNumber: string): string[] {
   const variations = new Set<string>();
   variations.add(caseNumber);
 
-  // Standard format: 123/456/22-ц
-  const match = caseNumber.match(/^(\d+\/\d+\/)(\d{2,4})(-[а-яіїєґА-ЯІЇЄҐ])?$/);
+  // Standard format: 123/456/22-ц. The suffix group is `+`, not a single character: the
+  // corpus carries multi-letter ones too (ад, НМ, НА, НР, АП — see CAUSE_NUM_SUFFIXES), and
+  // with a single-character group the whole regex missed them, so those numbers got no
+  // year expansion at all.
+  const match = caseNumber.match(/^(\d+\/\d+\/)(\d{2,4})(-[а-яіїєґА-ЯІЇЄҐ]+)?$/);
   if (match) {
     const prefix = match[1];
     const year = match[2];

@@ -756,8 +756,10 @@ total_resolved_links=0 означає відсутність даних граф
 
     const payload: any = {
       case_number: effectiveCaseNumber,
+      // Same rewrite metadata check_precedent_status emits, spelled the same way, so a
+      // client can detect a resolved suffix uniformly across both tools.
       ...(resolution.resolved && resolution.resolved !== caseNumber
-        ? { requested_case_number: caseNumber }
+        ? { resolved_case_number: resolution.resolved, requested_case_number: caseNumber }
         : {}),
       total_documents: mappedDocs.length,
       documents: groupByInstance ? undefined : mappedDocs,

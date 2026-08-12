@@ -30,6 +30,7 @@ import { LegislationTools } from './legislation-tools.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
 import { extractSourceStrings, generateCaseNumberVariations, resolveCauseNumber } from './tool-utils.js';
 import type { CitationGraphService } from '../services/citation-graph-service.js';
+import type { EdsrFtsService } from '../services/edrsr-fts-service.js';
 
 export type StreamEventCallback = (event: {
   type: string;
@@ -54,6 +55,26 @@ export class MCPQueryAPI extends BaseToolHandler {
     private db?: any
   ) {
     super();
+  }
+
+  /**
+   * EDRSR corpus pool, injected after construction because EdsrFtsService is built in the
+   * tool-services factory, one layer above this one.
+   */
+  private ftsService?: EdsrFtsService;
+
+  setEdsrFtsService(ftsService: EdsrFtsService): void {
+    this.ftsService = ftsService;
+  }
+
+  /**
+   * Pool holding edrsr_case_index. When EDRSR_DATABASE_URL is set the corpus lives in its
+   * own database, and looking a cause_num up in the main pool finds no such table — the
+   * resolver would fail closed and quietly stop rewriting case numbers in exactly the
+   * deployments that read EDRSR remotely. Mirrors CourtDecisionTools.edrsrDb().
+   */
+  private edrsrDb(): any {
+    return this.ftsService?.getDedicatedPool() ?? this.db;
   }
 
   private async classifyIntentTool(args: any) {
@@ -246,7 +267,7 @@ export class MCPQueryAPI extends BaseToolHandler {
     let effectiveCaseNumber = caseNumber;
     let resolution: Awaited<ReturnType<typeof resolveCauseNumber>> | undefined;
     if (caseNumber) {
-      resolution = await resolveCauseNumber(caseNumber, this.db);
+      resolution = await resolveCauseNumber(caseNumber, this.edrsrDb());
       if (resolution.resolved) effectiveCaseNumber = resolution.resolved;
     }
 

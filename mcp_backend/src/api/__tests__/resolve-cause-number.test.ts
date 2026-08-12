@@ -32,6 +32,15 @@ describe('generateCaseNumberCandidates', () => {
     expect(candidates).toContain('369/6892/2015-ц');  // combined with year expansion
   });
 
+  it('expands the year for multi-letter suffixes too', () => {
+    // The variations regex used to match a single suffix character, so ад/НМ/НА/НР/АП
+    // failed the pattern outright and got no year expansion at all.
+    const candidates = generateCaseNumberCandidates('905/1234/20-ад');
+
+    expect(candidates).toContain('905/1234/20-ад');
+    expect(candidates).toContain('905/1234/2020-ад');
+  });
+
   it('does not pile suffixes onto a number that already has one', () => {
     const candidates = generateCaseNumberCandidates('369/6892/15-ц');
 
