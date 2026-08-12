@@ -23,6 +23,18 @@ import { SectionType } from '../../types/index.js';
 
 /** Preview kept on get_court_decision when the same text is already returned as sections. */
 const FULL_TEXT_PREVIEW_CHARS = 2000;
+
+/**
+ * Per-section ceiling for get_court_decision.
+ *
+ * The sectionizer does not always segment: on doc 117473073 it returned ONE section of type
+ * HEADER holding all 138,139 characters, so `depth` could not bound anything — asking for a
+ * single section still returned the whole decision. Even after dropping the duplicated
+ * full_text the response was 143K characters and still exceeded an MCP client's token limit.
+ * Bounding each section keeps the response transportable whatever the sectionizer returns;
+ * continuous text is available through load_full_texts.
+ */
+const SECTION_TEXT_CAP = 40000;
 import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { generateCaseNumberVariations, extractSnippets, resolveCauseNumber, edrsrPool } from '../tool-utils.js';
@@ -505,10 +517,17 @@ total_resolved_links=0 означає відсутність даних граф
       ? extractedSections
           .filter((s: any) => s && typeof s.text === 'string')
           .slice(0, 10)
-          .map((s: any) => ({
-            type: s.type,
-            text: s.text,
-          }))
+          .map((s: any) => {
+            const text: string = s.text;
+            return text.length > SECTION_TEXT_CAP
+              ? {
+                  type: s.type,
+                  text: text.slice(0, SECTION_TEXT_CAP),
+                  text_truncated: true,
+                  text_length: text.length,
+                }
+              : { type: s.type, text };
+          })
       : [];
 
     const payload: any = {
