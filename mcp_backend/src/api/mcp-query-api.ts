@@ -28,7 +28,7 @@ import { HallucinationGuard } from '../services/hallucination-guard.js';
 import { logger } from '../utils/logger.js';
 import { LegislationTools } from './legislation-tools.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from './base-tool-handler.js';
-import { extractSourceStrings, generateCaseNumberVariations } from './tool-utils.js';
+import { extractSourceStrings, generateCaseNumberVariations, resolveCauseNumber } from './tool-utils.js';
 import type { CitationGraphService } from '../services/citation-graph-service.js';
 
 export type StreamEventCallback = (event: {
@@ -47,7 +47,11 @@ export class MCPQueryAPI extends BaseToolHandler {
     private citationValidator: CitationValidator,
     private hallucinationGuard: HallucinationGuard,
     private legislationTools: LegislationTools,
-    private citationGraphService?: CitationGraphService
+    private citationGraphService?: CitationGraphService,
+    // Used only to resolve a case number to the spelling EDRSR actually stores
+    // (see resolveCauseNumber). Optional so existing call sites keep working; without it
+    // the number is passed through exactly as supplied, which is the old behaviour.
+    private db?: any
   ) {
     super();
   }
@@ -233,7 +237,23 @@ export class MCPQueryAPI extends BaseToolHandler {
     // A ЄДРСР doc_id is all-digits; case numbers contain slashes (e.g. 922/989/18).
     const docId = args.doc_id || (/^\d+$/.test(String(caseId)) ? String(caseId) : '');
 
-    const status = await this.citationValidator.validatePrecedentStatus(caseId, caseNumber || undefined);
+    // Resolve the case number to the spelling EDRSR stores before anything queries with it.
+    // The chat model drops the procedural suffix on the way in — it asked about
+    // 369/6892/15-ц and called this tool with 369/6892/15 — and the bare number matches
+    // nothing, so shepardization came back `unknown` (0.5) instead of explicitly_overruled
+    // (0.95) and the answer read "справу не знайдено в ЄДРСР". A wrong-but-confident
+    // negative on the one question this tool exists to answer.
+    let effectiveCaseNumber = caseNumber;
+    let resolution: Awaited<ReturnType<typeof resolveCauseNumber>> | undefined;
+    if (caseNumber) {
+      resolution = await resolveCauseNumber(caseNumber, this.db);
+      if (resolution.resolved) effectiveCaseNumber = resolution.resolved;
+    }
+
+    const status = await this.citationValidator.validatePrecedentStatus(
+      caseId,
+      effectiveCaseNumber || undefined,
+    );
 
     // Best-effort precedent-weight signal from the decision↔case graph (Neo4j,
     // LEXAI-1777): how many decisions cite this case. Gated by CITATION_BACKEND=neo4j;
@@ -241,7 +261,9 @@ export class MCPQueryAPI extends BaseToolHandler {
     let citationGraph: any = undefined;
     if (this.citationGraphService?.isEnabled() && caseNumber) {
       try {
-        const variations = generateCaseNumberVariations(caseNumber);
+        // Resolved spelling, so the graph lookup and the shepardization above agree on
+        // which case they are talking about.
+        const variations = generateCaseNumberVariations(effectiveCaseNumber);
         const stat = await this.citationGraphService.getCaseStats(variations);
         if (stat && (stat.citingDecisions > 0 || stat.departedByDecision)) {
           citationGraph = {
@@ -336,7 +358,25 @@ export class MCPQueryAPI extends BaseToolHandler {
         {
           type: 'text',
           text: JSON.stringify(
-            { status: effectiveStatus, ...(citationGraph ? { citation_graph: citationGraph } : {}) },
+            {
+              status: effectiveStatus,
+              // Surface the rewrite so a caller reading the answer can see which case was
+              // actually checked, and so an ambiguous base number is never answered by a
+              // guess — the client is told which spellings exist and asked to pick.
+              ...(resolution?.resolved && resolution.resolved !== caseNumber
+                ? { resolved_case_number: resolution.resolved, requested_case_number: caseNumber }
+                : {}),
+              ...(resolution?.ambiguous
+                ? {
+                    ambiguous_case_number: {
+                      requested: caseNumber,
+                      candidates: resolution.matches.map((m) => m.cause_num),
+                      note: 'Номер справи без суфікса відповідає кільком різним справам. Уточніть номер повністю (наприклад, з -ц або -а) — статус нижче стосується саме введеного номера і може бути неповним.',
+                    },
+                  }
+                : {}),
+              ...(citationGraph ? { citation_graph: citationGraph } : {}),
+            },
             null,
             2
           ),
