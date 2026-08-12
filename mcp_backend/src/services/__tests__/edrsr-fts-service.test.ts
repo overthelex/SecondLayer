@@ -194,6 +194,114 @@ describe('EdsrFtsService.countByParty', () => {
     expect(res.sample).toHaveLength(1);
     expect(res.sample![0].doc_id).toBe(5);
   });
+
+  /**
+   * Plan-shape guards. Each of these three details was measured on prod and each one,
+   * on its own, is the difference between ~1s and a tool timeout — none of them is
+   * visible from the result, so a refactor can drop one and only production notices.
+   */
+  it('resolves candidates in a MATERIALIZED CTE before joining edrsr_documents', async () => {
+    const svc = new EdsrFtsService();
+    const db = makeDb();
+    await svc.countByParty('ЕВЕРЛІҐАЛ', undefined, db);
+
+    const sql = db.calls[0].sql;
+    // Without MATERIALIZED the planner hash-joins a full seq scan of all 136M
+    // edrsr_documents rows (59.4s measured) instead of doing doc_id index lookups.
+    expect(sql).toContain('cand AS MATERIALIZED');
+    expect(sql).toContain('JOIN edrsr_documents d ON d.doc_id = cand.doc_id');
+  });
+
+  it('caps candidates at 25000 — a smaller cap flips the planner off the GIN scan', async () => {
+    const svc = new EdsrFtsService();
+    const db = makeDb();
+    await svc.countByParty('ЕВЕРЛІҐАЛ', undefined, db, {}, 10);
+
+    // Counter-intuitive but measured: ORDER BY doc_id DESC with LIMIT 2000 or 5000
+    // times out (>90s) where LIMIT 25000 returns in ~1.5s, because the small limit
+    // tempts the planner into walking idx_ef_p_*_docid backwards. Both paths use it.
+    for (const call of db.calls) {
+      expect(call.sql).toContain('ORDER BY f.doc_id DESC');
+      expect(call.sql).toContain('LIMIT 25000');
+    }
+    // The sample must materialize the join too, or ORDER BY adjudication_date DESC
+    // LIMIT n walks the date index probing for matches (111s measured).
+    expect(db.calls[1].sql).toContain('joined AS MATERIALIZED');
+  });
+
+  it('pushes the requested period into the CTE as an adj_year band', async () => {
+    const svc = new EdsrFtsService();
+    const db = makeDb();
+    await svc.countByParty('НАФТОГАЗ', undefined, db, { date_from: '2024-01-01', date_to: '2026-12-31' });
+
+    // With both bounds set, countByPartyFast probes edrsr_parties_coverage first, so the
+    // count is not necessarily calls[0] — pick it by shape.
+    const countCall = db.calls.find((c: any) => c.sql.includes('cand AS MATERIALIZED'));
+    if (!countCall) throw new Error('no candidate-CTE query was issued');
+    const sql = countCall.sql;
+    const params = countCall.params;
+    // edrsr_fulltext is LIST-partitioned by adj_year, so this prunes the GIN scan
+    // itself (50.5s → 1.2s). Filtering only on d.adjudication_date after the join
+    // leaves the scan just as wide, which made "narrow the period" useless advice.
+    expect(sql).toContain('f.adj_year >=');
+    expect(sql).toContain('f.adj_year <=');
+    // Band widened by a year on each side; exact bounds are still enforced on d.
+    expect(params).toContain(2023);
+    expect(params).toContain(2027);
+    expect(sql).toContain('d.adjudication_date >=');
+    expect(sql).toContain('d.adjudication_date <=');
+  });
+
+  it('flags a truncated count as capped instead of reporting a floor as exact', async () => {
+    const svc = new EdsrFtsService();
+    const db = {
+      calls: [] as any[],
+      query: jest.fn((sql: string, params: any[]) => {
+        (db as any).calls.push({ sql, params });
+        return Promise.resolve({ rows: [{ candidates: 25000, court_code: 1, n: 25000 }] });
+      }),
+    };
+    const res = await svc.countByParty('ПРИВАТБАНК', undefined, db);
+
+    expect(res.capped).toBe(true);
+    expect(res.candidate_cap).toBe(25000);
+  });
+
+  it('still reports capped when doc-side filters drop every candidate', async () => {
+    // A doc-side filter with no CTE counterpart (justice_kind) can eliminate all of the
+    // newest candidates, leaving `agg` empty. The candidate count has to survive that,
+    // or the caller gets total 0 presented as exact while older matches exist.
+    const svc = new EdsrFtsService();
+    const db = {
+      calls: [] as any[],
+      query: jest.fn((sql: string, params: any[]) => {
+        (db as any).calls.push({ sql, params });
+        // LEFT JOIN against an empty agg: one row, candidates set, court_code null.
+        return Promise.resolve({ rows: [{ candidates: 25000, court_code: null, n: null }] });
+      }),
+    };
+    const res = await svc.countByParty('ПРИВАТБАНК', undefined, db, { justice_kind: 1 });
+
+    expect(res.by_court).toHaveLength(0);   // the synthetic row is not a court
+    expect(res.total).toBe(0);
+    expect(res.capped).toBe(true);          // ...but never an *exact* zero
+    expect(res.candidate_cap).toBe(25000);
+  });
+
+  it('leaves capped unset when the party fits under the cap', async () => {
+    const svc = new EdsrFtsService();
+    const db = {
+      calls: [] as any[],
+      query: jest.fn((sql: string, params: any[]) => {
+        (db as any).calls.push({ sql, params });
+        return Promise.resolve({ rows: [{ candidates: 684, court_code: 1, n: 684 }] });
+      }),
+    };
+    const res = await svc.countByParty('ЕВЕРЛІҐАЛ', undefined, db);
+
+    expect(res.capped).toBeUndefined();
+    expect(res.total).toBe(684);
+  });
 });
 
 describe('EdsrFtsService dedicated EDRSR pool', () => {
