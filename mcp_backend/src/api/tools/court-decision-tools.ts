@@ -1158,7 +1158,7 @@ total_resolved_links=0 означає відсутність даних граф
         // Never let a truncated aggregate read as an exact count.
         result.capped = true;
         result.candidate_cap = counts.candidate_cap;
-        result.note += ` УВАГА: сторона має більше документів, ніж ліміт вибірки (${counts.candidate_cap}). total_cases — це НИЖНЯ МЕЖА за найновішими документами, а не точна кількість. Щоб отримати точний підрахунок, повторіть запит із date_from/date_to за коротший період (рік або два) — період звужує сам пошук, а не лише фільтрує результат.`;
+        result.note += ` УВАГА: сторона має більше документів, ніж ліміт вибірки (${counts.candidate_cap}). total_cases, courts_count і розподіл by_court пораховані ЛИШЕ за найновішими ${counts.candidate_cap} документами — це НИЖНІ МЕЖІ, а не точні значення; не подавайте жодне з них як остаточну цифру. Щоб отримати точний підрахунок, повторіть запит із date_from/date_to за коротший період (рік або два) — період звужує сам пошук, а не лише фільтрує результат.`;
       }
       if (args.date_from) result.date_from = args.date_from;
       if (args.date_to) result.date_to = args.date_to;

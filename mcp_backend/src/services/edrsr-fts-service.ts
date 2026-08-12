@@ -1085,13 +1085,28 @@ export class EdsrFtsService {
           ${docWhere}
           GROUP BY d.court_code
         )
-        SELECT (SELECT count(*) FROM cand)::int AS candidates, court_code, n
-        FROM agg
-        ORDER BY n DESC`;
+        SELECT c.candidates, a.court_code, a.n
+        FROM (SELECT count(*)::int AS candidates FROM cand) c
+        LEFT JOIN agg a ON TRUE
+        ORDER BY a.n DESC NULLS LAST`;
       const countResult = await dbPool.query(countSql, params);
-      const by_court = countResult.rows.map((r: any) => ({ court_code: r.court_code, count: r.n }));
+      // LEFT JOIN, not `FROM agg`: the candidate count must survive an empty aggregate.
+      // A doc-side filter with no CTE counterpart (justice_kind) can drop every one of the
+      // newest candidates, and `FROM agg` would then return zero rows — losing `candidates`
+      // with them, so a capped search reported total 0 as an exact answer while older
+      // matching documents existed. That is the precise failure this method exists to stop.
+      // The synthetic row carries a null court_code and is dropped below.
+      const by_court = countResult.rows
+        .filter((r: any) => r.court_code !== null && r.court_code !== undefined)
+        .map((r: any) => ({ court_code: r.court_code, count: r.n }));
       const total = by_court.reduce((s: number, r: any) => s + r.count, 0);
       const candidates = Number(countResult.rows[0]?.candidates ?? 0);
+      // `cand` is LIMIT-ed to the cap, so count(*) over it tops out AT the cap and this is
+      // effectively `=== cap`. A party matching exactly PARTY_COUNT_CAND_CAP documents is
+      // therefore flagged capped even though its count is complete. Accepted: reading
+      // `LIMIT cap + 1` to disambiguate would perturb a planner-verified constant for one
+      // exact value, and the mislabel errs toward warning when it need not — never toward
+      // presenting a truncated count as exact, which is the direction that matters.
       const capped = candidates >= PARTY_COUNT_CAND_CAP;
 
       let sample: PartyCaseCount['sample'];

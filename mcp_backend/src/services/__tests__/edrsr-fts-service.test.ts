@@ -267,6 +267,27 @@ describe('EdsrFtsService.countByParty', () => {
     expect(res.candidate_cap).toBe(25000);
   });
 
+  it('still reports capped when doc-side filters drop every candidate', async () => {
+    // A doc-side filter with no CTE counterpart (justice_kind) can eliminate all of the
+    // newest candidates, leaving `agg` empty. The candidate count has to survive that,
+    // or the caller gets total 0 presented as exact while older matches exist.
+    const svc = new EdsrFtsService();
+    const db = {
+      calls: [] as any[],
+      query: jest.fn((sql: string, params: any[]) => {
+        (db as any).calls.push({ sql, params });
+        // LEFT JOIN against an empty agg: one row, candidates set, court_code null.
+        return Promise.resolve({ rows: [{ candidates: 25000, court_code: null, n: null }] });
+      }),
+    };
+    const res = await svc.countByParty('ПРИВАТБАНК', undefined, db, { justice_kind: 1 });
+
+    expect(res.by_court).toHaveLength(0);   // the synthetic row is not a court
+    expect(res.total).toBe(0);
+    expect(res.capped).toBe(true);          // ...but never an *exact* zero
+    expect(res.candidate_cap).toBe(25000);
+  });
+
   it('leaves capped unset when the party fits under the cap', async () => {
     const svc = new EdsrFtsService();
     const db = {
