@@ -11,15 +11,26 @@
 --     psql -U secondlayer -d secondlayer_prod -v ON_ERROR_STOP=1" \
 --     < scripts/legislation/full-corpus/backfill_act_numbers.sql
 --
--- Idempotent: truncates and rebuilds. Safe to re-run.
+-- Idempotent: rebuilds inside one transaction. Safe to re-run.
+--
+-- It deliberately does NOT use TRUNCATE, which takes ACCESS EXCLUSIVE for the
+-- whole transaction and would block every resolver lookup for the entire
+-- ~630K-row rebuild once the resolver is live. DELETE takes only ROW
+-- EXCLUSIVE, so readers keep serving the previous generation from their own
+-- MVCC snapshot and see the new one atomically at COMMIT. The dead rows are
+-- reclaimed by the VACUUM at the end.
+--
+-- Reading npa.act inside that same transaction also gives the build a single
+-- consistent snapshot, so an act ingested mid-run cannot land with a partial
+-- set of aliases: it is either wholly in this rebuild or wholly in the next.
 
 \set ON_ERROR_STOP on
 SET statement_timeout = '1800s';
 
 BEGIN;
 
-TRUNCATE npa.act_number;
-TRUNCATE npa.act_number_residual;
+DELETE FROM npa.act_number;
+DELETE FROM npa.act_number_residual;
 
 -- ---------------------------------------------------------------------------
 -- 1. Every act gets its own nreg as an alias, without exception, so the
@@ -149,11 +160,16 @@ ON CONFLICT DO NOTHING;
 --
 --    LLMs and users retype «254к/96-вр» as «254k/96-bp» (в reads as B, р as P)
 --    -- the two-entry hardcode in legislation-service.ts existed for exactly
---    this. It is applied ONLY here and never to the bare -п / -р suffixes:
---    visual р->p would collide with transliterated п->p and merge
---    154-2022-п with 154-2022-р, which are different acts.
+--    this. So the map here is VISUAL: р->p, not the transliterated р->r that
+--    npa.norm_number applies. An earlier revision used r and produced
+--    «254k/96-br», an alias that could never match the «254k/96-bp» it exists
+--    to catch -- a dead row that looked like coverage.
+--
+--    It stays restricted to this family and is never applied to the bare
+--    -п / -р suffixes: there, visual р->p would collide with transliterated
+--    п->p and merge 154-2022-п with 154-2022-р, which are different acts.
 INSERT INTO npa.act_number (alias_norm, nreg, alias_raw, kind, is_primary, confidence, source)
-SELECT npa.norm_number(translate(nreg, 'вргкансмтоеіп', 'brgkahcmtoein')), nreg, nreg,
+SELECT npa.norm_number(translate(nreg, 'вргкансмтоеіп', 'bpgkahcmtoein')), nreg, nreg,
        'homoglyph', false, 0.95, 'derived:visual'
 FROM npa.act WHERE nreg ~ '^[0-9]+[а-яіїєґ]?/[0-9]{2,4}-(вр|рп|рб)$'
 ON CONFLICT DO NOTHING;
@@ -169,7 +185,10 @@ SELECT npa.norm_number(core), nreg, core, 'core_only', false,
 FROM (
   SELECT nreg, split_part(nreg, '-', 1) AS core,
          count(*) OVER (PARTITION BY split_part(nreg, '-', 1)) AS cnt
-  FROM npa.act WHERE nreg ~ '^[0-9]+[а-яіїєґ]?-(0[1-9]|1[0-2]|1[4-9]|20)$'
+  FROM npa.act
+  WHERE nreg ~ '^[0-9]+[а-яіїєґ]?-(0[1-9]|1[0-2]|1[4-9]|20)$'
+    -- same exclusion as step 2: «80731»/«80732» are not numbers anyone cites
+    AND nreg NOT IN ('80731-10', '80732-10')
 ) s
 ON CONFLICT DO NOTHING;
 
@@ -181,6 +200,20 @@ INSERT INTO npa.act_number (alias_norm, nreg, alias_raw, kind, is_primary, confi
 SELECT npa.norm_number('8073-X'), nreg, '8073-X', 'official', true, 1.0, 'manual:kupap-split'
 FROM npa.act WHERE nreg IN ('80731-10', '80732-10')
 ON CONFLICT DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- 11b. core_only confidence, computed once over the finished table.
+--
+--      Doing this inline was wrong: the КМУ step partitioned by (core, -п/-р)
+--      while the alias it stores is the core ALONE, so a number issued once as
+--      a постанова and once as a розпорядження scored 1.0 twice even though
+--      the alias resolves to both. Confidence is a property of the alias, so
+--      it is derived from the alias.
+UPDATE npa.act_number n
+   SET confidence = GREATEST(1.0 / c.cnt, 0.01)
+  FROM (SELECT alias_norm, count(*) AS cnt
+          FROM npa.act_number WHERE kind = 'core_only' GROUP BY 1) c
+ WHERE n.kind = 'core_only' AND n.alias_norm = c.alias_norm;
 
 -- ---------------------------------------------------------------------------
 -- 12. Residue: any act that got nothing but its own nreg row and is not one of
@@ -200,7 +233,7 @@ ON CONFLICT DO NOTHING;
 
 COMMIT;
 
-ANALYZE npa.act_number;
+VACUUM (ANALYZE) npa.act_number;
 
 -- ===========================================================================
 -- GATES. Every one lists rows, never just a count: this project has been

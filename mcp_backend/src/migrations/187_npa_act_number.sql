@@ -53,26 +53,31 @@ AS $fn$
     -- 2993є-12 and 2993й-12 with 2993і-12 and 2993ї-12 -- five distinct acts
     -- whose letter index is the only thing telling them apart.
     --
-    -- Every remaining many-to-one case is handled here too, even though none
-    -- of ш щ ю я ґ ь currently appears in any nreg: ш/щ both to "w", ю/у both
-    -- to "u", я/а both to "a", г/ґ both to "g", and ь dropped outright so that
-    -- «2993ь» collapsed onto «2993». Those are latent traps, not live bugs,
-    -- and they cost nothing to close.
+    -- The fold covers exactly the 23 Cyrillic letters that actually occur in
+    -- an nreg -- а б в г д е ж з и і ї й к л м н о п р с т у є, plus х and ф
+    -- for the Roman numerals -- and every OTHER letter passes through
+    -- untouched. Passing through is what keeps the fold safe: an unmapped
+    -- letter cannot collide with anything, whereas inventing a token for it
+    -- can. An earlier revision mapped ь to "q" and ц to "ts", which collided
+    -- with the Latin q that really does occur in 12 nregs (997_q01 …) and
+    -- with the sequence т+с respectively.
     --
-    -- "h" is deliberately never emitted by the 1:1 table below, so the digraphs
-    -- zh/sh/ch/shch/gh cannot be forged by any pair of single letters.
+    -- This is a deliberately many-to-one map -- making «2262-XII» and
+    -- «2262-ХІІ» meet is the entire point -- so the guarantee to hold is not
+    -- abstract injectivity but that no two DISTINCT STORED aliases collide.
+    -- Gate 5 in backfill_act_numbers.sql measures exactly that.
+    --
+    -- "h" is never emitted by the 1:1 table, so zh/yi/ye cannot be forged by
+    -- any pair of mapped letters.
     SELECT translate(
-             replace(replace(replace(replace(replace(replace(replace(
-             replace(replace(replace(replace(
+             replace(replace(replace(
                lower(
                  regexp_replace(
                    normalize(regexp_replace(raw, '№', '', 'g'), NFKC),
                    '[[:space:]]', '', 'g'
                  )
                ),
-             'щ', 'shch'), 'ш', 'sh'), 'ч', 'ch'), 'ж', 'zh'),
-             'ц', 'ts'), 'є', 'ye'), 'ї', 'yi'), 'ю', 'yu'),
-             'я', 'ya'), 'ґ', 'gh'), 'ь', 'q'),
+             'ж', 'zh'), 'ї', 'yi'), 'є', 'ye'),
              'абвгдезиійклмнопрстуфх',
              'abvgdezyijklmnoprstufx'
            ) AS v
