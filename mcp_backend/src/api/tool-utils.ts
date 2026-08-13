@@ -13,6 +13,38 @@ import axios from 'axios';
 
 // ========================= Pure Functions =========================
 
+const KYIV_DATE = new Intl.DateTimeFormat('sv-SE', {
+  timeZone: 'Europe/Kyiv',
+  year: 'numeric',
+  month: '2-digit',
+  day: '2-digit',
+});
+
+/**
+ * Render an EDRSR date as the calendar date the court actually stamped on the act.
+ *
+ * `adjudication_date` is a timestamptz holding Kyiv midnight, so a decision of
+ * 23.04.2026 is the instant 2026-04-22T21:00:00Z. Serialised straight to JSON it
+ * reaches the model as that UTC string, and every consumer reading the UTC
+ * calendar day is one day early — a report on 907/665/18 dated all six cited
+ * decisions to the day before the documents themselves (2026-08-13).
+ *
+ * Emitting `YYYY-MM-DD` in Kyiv removes the ambiguity instead of moving it:
+ * there is no time-of-day left to reinterpret downstream. Values that are
+ * already date-only pass through untouched, and anything unparseable is left
+ * exactly as it came rather than silently becoming a wrong date.
+ */
+export function formatCourtDate(value: unknown): string | undefined {
+  if (value === null || value === undefined || value === '') return undefined;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? undefined : KYIV_DATE.format(value);
+  }
+  const raw = String(value);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
+  const parsed = new Date(raw);
+  return Number.isNaN(parsed.getTime()) ? raw : KYIV_DATE.format(parsed);
+}
+
 /**
  * Parse JSON from LLM response, stripping markdown fences if present.
  * Handles: ```json {...} ```, ```{...}```, or raw JSON.
@@ -592,7 +624,7 @@ export async function countAllResults(
     cause_num: r.cause_num,
     judge: r.judge,
     court_code: r.court_code,
-    adjudication_date: r.adjudication_date,
+    adjudication_date: formatCourtDate(r.adjudication_date),
     url: `https://reyestr.court.gov.ua/Review/${r.doc_id}`,
   }));
 
