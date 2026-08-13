@@ -37,7 +37,7 @@ const FULL_TEXT_PREVIEW_CHARS = 2000;
 const SECTION_TEXT_CAP = 40000;
 import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
-import { generateCaseNumberVariations, extractSnippets, resolveCauseNumber, edrsrPool } from '../tool-utils.js';
+import { generateCaseNumberVariations, extractSnippets, resolveCauseNumber, edrsrPool, formatCourtDate } from '../tool-utils.js';
 
 /**
  * Resolve requested judgment-form names ("Рішення", "постанови") to the
@@ -588,7 +588,7 @@ total_resolved_links=0 означає відсутність даних граф
       judge: row.judge || undefined,
       court_name: courtName || undefined,
       judgment_form: judgmentForm || undefined,
-      adjudication_date: row.adjudication_date || undefined,
+      adjudication_date: formatCourtDate(row.adjudication_date),
       url,
       depth,
       sections: sections.slice(0, depth),
@@ -939,7 +939,7 @@ total_resolved_links=0 означає відсутність даних граф
       instance: classifyInstance(row),
       court: row.court_name || null,
       judge: row.judge,
-      date: row.adjudication_date,
+      date: formatCourtDate(row.adjudication_date),
       url: `https://reyestr.court.gov.ua/Review/${row.doc_id}`,
       ...(includeFullText && row.full_text ? { full_text: row.full_text } : {}),
     }));
@@ -1029,8 +1029,8 @@ total_resolved_links=0 означає відсутність даних граф
       summary: {
         scope: 'вся справа',
         date_range: {
-          from: firstDate ? firstDate.toISOString() : undefined,
-          to: lastDate ? lastDate.toISOString() : undefined,
+          from: formatCourtDate(firstDate),
+          to: formatCourtDate(lastDate),
         },
         instances: populationInstances,
         document_types: {
@@ -1260,7 +1260,7 @@ total_resolved_links=0 означає відсутність даних граф
         doc_id: row.doc_id,
         case_number: row.cause_num || undefined,
         judge: row.judge || undefined,
-        adjudication_date: row.adjudication_date || undefined,
+        adjudication_date: formatCourtDate(row.adjudication_date),
         url,
         full_text_length: fullText.length,
         excerpt_source: source,
