@@ -81,26 +81,27 @@ ON CONFLICT (legislation_id, article_number, version_date) DO NOTHING;
 -- ---------------------------------------------------------------------------
 -- 3. Amendments unique to a loser (2 for the Constitution pair, 0 for КПК).
 --
---    Deduplicated with NOT EXISTS rather than ON CONFLICT: this table has no
---    unique constraint on prod, only a primary key on id, so ON CONFLICT DO
---    NOTHING would suppress nothing and copy every row across as a duplicate.
---    The script-side DDL that declares UNIQUE(...) was never applied here.
+--    Deduplicated against the REAL unique index, uq_law_art_amend on
+--    (legislation_id, article_number, change_type, basis_act,
+--     md5(coalesce(note_text,''))). It is a unique index rather than a table
+--    constraint, so it does not show up in pg_constraint -- reading only that
+--    view suggests the table is unconstrained, which it is not.
+--
+--    The key must match the index EXACTLY. Adding act_date and source_edition
+--    to it looks safer and is not: it lets through rows the index still
+--    considers duplicates, and the insert aborts the whole migration.
+--    Measured -- that is precisely how this was found.
 INSERT INTO public.legislation_article_amendments
   (legislation_id, rada_id, article_number, change_type, basis_act, act_date,
    note_text, source_edition, created_at)
-SELECT w.win, l.rada_id, l.article_number, l.change_type, l.basis_act, l.act_date,
+SELECT w.win, wl.rada_id, l.article_number, l.change_type, l.basis_act, l.act_date,
        l.note_text, l.source_edition, now()
 FROM public.legislation_article_amendments l
 JOIN (VALUES (809, 660), (294, 654), (286, 285), (678, 687)) AS w(lose, win)
   ON w.lose = l.legislation_id
-WHERE NOT EXISTS (
-  SELECT 1 FROM public.legislation_article_amendments k
-   WHERE k.legislation_id = w.win
-     AND k.article_number IS NOT DISTINCT FROM l.article_number
-     AND k.change_type    IS NOT DISTINCT FROM l.change_type
-     AND k.basis_act      IS NOT DISTINCT FROM l.basis_act
-     AND k.note_text      IS NOT DISTINCT FROM l.note_text
-);
+JOIN public.legislation wl ON wl.id = w.win
+ON CONFLICT (legislation_id, article_number, change_type, basis_act,
+             md5(coalesce(note_text, ''))) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- 4. Chunks are a write-only mirror of the vector store, one row per Qdrant
@@ -142,9 +143,22 @@ WHERE c.legislation_id IN (809, 294, 286, 678)
 ON CONFLICT (vector_id) DO NOTHING;
 
 UPDATE public.legislation_changes c
-   SET legislation_id = w.win
+   SET legislation_id = w.win,
+       rada_id        = wl.rada_id
   FROM (VALUES (809, 660), (294, 654), (286, 285), (678, 687)) AS w(lose, win)
+  JOIN public.legislation wl ON wl.id = w.win
  WHERE c.legislation_id = w.lose;
+
+-- A user subscribed to BOTH rows of a pair would break the repoint:
+-- legislation_subscriptions is UNIQUE(user_id, legislation_id), so moving the
+-- loser onto the winner would raise and abort the whole migration. Drop the
+-- redundant loser subscription first. (Zero rows today on every id involved;
+-- kept so the migration is safe against a different snapshot.)
+DELETE FROM public.legislation_subscriptions s
+ USING (VALUES (809, 660), (294, 654), (286, 285), (678, 687)) AS w(lose, win)
+ WHERE s.legislation_id = w.lose
+   AND EXISTS (SELECT 1 FROM public.legislation_subscriptions k
+                WHERE k.user_id = s.user_id AND k.legislation_id = w.win);
 
 UPDATE public.legislation_subscriptions s
    SET legislation_id = w.win
@@ -169,6 +183,21 @@ DELETE FROM public.legislation WHERE id IN (809, 294, 286, 678);
 --    Постанова ВР (types_raw = 2), not a law, and its nreg is 2389-19.
 UPDATE public.legislation SET rada_id = '254к/96-вр', updated_at = now() WHERE id = 660;
 UPDATE public.legislation SET rada_id = '2389-19',    updated_at = now() WHERE id = 636;
+
+-- Child tables denormalize rada_id, so the two renames above leave stale
+-- copies behind -- and getChangesForLegislation filters on that column, so a
+-- stale value silently hides those rows from a canonical-id request.
+UPDATE public.legislation_article_amendments a
+   SET rada_id = l.rada_id
+  FROM public.legislation l
+ WHERE a.legislation_id = l.id AND a.legislation_id IN (660, 636)
+   AND a.rada_id IS DISTINCT FROM l.rada_id;
+
+UPDATE public.legislation_changes c
+   SET rada_id = l.rada_id
+  FROM public.legislation l
+ WHERE c.legislation_id = l.id AND c.legislation_id IN (660, 636)
+   AND c.rada_id IS DISTINCT FROM l.rada_id;
 
 -- ---------------------------------------------------------------------------
 -- 7. Make the defect unrepeatable.
