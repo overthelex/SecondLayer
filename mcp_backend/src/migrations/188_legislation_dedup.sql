@@ -26,6 +26,37 @@
 BEGIN;
 
 -- ---------------------------------------------------------------------------
+-- 0. Adopt legislation_article_amendments into the tracked schema.
+--
+--    It was created only by scripts/rada/*amend-metric.py, so a database built
+--    from migrations alone never had it -- while getArticleAmendments queries
+--    it unconditionally. That is a live gap, not something this migration
+--    introduces, and guarding around it would only hide it.
+--
+--    The shape here matches PROD, not the script. The script declares a plain
+--    UNIQUE (legislation_id, article_number, change_type, basis_act,
+--    note_text); prod instead carries the expression index below, which hashes
+--    note_text (a TEXT column that will not fit a btree key) and folds NULL
+--    onto ''. All IF NOT EXISTS, so prod is untouched.
+CREATE TABLE IF NOT EXISTS public.legislation_article_amendments (
+  id             SERIAL PRIMARY KEY,
+  legislation_id INTEGER NOT NULL REFERENCES public.legislation(id) ON DELETE CASCADE,
+  rada_id        VARCHAR(100) NOT NULL,
+  article_number VARCHAR(50)  NOT NULL,
+  change_type    VARCHAR(20)  NOT NULL CHECK (change_type IN ('added','modified','removed')),
+  basis_act      VARCHAR(50),
+  act_date       DATE,
+  note_text      TEXT,
+  source_edition DATE,
+  created_at     TIMESTAMPTZ DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_law_art_amend
+  ON public.legislation_article_amendments (legislation_id, article_number);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_law_art_amend
+  ON public.legislation_article_amendments
+     (legislation_id, article_number, change_type, basis_act, md5(coalesce(note_text, '')));
+
+-- ---------------------------------------------------------------------------
 -- 1. Конституція: 809 -> 660.
 --
 -- 660 carries the real 9-edition history (1996-06-28 … 2019-02-21) and all
@@ -89,24 +120,16 @@ ON CONFLICT (legislation_id, article_number, version_date) DO NOTHING;
 --    * The key must match that index EXACTLY. Adding act_date and
 --      source_edition looks safer and is not -- it lets through rows the index
 --      still rejects, and the insert aborts the whole migration.
---    * ON CONFLICT against that index is NOT equivalent. Postgres treats NULLs
---      as distinct in a unique index, so two rows with a NULL basis_act both
---      pass it, whereas IS NOT DISTINCT FROM correctly calls them the same
---      amendment. (No loser row has a NULL in the key today; this keeps it
---      right if that changes.) ON CONFLICT would also hard-depend on an index
---      that only exists because a script created it.
---
---    The table itself is created by scripts/rada/*amend-metric.py and by no
---    migration, so a database built purely from the tracked schema does not
---    have it. The whole step is therefore guarded rather than assumed.
-DO $amend$
-BEGIN
-  IF to_regclass('public.legislation_article_amendments') IS NULL THEN
-    RAISE NOTICE 'legislation_article_amendments absent; skipping amendment merge';
-    RETURN;
-  END IF;
-
-  INSERT INTO public.legislation_article_amendments
+--    * note_text is compared with coalesce, not IS NOT DISTINCT FROM, because
+--      the index hashes coalesce(note_text,'') and so treats NULL and '' as
+--      the SAME row. IS NOT DISTINCT FROM treats them as different, which
+--      would let such a pair past the check and straight into a unique
+--      violation. The other columns keep IS NOT DISTINCT FROM: there it is
+--      STRICTER than the index (which counts NULLs as distinct), and erring
+--      strict can only skip a row, never abort the run.
+--    * ON CONFLICT is not used: it would take the index's NULL semantics
+--      wholesale and silently loosen dedup for rows with a NULL basis_act.
+INSERT INTO public.legislation_article_amendments
     (legislation_id, rada_id, article_number, change_type, basis_act, act_date,
      note_text, source_edition, created_at)
   SELECT w.win, wl.rada_id, l.article_number, l.change_type, l.basis_act, l.act_date,
@@ -121,10 +144,8 @@ BEGIN
        AND k.article_number IS NOT DISTINCT FROM l.article_number
        AND k.change_type    IS NOT DISTINCT FROM l.change_type
        AND k.basis_act      IS NOT DISTINCT FROM l.basis_act
-       AND k.note_text      IS NOT DISTINCT FROM l.note_text
-  );
-END
-$amend$;
+       AND coalesce(k.note_text, '') = coalesce(l.note_text, '')
+);
 
 -- ---------------------------------------------------------------------------
 -- 4. Chunks are a write-only mirror of the vector store, one row per Qdrant
@@ -210,17 +231,11 @@ UPDATE public.legislation SET rada_id = '2389-19',    updated_at = now() WHERE i
 -- Child tables denormalize rada_id, so the two renames above leave stale
 -- copies behind -- and getChangesForLegislation filters on that column, so a
 -- stale value silently hides those rows from a canonical-id request.
-DO $sync$
-BEGIN
-  IF to_regclass('public.legislation_article_amendments') IS NOT NULL THEN
-    UPDATE public.legislation_article_amendments a
-       SET rada_id = l.rada_id
-      FROM public.legislation l
-     WHERE a.legislation_id = l.id AND a.legislation_id IN (660, 636)
-       AND a.rada_id IS DISTINCT FROM l.rada_id;
-  END IF;
-END
-$sync$;
+UPDATE public.legislation_article_amendments a
+   SET rada_id = l.rada_id
+  FROM public.legislation l
+ WHERE a.legislation_id = l.id AND a.legislation_id IN (660, 636)
+   AND a.rada_id IS DISTINCT FROM l.rada_id;
 
 UPDATE public.legislation_changes c
    SET rada_id = l.rada_id
