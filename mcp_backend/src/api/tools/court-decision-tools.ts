@@ -39,6 +39,34 @@ import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { generateCaseNumberVariations, extractSnippets, resolveCauseNumber, edrsrPool } from '../tool-utils.js';
 
+/**
+ * Resolve requested judgment-form names ("Рішення", "постанови") to the
+ * judgment_code values present in a case. The registry has 8 forms (Вирок,
+ * Постанова, Рішення, Судовий наказ, Ухвала, Окрема ухвала, Додаткове рішення,
+ * Окрема думка), so matching on a stem of each word is unambiguous while still
+ * absorbing LLM-supplied inflections — and "Рішення" deliberately also selects
+ * "Додаткове рішення", "Ухвала" also "Окрема ухвала".
+ */
+function matchJudgmentCodes(requested: string[], names: Map<number, string>): number[] {
+  const stem = (word: string) => word.slice(0, Math.max(4, word.length - 2));
+  const wanted = requested
+    .map(r => r.toLowerCase().trim())
+    .filter(Boolean)
+    .map(r => ({ full: r, stems: r.split(/\s+/).map(stem) }));
+
+  const codes: number[] = [];
+  for (const [code, rawName] of names) {
+    const name = (rawName || '').toLowerCase().trim();
+    if (!name) continue;
+    const nameWords = name.split(/\s+/);
+    const hit = wanted.some(w =>
+      name.includes(w.full) || w.stems.every(s => nameWords.some(nw => nw.startsWith(s)))
+    );
+    if (hit) codes.push(code);
+  }
+  return codes;
+}
+
 export class CourtDecisionTools extends BaseToolHandler {
   constructor(
     private zoAdapter: EdsrLocalAdapter,
@@ -108,7 +136,15 @@ export class CourtDecisionTools extends BaseToolHandler {
 - Рішення після нового розгляду
 
 Повертає структурований список з групуванням за інстанціями.
-Використовуйте для аналізу повної історії справи або відстеження позиції суду через інстанції.`,
+Використовуйте для аналізу повної історії справи або відстеження позиції суду через інстанції.
+
+ВАЖЛИВО про обсяг: у великих справах (банкрутство, тривалі провадження) буває кілька сотень документів,
+а за один виклик повертається максимум 100. Тому:
+- \`total_documents\` — СКІЛЬКИ ДОКУМЕНТІВ У СПРАВІ ВЗАГАЛІ, \`returned_documents\` — скільки повернуто зараз;
+- якщо \`has_more: true\` — ти бачиш лише частину; \`summary\` рахується по ВСІЙ справі, не по вибірці;
+- за замовчуванням (\`sort: "balanced"\`) повертається початок справи + найновіші документи, щоб було видно і початок, і чим справа закінчилась;
+- для решти документів використовуй \`offset\` разом із \`sort: "asc"\`/\`"desc"\`;
+- для звіту про результат розгляду фільтруй \`document_types: ["Рішення", "Постанова"]\` — в процесуальних справах 90%+ документів це ухвали, які лише засмічують контекст.`,
         inputSchema: {
           type: 'object',
           properties: {
@@ -124,12 +160,28 @@ export class CourtDecisionTools extends BaseToolHandler {
             max_docs: {
               type: 'number',
               default: 50,
-              description: 'Макс. документів для повернення (1-100)'
+              description: 'Макс. документів для повернення (1-100). Це ліміт вибірки, а не кількість документів у справі — див. total_documents.'
             },
             group_by_instance: {
               type: 'boolean',
               default: true,
               description: 'Групувати документи за інстанціями (перша/апеляція/касація)'
+            },
+            sort: {
+              type: 'string',
+              enum: ['balanced', 'asc', 'desc'],
+              default: 'balanced',
+              description: 'Порядок вибірки: "balanced" — початок справи + найновіші документи (за замовчуванням); "asc" — найдавніші; "desc" — найновіші (чим справа закінчилась). Для гортання разом з offset використовуй asc або desc.'
+            },
+            offset: {
+              type: 'number',
+              default: 0,
+              description: 'Пропустити N документів (для гортання великих справ). Працює з sort=asc/desc.'
+            },
+            document_types: {
+              type: 'array',
+              items: { type: 'string' },
+              description: 'Фільтр за формою судового рішення: "Рішення", "Постанова", "Ухвала", "Вирок", "Судовий наказ". Для звіту про результат розгляду бери ["Рішення", "Постанова"].'
             },
           },
           required: ['case_number'],
@@ -612,6 +664,17 @@ total_resolved_links=0 означає відсутність даних граф
     const includeFullText = args.include_full_text === true;
     const maxDocs = Math.min(100, Math.max(1, Number(args.max_docs || 50)));
     const groupByInstance = args.group_by_instance !== false;
+    const offset = Math.max(0, Math.floor(Number(args.offset) || 0));
+    const requestedTypes: string[] = Array.isArray(args.document_types)
+      ? args.document_types.map((t: any) => String(t).trim()).filter(Boolean)
+      : [];
+    const sortArg = typeof args.sort === 'string' ? args.sort.trim().toLowerCase() : '';
+    // `balanced` (default) shows the start of the case AND its latest documents.
+    // A plain ASC LIMIT silently answered "how did this case end?" with the first
+    // procedural rulings of a 300-document bankruptcy file (LEXAI, 2026-08-13).
+    // Any explicit paging intent (offset) falls back to a sequential window.
+    const sortMode: 'balanced' | 'asc' | 'desc' =
+      sortArg === 'asc' || sortArg === 'desc' ? sortArg : offset > 0 ? 'asc' : 'balanced';
 
     if (!caseNumber) {
       throw new Error('case_number parameter is required');
@@ -625,7 +688,10 @@ total_resolved_links=0 означає відсутність даних граф
       caseNumber,
       includeFullText,
       maxDocs,
-      groupByInstance
+      groupByInstance,
+      sortMode,
+      offset,
+      documentTypes: requestedTypes,
     });
 
     // Resolve the procedural suffix first. The chat model strips it on the way in (asked
@@ -645,67 +711,41 @@ total_resolved_links=0 означає відсутність даних граф
       ...(resolution.ambiguous ? { ambiguous: resolution.matches.map(m => m.cause_num) } : {}),
     });
 
-    // Query edrsr_documents directly with all case number variations
-    const fulltextJoin = includeFullText
-      ? 'LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id'
-      : '';
-    const fulltextField = includeFullText
-      ? ', f.full_text'
-      : '';
-
-    // On the dedicated EDRSR pool (stage → huge partitioned edrsr_local),
-    // `ORDER BY adjudication_date LIMIT` over a `cause_num = ANY(...)` filter
-    // makes the planner Merge-Append every partition by the date index instead
-    // of the selective cause_num index (~82s). Filter by cause_num in a
-    // MATERIALIZED CTE first (forces the cause_num index → a handful of rows),
-    // then join/sort/limit that tiny set. Prod keeps the original query.
-    const sql = this.usingDedicatedEdrsr()
-      ? `
+    // Population stats BEFORE the window: the answer must be able to say how many
+    // documents the case actually has. Reporting the window size as the total made
+    // a 317-document bankruptcy file look like a 50-document one that ended in
+    // January 2019 (LEXAI, 2026-08-13). Aggregated in Postgres over the cause_num
+    // index — a handful of grouped rows, regardless of case size.
+    const statsSql = `
       WITH docs AS MATERIALIZED (
-        SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
-               d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
-               d.doc_url, d.status, d.date_publ
+        SELECT d.court_code, d.judgment_code, d.adjudication_date
         FROM edrsr_documents d
         WHERE d.cause_num = ANY($1)
       )
-      SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
-             d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
-             d.doc_url, d.status, d.date_publ,
-             c.name AS court_name, c.instance_code
-             ${fulltextField}
+      SELECT c.instance_code, c.name AS court_name, d.judgment_code,
+             count(*)::int AS n,
+             min(d.adjudication_date) AS first_date,
+             max(d.adjudication_date) AS last_date
       FROM docs d
       LEFT JOIN edrsr_courts c ON c.court_code = d.court_code
-      ${fulltextJoin}
-      ORDER BY d.adjudication_date ASC NULLS LAST
-      LIMIT $2
-    `
-      : `
-      SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
-             d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
-             d.doc_url, d.status, d.date_publ,
-             c.name AS court_name, c.instance_code
-             ${fulltextField}
-      FROM edrsr_documents d
-      LEFT JOIN edrsr_courts c ON c.court_code = d.court_code
-      ${fulltextJoin}
-      WHERE d.cause_num = ANY($1)
-      ORDER BY d.adjudication_date ASC NULLS LAST
-      LIMIT $2
-    `;
+      GROUP BY c.instance_code, c.name, d.judgment_code`;
 
-    const result = await this.edrsrDb().query(sql, [caseVariations, maxDocs]);
-    const rows = result.rows || [];
+    const statsResult = await this.edrsrDb().query(statsSql, [caseVariations]);
+    const statsRows = statsResult.rows || [];
+    const totalInCase = statsRows.reduce((sum: number, r: any) => sum + Number(r.n || 0), 0);
 
-    logger.info('[MCP Tool] get_case_documents_chain DB result', {
+    logger.info('[MCP Tool] get_case_documents_chain case size', {
       caseNumber,
       variationsCount: caseVariations.length,
-      rowsFound: rows.length
+      totalInCase,
     });
 
-    if (rows.length === 0) {
+    if (totalInCase === 0) {
       return this.wrapResponse({
         case_number: caseNumber,
         total_documents: 0,
+        returned_documents: 0,
+        has_more: false,
         documents: [],
         search_stats: { variations_tried: caseVariations },
         ...(resolution.ambiguous
@@ -722,10 +762,11 @@ total_resolved_links=0 означає відсутність даних граф
       });
     }
 
-    // Batch lookup judgment form names
+    // Judgment-form names for every code in the case — needed both for the
+    // document_types filter and for a summary that describes the whole case.
     const judgmentCodes = new Set<number>();
-    for (const row of rows) {
-      if (row.judgment_code != null) judgmentCodes.add(row.judgment_code);
+    for (const row of statsRows) {
+      if (row.judgment_code != null) judgmentCodes.add(Number(row.judgment_code));
     }
     const judgmentMap = new Map<number, string>();
     if (judgmentCodes.size > 0) {
@@ -735,9 +776,145 @@ total_resolved_links=0 означає відсутність даних граф
           [Array.from(judgmentCodes)]
         );
         for (const r of jfResult.rows) {
-          judgmentMap.set(r.judgment_code, r.name);
+          judgmentMap.set(Number(r.judgment_code), r.name);
         }
       } catch { /* non-critical */ }
+    }
+
+    const availableTypes = Array.from(new Set(Array.from(judgmentMap.values()).filter(Boolean)));
+
+    let filterCodes: number[] | null = null;
+    if (requestedTypes.length > 0) {
+      filterCodes = matchJudgmentCodes(requestedTypes, judgmentMap);
+      if (filterCodes.length === 0) {
+        return this.wrapResponse({
+          case_number: caseNumber,
+          total_documents: totalInCase,
+          returned_documents: 0,
+          has_more: false,
+          documents: [],
+          search_stats: { variations_tried: caseVariations, source: 'edrsr_documents' },
+          message:
+            `У справі ${caseNumber} немає документів типу: ${requestedTypes.join(', ')}. ` +
+            `Наявні форми судових рішень: ${availableTypes.join(', ') || 'невідомо'}.`,
+        });
+      }
+    }
+
+    const selectableTotal = filterCodes
+      ? statsRows
+          .filter((r: any) => r.judgment_code != null && filterCodes!.includes(Number(r.judgment_code)))
+          .reduce((sum: number, r: any) => sum + Number(r.n || 0), 0)
+      : totalInCase;
+
+    // Query edrsr_documents directly with all case number variations
+    const fulltextJoin = includeFullText
+      ? 'LEFT JOIN edrsr_fulltext f ON f.doc_id = d.doc_id'
+      : '';
+    const fulltextField = includeFullText
+      ? ', f.full_text'
+      : '';
+    const typeClause = filterCodes ? ' AND d.judgment_code = ANY($4)' : '';
+
+    // On the dedicated EDRSR pool (stage → huge partitioned edrsr_local),
+    // `ORDER BY adjudication_date LIMIT` over a `cause_num = ANY(...)` filter
+    // makes the planner Merge-Append every partition by the date index instead
+    // of the selective cause_num index (~82s). Filter by cause_num in a
+    // MATERIALIZED CTE first (forces the cause_num index → a handful of rows),
+    // then join/sort/limit that tiny set. Prod keeps the original query.
+    const buildSql = (direction: 'ASC' | 'DESC') => this.usingDedicatedEdrsr()
+      ? `
+      WITH docs AS MATERIALIZED (
+        SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+               d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+               d.doc_url, d.status, d.date_publ
+        FROM edrsr_documents d
+        WHERE d.cause_num = ANY($1)${typeClause}
+      )
+      SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+             d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+             d.doc_url, d.status, d.date_publ,
+             c.name AS court_name, c.instance_code
+             ${fulltextField}
+      FROM docs d
+      LEFT JOIN edrsr_courts c ON c.court_code = d.court_code
+      ${fulltextJoin}
+      ORDER BY d.adjudication_date ${direction} NULLS LAST
+      LIMIT $2 OFFSET $3
+    `
+      : `
+      SELECT d.doc_id, d.cause_num, d.judge, d.court_code, d.justice_kind,
+             d.judgment_code, d.category_code, d.adjudication_date, d.receipt_date,
+             d.doc_url, d.status, d.date_publ,
+             c.name AS court_name, c.instance_code
+             ${fulltextField}
+      FROM edrsr_documents d
+      LEFT JOIN edrsr_courts c ON c.court_code = d.court_code
+      ${fulltextJoin}
+      WHERE d.cause_num = ANY($1)${typeClause}
+      ORDER BY d.adjudication_date ${direction} NULLS LAST
+      LIMIT $2 OFFSET $3
+    `;
+
+    const runWindow = async (direction: 'ASC' | 'DESC', limit: number, skip: number) => {
+      if (limit <= 0) return [] as any[];
+      const params: any[] = [caseVariations, limit, skip];
+      if (filterCodes) params.push(filterCodes);
+      const res = await this.edrsrDb().query(buildSql(direction), params);
+      return res.rows || [];
+    };
+
+    const dateValue = (row: any): number => {
+      const t = row.adjudication_date ? new Date(row.adjudication_date).getTime() : NaN;
+      return Number.isNaN(t) ? 0 : t;
+    };
+
+    let rows: any[];
+    if (sortMode === 'balanced' && selectableTotal > maxDocs) {
+      // Oldest half + newest half: the chain question is always "how did it start
+      // and how did it end", and the end is what a plain ASC window drops.
+      const headCount = Math.ceil(maxDocs / 2);
+      const [head, tail] = await Promise.all([
+        runWindow('ASC', headCount, 0),
+        runWindow('DESC', maxDocs - headCount, 0),
+      ]);
+      const seen = new Set<string>();
+      rows = [];
+      for (const row of [...head, ...tail]) {
+        const key = String(row.doc_id);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        rows.push(row);
+      }
+      rows.sort((a, b) => dateValue(a) - dateValue(b));
+    } else {
+      rows = await runWindow(sortMode === 'desc' ? 'DESC' : 'ASC', maxDocs, offset);
+    }
+
+    logger.info('[MCP Tool] get_case_documents_chain DB result', {
+      caseNumber,
+      variationsCount: caseVariations.length,
+      rowsFound: rows.length,
+      totalInCase,
+      selectableTotal,
+    });
+
+    if (rows.length === 0) {
+      return this.wrapResponse({
+        case_number: caseNumber,
+        total_documents: totalInCase,
+        returned_documents: 0,
+        has_more: false,
+        offset,
+        documents: [],
+        search_stats: { variations_tried: caseVariations, source: 'edrsr_documents' },
+        // The case itself exists here (totalInCase > 0 above), so this is a paging
+        // miss, not a lookup miss — ambiguity is reported by the not-found branch.
+        message:
+          offset >= selectableTotal
+            ? `offset=${offset} перевищує кількість доступних документів (${selectableTotal}). Зменш offset.`
+            : `Документів не знайдено за номером справи: ${caseNumber}`,
+      });
     }
 
     const classifyInstance = (row: any): string => {
@@ -792,6 +969,40 @@ total_resolved_links=0 означає відсутність даних граф
       });
     }
 
+    // Summary describes the WHOLE case, not the returned window — otherwise a
+    // window of early procedural rulings reads as "this case has no appeal".
+    const populationInstances = { first_instance: 0, appeal: 0, cassation: 0, grand_chamber: 0 };
+    const populationTypes = { decisions: 0, rulings: 0, orders: 0, other: 0 };
+    let firstDate: Date | null = null;
+    let lastDate: Date | null = null;
+    for (const row of statsRows) {
+      const n = Number(row.n || 0);
+      const instance = classifyInstance(row);
+      if (instance === 'Перша інстанція') populationInstances.first_instance += n;
+      else if (instance === 'Апеляція') populationInstances.appeal += n;
+      else if (instance.includes('Касація')) populationInstances.cassation += n;
+      else if (instance === 'Велика Палата ВС') populationInstances.grand_chamber += n;
+
+      const typeName = judgmentMap.get(Number(row.judgment_code)) || '';
+      if (typeName === 'Рішення' || typeName === 'Вирок') populationTypes.decisions += n;
+      else if (typeName === 'Постанова') populationTypes.rulings += n;
+      else if (typeName.includes('Ухвала')) populationTypes.orders += n;
+      else populationTypes.other += n;
+
+      if (row.first_date) {
+        const d = new Date(row.first_date);
+        if (!firstDate || d < firstDate) firstDate = d;
+      }
+      if (row.last_date) {
+        const d = new Date(row.last_date);
+        if (!lastDate || d > lastDate) lastDate = d;
+      }
+    }
+
+    const hasMore = sortMode === 'balanced'
+      ? mappedDocs.length < selectableTotal
+      : offset + mappedDocs.length < selectableTotal;
+
     const payload: any = {
       case_number: effectiveCaseNumber,
       // Same rewrite metadata check_precedent_status emits, spelled the same way, so a
@@ -799,7 +1010,16 @@ total_resolved_links=0 означає відсутність даних граф
       ...(resolution.resolved && resolution.resolved !== caseNumber
         ? { resolved_case_number: resolution.resolved, requested_case_number: caseNumber }
         : {}),
-      total_documents: mappedDocs.length,
+      // Documents in the CASE. `returned_documents` is what fit into this window.
+      total_documents: totalInCase,
+      returned_documents: mappedDocs.length,
+      has_more: hasMore,
+      window: {
+        sort: sortMode,
+        offset,
+        max_docs: maxDocs,
+        ...(filterCodes ? { document_types: requestedTypes, matching_documents: selectableTotal } : {}),
+      },
       documents: groupByInstance ? undefined : mappedDocs,
       grouped_documents: groupByInstance ? groupedDocs : undefined,
       search_stats: {
@@ -807,19 +1027,35 @@ total_resolved_links=0 означає відсутність даних граф
         source: 'edrsr_documents',
       },
       summary: {
-        instances: {
-          first_instance: mappedDocs.filter((d: any) => d.instance === 'Перша інстанція').length,
-          appeal: mappedDocs.filter((d: any) => d.instance === 'Апеляція').length,
-          cassation: mappedDocs.filter((d: any) => d.instance.includes('Касація')).length,
-          grand_chamber: mappedDocs.filter((d: any) => d.instance === 'Велика Палата ВС').length,
+        scope: 'вся справа',
+        date_range: {
+          from: firstDate ? firstDate.toISOString() : undefined,
+          to: lastDate ? lastDate.toISOString() : undefined,
         },
+        instances: populationInstances,
         document_types: {
-          decisions: mappedDocs.filter((d: any) => d.document_type === 'Рішення' || d.document_type === 'Вирок').length,
-          rulings: mappedDocs.filter((d: any) => d.document_type === 'Постанова').length,
-          orders: mappedDocs.filter((d: any) => d.document_type.includes('Ухвала')).length,
+          decisions: populationTypes.decisions,
+          rulings: populationTypes.rulings,
+          orders: populationTypes.orders,
+          ...(populationTypes.other ? { other: populationTypes.other } : {}),
         },
+        available_document_types: availableTypes,
       },
     };
+
+    if (hasMore) {
+      const shown = filterCodes
+        ? `${mappedDocs.length} з ${selectableTotal} документів обраних типів (усього у справі — ${totalInCase})`
+        : `${mappedDocs.length} з ${totalInCase} документів справи`;
+      payload.coverage_warning =
+        `УВАГА: показано ${shown}` +
+        (sortMode === 'balanced'
+          ? ' — найдавніші та найновіші. Проміжні документи не увійшли у вибірку.'
+          : ` (sort=${sortMode}, offset=${offset}).`) +
+        ' Не роби висновку про результат розгляду лише з цієї вибірки:' +
+        ` для решти документів виклич цей інструмент ще раз з offset=${offset + mappedDocs.length} та sort=asc/desc,` +
+        ' або звузь вибірку через document_types=["Рішення","Постанова"].';
+    }
 
     // Best-effort precedent enrichment from the decision↔case graph (Neo4j, LEXAI-1777).
     // The document chain itself stays in Postgres (above); the graph adds the
