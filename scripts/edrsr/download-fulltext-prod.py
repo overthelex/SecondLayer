@@ -28,28 +28,53 @@ from collections import defaultdict
 from multiprocessing import Pool
 
 # ── Config ──
-# Prod ENI secondary private IPs, each with its own EIP. Verified 2026-07-15:
-# every one egresses via a distinct public IP and gets HTTP 200 from reyestr.
-# The primary IP (172.31.29.20 → 18.192.189.254) is deliberately excluded — it
-# carries prod's own traffic (TURN/STUN, outbound API) and must not risk a
-# reyestr-side throttle.
-SOURCE_IPS = [
-    "172.31.21.47",     # 52.57.240.221
-    "172.31.22.206",    # 3.74.236.42
-    "172.31.27.31",     # 35.157.236.160
-    "172.31.28.109",    # 63.177.198.82
-    "172.31.31.40",     # 18.198.163.194
-    "172.31.21.255",    # 3.122.149.159
-    "172.31.19.142",    # 3.125.14.33
-    "172.31.19.20",     # 3.65.44.169
-    "172.31.17.145",    # 63.185.68.100
-    "172.31.16.240",    # 3.64.220.201
-    "172.31.21.126",    # 63.184.96.255
-    "172.31.21.214",    # 18.185.195.46
-    "172.31.27.133",    # 3.74.66.255
-    "172.31.22.179",    # 3.68.255.49
-]
+# Egress pool: prod ENI secondary private IPs, each needing its own EIP for a
+# distinct outbound address. This list used to be hardcoded from the 2026-07-15
+# run; by 2026-08-13 thirteen of those EIPs had been released, so every address
+# in it was dead while the file still claimed they were "verified". The pool is
+# now discovered at run time and probed before use — a stale list must not be
+# able to look like a working one again.
+#
+# The primary IP (172.31.29.20 → 18.192.189.254) stays out of the pool by
+# default: it carries prod's own traffic (TURN/STUN, outbound API, on-demand
+# load_full_texts) and must not risk a reyestr-side throttle. --allow-primary
+# overrides that when it is the only address available.
+PRIMARY_IP = "172.31.29.20"
+EGRESS_IFACE = "ens5"
+PROBE_URL = "https://od.reyestr.court.gov.ua/"
 THREADS_PER_IP = 5
+
+
+def discover_source_ips(explicit=None, allow_primary=False, iface=EGRESS_IFACE):
+    """Return the IPv4 addresses on `iface` that can actually reach reyestr.
+
+    Every candidate is probed; the ones that fail are reported, never dropped in
+    silence. An IP configured on the interface without an EIP behind it has no
+    route out, so a probe is the only honest test of the pool's real size.
+    """
+    if explicit:
+        candidates = [ip.strip() for ip in explicit.split(',') if ip.strip()]
+    else:
+        out = subprocess.run(
+            ['ip', '-4', '-o', 'addr', 'show', 'dev', iface],
+            capture_output=True, text=True,
+        ).stdout
+        candidates = re.findall(r'inet (\d+\.\d+\.\d+\.\d+)/', out)
+        if not allow_primary:
+            candidates = [ip for ip in candidates if ip != PRIMARY_IP]
+
+    live, dead = [], []
+    for ip in candidates:
+        probe = subprocess.run(
+            ['curl', '-s', '-o', '/dev/null', '-w', '%{http_code}',
+             '--interface', ip, '--max-time', '15', PROBE_URL],
+            capture_output=True, text=True,
+        )
+        (live if probe.stdout.strip().startswith('2') else dead).append(ip)
+
+    if dead:
+        print(f"  ! unusable egress IPs (no EIP / no route): {', '.join(dead)}", flush=True)
+    return live, dead
 
 RTF_DIR = Path("/home/ubuntu/edrsr-rtf")  # overridden by --rtf-dir
 CONTAINER = "secondlayer-postgres-prod"
@@ -245,13 +270,13 @@ async def download_one(session, doc_id, url, stats, semaphore, source_ip):
 BATCH_SIZE = 50000  # Process in batches to avoid OOM on 8M+ items
 
 
-async def download_batch(batch_items, stats, threads_per_ip):
+async def download_batch(batch_items, stats, threads_per_ip, source_ips):
     """Download one batch of items across all IPs."""
     import aiohttp
 
     ip_items = defaultdict(list)
     for i, item in enumerate(batch_items):
-        ip = SOURCE_IPS[i % len(SOURCE_IPS)]
+        ip = source_ips[i % len(source_ips)]
         ip_items[ip].append(item)
 
     async def ip_worker(source_ip, ip_docs):
@@ -271,7 +296,7 @@ async def download_batch(batch_items, stats, threads_per_ip):
     await asyncio.gather(*[ip_worker(ip, docs) for ip, docs in ip_items.items()])
 
 
-async def download_all(items, threads_per_ip):
+async def download_all(items, threads_per_ip, source_ips):
     stats = DownloadStats(len(items))
     total_batches = (len(items) + BATCH_SIZE - 1) // BATCH_SIZE
 
@@ -288,7 +313,7 @@ async def download_all(items, threads_per_ip):
         start = batch_idx * BATCH_SIZE
         batch = items[start:start + BATCH_SIZE]
         print(f"\n  --- Batch {batch_idx + 1}/{total_batches} ({len(batch)} items) ---", flush=True)
-        await download_batch(batch, stats, threads_per_ip)
+        await download_batch(batch, stats, threads_per_ip, source_ips)
 
     prog_task.cancel()
     print(f"\n  Download complete: {stats.report()}", flush=True)
@@ -401,6 +426,10 @@ def main():
     parser.add_argument('--batch', type=int, default=2000, help='DB import batch size')
     parser.add_argument('--workers', type=int, default=max(1, (os.cpu_count() or 2) - 1),
                         help='CPU workers for RTF→text parsing (default: cores-1)')
+    parser.add_argument('--ips', default=None,
+                        help='Comma-separated egress IPs to use instead of discovering them')
+    parser.add_argument('--allow-primary', action='store_true',
+                        help=f"Permit the primary IP ({PRIMARY_IP}) in the pool — it carries prod's own traffic")
     args = parser.parse_args()
 
     for d in (args.date_from, args.date_to):
@@ -413,14 +442,28 @@ def main():
         Path(f"/home/ubuntu/edrsr-rtf-{args.date_from}_{args.date_to}")
 
     threads_per_ip = args.threads
-    total_workers = len(SOURCE_IPS) * threads_per_ip
+
+    source_ips = []
+    if not args.skip_download:
+        print("[0/4] Probing egress pool...", flush=True)
+        source_ips, _dead = discover_source_ips(args.ips, args.allow_primary)
+        if not source_ips:
+            print(
+                "ERROR: no usable egress IP. Secondary private IPs need an EIP each "
+                "(aws ec2 allocate-address + associate-address, then `ip addr add <priv>/20 dev ens5`). "
+                "Re-run with --allow-primary to use the prod primary IP instead.",
+                file=sys.stderr, flush=True,
+            )
+            return 1
+    total_workers = len(source_ips) * threads_per_ip
 
     RTF_DIR.mkdir(parents=True, exist_ok=True)
 
     print("=" * 60, flush=True)
     print(f"  ЄДРСР Fulltext — PROD multi-IP download", flush=True)
     print(f"  Range: {args.date_from} .. {args.date_to} (adjudication_date)", flush=True)
-    print(f"  IPs: {len(SOURCE_IPS)} × {threads_per_ip} threads = {total_workers} workers", flush=True)
+    print(f"  IPs: {len(source_ips)} × {threads_per_ip} threads = {total_workers} workers", flush=True)
+    print(f"  Egress: {', '.join(source_ips) or 'n/a (import only)'}", flush=True)
     print(f"  RTF parse workers: {args.workers}", flush=True)
     print(f"  RTF dir: {RTF_DIR}", flush=True)
     print("=" * 60, flush=True)
@@ -454,8 +497,8 @@ def main():
         print(f"  To download: {len(items)}", flush=True)
 
         if items:
-            print(f"\n[2/4] Downloading {len(items)} RTFs ({len(SOURCE_IPS)} IPs × {threads_per_ip} threads)...", flush=True)
-            asyncio.run(download_all(items, threads_per_ip))
+            print(f"\n[2/4] Downloading {len(items)} RTFs ({len(source_ips)} IPs × {threads_per_ip} threads)...", flush=True)
+            asyncio.run(download_all(items, threads_per_ip, source_ips))
         else:
             print("[2/4] All files already downloaded", flush=True)
     else:
@@ -467,4 +510,6 @@ def main():
 
 
 if __name__ == '__main__':
-    main()
+    # Exit code matters: this runs unattended from cron, where a silent 0 on
+    # "no usable egress IP" would look exactly like a successful harvest.
+    sys.exit(main() or 0)
