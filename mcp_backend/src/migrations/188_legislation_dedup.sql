@@ -81,27 +81,50 @@ ON CONFLICT (legislation_id, article_number, version_date) DO NOTHING;
 -- ---------------------------------------------------------------------------
 -- 3. Amendments unique to a loser (2 for the Constitution pair, 0 for КПК).
 --
---    Deduplicated against the REAL unique index, uq_law_art_amend on
---    (legislation_id, article_number, change_type, basis_act,
---     md5(coalesce(note_text,''))). It is a unique index rather than a table
---    constraint, so it does not show up in pg_constraint -- reading only that
---    view suggests the table is unconstrained, which it is not.
+--    Deduplicated with a NULL-safe NOT EXISTS whose key matches the real
+--    unique index, uq_law_art_amend on (legislation_id, article_number,
+--    change_type, basis_act, md5(coalesce(note_text,''))). Two notes, both
+--    learned the hard way here:
 --
---    The key must match the index EXACTLY. Adding act_date and source_edition
---    to it looks safer and is not: it lets through rows the index still
---    considers duplicates, and the insert aborts the whole migration.
---    Measured -- that is precisely how this was found.
-INSERT INTO public.legislation_article_amendments
-  (legislation_id, rada_id, article_number, change_type, basis_act, act_date,
-   note_text, source_edition, created_at)
-SELECT w.win, wl.rada_id, l.article_number, l.change_type, l.basis_act, l.act_date,
-       l.note_text, l.source_edition, now()
-FROM public.legislation_article_amendments l
-JOIN (VALUES (809, 660), (294, 654), (286, 285), (678, 687)) AS w(lose, win)
-  ON w.lose = l.legislation_id
-JOIN public.legislation wl ON wl.id = w.win
-ON CONFLICT (legislation_id, article_number, change_type, basis_act,
-             md5(coalesce(note_text, ''))) DO NOTHING;
+--    * The key must match that index EXACTLY. Adding act_date and
+--      source_edition looks safer and is not -- it lets through rows the index
+--      still rejects, and the insert aborts the whole migration.
+--    * ON CONFLICT against that index is NOT equivalent. Postgres treats NULLs
+--      as distinct in a unique index, so two rows with a NULL basis_act both
+--      pass it, whereas IS NOT DISTINCT FROM correctly calls them the same
+--      amendment. (No loser row has a NULL in the key today; this keeps it
+--      right if that changes.) ON CONFLICT would also hard-depend on an index
+--      that only exists because a script created it.
+--
+--    The table itself is created by scripts/rada/*amend-metric.py and by no
+--    migration, so a database built purely from the tracked schema does not
+--    have it. The whole step is therefore guarded rather than assumed.
+DO $amend$
+BEGIN
+  IF to_regclass('public.legislation_article_amendments') IS NULL THEN
+    RAISE NOTICE 'legislation_article_amendments absent; skipping amendment merge';
+    RETURN;
+  END IF;
+
+  INSERT INTO public.legislation_article_amendments
+    (legislation_id, rada_id, article_number, change_type, basis_act, act_date,
+     note_text, source_edition, created_at)
+  SELECT w.win, wl.rada_id, l.article_number, l.change_type, l.basis_act, l.act_date,
+         l.note_text, l.source_edition, now()
+  FROM public.legislation_article_amendments l
+  JOIN (VALUES (809, 660), (294, 654), (286, 285), (678, 687)) AS w(lose, win)
+    ON w.lose = l.legislation_id
+  JOIN public.legislation wl ON wl.id = w.win
+  WHERE NOT EXISTS (
+    SELECT 1 FROM public.legislation_article_amendments k
+     WHERE k.legislation_id = w.win
+       AND k.article_number IS NOT DISTINCT FROM l.article_number
+       AND k.change_type    IS NOT DISTINCT FROM l.change_type
+       AND k.basis_act      IS NOT DISTINCT FROM l.basis_act
+       AND k.note_text      IS NOT DISTINCT FROM l.note_text
+  );
+END
+$amend$;
 
 -- ---------------------------------------------------------------------------
 -- 4. Chunks are a write-only mirror of the vector store, one row per Qdrant
@@ -187,11 +210,17 @@ UPDATE public.legislation SET rada_id = '2389-19',    updated_at = now() WHERE i
 -- Child tables denormalize rada_id, so the two renames above leave stale
 -- copies behind -- and getChangesForLegislation filters on that column, so a
 -- stale value silently hides those rows from a canonical-id request.
-UPDATE public.legislation_article_amendments a
-   SET rada_id = l.rada_id
-  FROM public.legislation l
- WHERE a.legislation_id = l.id AND a.legislation_id IN (660, 636)
-   AND a.rada_id IS DISTINCT FROM l.rada_id;
+DO $sync$
+BEGIN
+  IF to_regclass('public.legislation_article_amendments') IS NOT NULL THEN
+    UPDATE public.legislation_article_amendments a
+       SET rada_id = l.rada_id
+      FROM public.legislation l
+     WHERE a.legislation_id = l.id AND a.legislation_id IN (660, 636)
+       AND a.rada_id IS DISTINCT FROM l.rada_id;
+  END IF;
+END
+$sync$;
 
 UPDATE public.legislation_changes c
    SET rada_id = l.rada_id
