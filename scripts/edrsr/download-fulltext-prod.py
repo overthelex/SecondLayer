@@ -320,6 +320,42 @@ async def download_all(items, threads_per_ip, source_ips):
     return stats
 
 
+# ── Content gate ──
+# The registry answers HTTP 200 with an overload notice under load, and the downloader
+# counts any 200 as success. The 2026-04-19 run at ~1200 docs/s stored that page as the
+# decision text for 36% of April 2026; the 2026-08-13 runs at ~100 docs/s, 0.03%. Left
+# ungated, a faster pool multiplies the damage and still reports a clean finish.
+#
+# Signatures below are anchored on CONTENT, not length: 2,091 chars looked like a
+# reliable marker, but 608 rows of exactly that length on the 2026 partition are real
+# decisions, and 2,670 overload pages have other lengths.
+OVERLOAD_MOJIBAKE = 'Р„РґРёРЅРёР№ РґРµСЂР¶Р°РІРЅРёР№'
+OVERLOAD_DECODED = ('Сервер перевантажений запитами', 'Перегляд сторінки недоступний')
+# Anchored at the start: a stored HTML export always opens with the tag, while a real
+# decision can quote markup in its body (an IT dispute over a copied page does exactly
+# that), and a "appears near the top" rule discards it as damaged.
+HTML_OPENING_RE = re.compile(r'^\s*<(!doctype\s+html|html\b|\?xml\b)', re.I)
+CYRILLIC_RE = re.compile('[\u0400-\u04FF]')
+# Deliberately NO minimum-length rule. The corpus holds faithful stubs — lawful
+# "Інформація заборонена для оприлюднення" notices, one-line procedural entries, even
+# date-only texts — and the 2026-08-13 audit fetched five of them and found the SOURCE
+# files themselves are 314-675 bytes. Rejecting those would delete the RTF, refetch it
+# on the next run, reject it again, and never let the document reach the corpus.
+
+
+def damage_kind(text: str) -> str | None:
+    """Return why this text must not be stored as a decision, or None if it is fine."""
+    if not text:
+        return 'empty'
+    if OVERLOAD_MOJIBAKE in text or any(m in text for m in OVERLOAD_DECODED):
+        return 'registry_overload_page'
+    if HTML_OPENING_RE.match(text):
+        return 'undecoded_html'
+    if len(text) >= 400 and not CYRILLIC_RE.search(text):
+        return 'no_cyrillic'
+    return None
+
+
 def _convert_one(doc_id):
     """Pool worker: RTF file → (doc_id, text), or None if it yielded nothing.
 
@@ -327,7 +363,19 @@ def _convert_one(doc_id):
     fork start method carries it into the children.
     """
     text = rtf_to_text(RTF_DIR / f"{doc_id}.rtf")
-    return (doc_id, text) if text else None
+    if not text:
+        return None
+    kind = damage_kind(text)
+    if kind:
+        # Reject, and drop the file so the next run refetches it instead of replaying
+        # the same bad bytes from disk. Resumability is what makes this safe: nothing
+        # is lost, the document simply stays unharvested until a healthy fetch.
+        try:
+            (RTF_DIR / f"{doc_id}.rtf").unlink()
+        except OSError:
+            pass
+        return ('rejected', doc_id, kind)
+    return (doc_id, text)
 
 
 # ── Import to DB ──
@@ -358,6 +406,7 @@ def import_to_db(date_from, date_to, batch_size=2000, workers=None):
         return
 
     total_imported = 0
+    rejected: dict[str, int] = {}
     total_batches = (len(to_import) + batch_size - 1) // batch_size
     start = time.time()
 
@@ -370,7 +419,11 @@ def import_to_db(date_from, date_to, batch_size=2000, workers=None):
             batch_start = batch_idx * batch_size
             batch_ids = to_import[batch_start: batch_start + batch_size]
 
-            rows = [r for r in pool.map(_convert_one, batch_ids, chunksize=32) if r]
+            converted = [r for r in pool.map(_convert_one, batch_ids, chunksize=32) if r]
+            rows = [r for r in converted if r[0] != 'rejected']
+            for r in converted:
+                if r[0] == 'rejected':
+                    rejected[r[2]] = rejected.get(r[2], 0) + 1
 
             if rows:
                 if psql_copy_rows(rows, date_from, date_to):
@@ -384,6 +437,11 @@ def import_to_db(date_from, date_to, batch_size=2000, workers=None):
                       f"{rate:.0f}/s | ETA {eta/60:.0f}m", flush=True)
 
     print(f"  Import complete: {total_imported} records", flush=True)
+    if rejected:
+        detail = ', '.join(f"{k}={v}" for k, v in sorted(rejected.items()))
+        total_rejected = sum(rejected.values())
+        print(f"  Rejected by content gate: {total_rejected} ({detail})", flush=True)
+        print("  Their RTFs were deleted; re-run the same range to fetch them again.", flush=True)
 
 
 def verify(date_from, date_to):
