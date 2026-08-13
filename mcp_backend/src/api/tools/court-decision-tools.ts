@@ -38,6 +38,15 @@ const SECTION_TEXT_CAP = 40000;
 import { logger } from '../../utils/logger.js';
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { generateCaseNumberVariations, extractSnippets, resolveCauseNumber, edrsrPool, formatCourtDate } from '../tool-utils.js';
+import { detectDamagedCourtText, DAMAGED_TEXT_REASON } from '../../services/edrsr-text-integrity.js';
+
+/** Chain rows carry `full_text` inline; keep the shape, refuse damaged content. */
+function guardChainText(text: string): Record<string, unknown> {
+  const kind = detectDamagedCourtText(text);
+  return kind
+    ? { text_unavailable: { kind, reason: DAMAGED_TEXT_REASON[kind] } }
+    : { full_text: text };
+}
 
 /**
  * Resolve requested judgment-form names ("Рішення", "постанови") to the
@@ -561,6 +570,31 @@ total_resolved_links=0 означає відсутність даних граф
     const fullText = row.full_text || '';
     const url = `https://reyestr.court.gov.ua/Review/${row.doc_id}`;
 
+    // A stored registry overload page or latin1-mangled HTML carries the real case
+    // metadata, so without this check the answer looks like a genuine decision and
+    // only its content is garbage. Refuse the text (and the sections derived from it)
+    // rather than pass it on — sectionising mojibake would only make it look parsed.
+    const damage = detectDamagedCourtText(fullText);
+    if (damage) {
+      logger.warn('[MCP Tool] get_court_decision: damaged stored text', {
+        docId: row.doc_id,
+        kind: damage,
+        textLength: fullText.length,
+      });
+      return this.wrapResponse({
+        doc_id: row.doc_id,
+        case_number: row.cause_num || caseNumber || undefined,
+        judge: row.judge || undefined,
+        court_name: courtName || undefined,
+        judgment_form: judgmentForm || undefined,
+        adjudication_date: formatCourtDate(row.adjudication_date),
+        url,
+        text_unavailable: { kind: damage, reason: DAMAGED_TEXT_REASON[damage] },
+        sections: [],
+        full_text_length: 0,
+      });
+    }
+
     const extractedSections = fullText
       ? await this.sectionizer.extractSections(fullText, budget === 'deep')
       : [];
@@ -941,7 +975,7 @@ total_resolved_links=0 означає відсутність даних граф
       judge: row.judge,
       date: formatCourtDate(row.adjudication_date),
       url: `https://reyestr.court.gov.ua/Review/${row.doc_id}`,
-      ...(includeFullText && row.full_text ? { full_text: row.full_text } : {}),
+      ...(includeFullText && row.full_text ? guardChainText(row.full_text) : {}),
     }));
 
     let groupedDocs: any = null;
@@ -1253,6 +1287,21 @@ total_resolved_links=0 означає відсутність даних граф
           excerpt = fullText;
           source = 'truncated';
         }
+      }
+
+      // Same guard as get_court_decision: this is the bulk path a report builds on,
+      // so a stored overload page here would be quoted as the decision's content.
+      const damage = detectDamagedCourtText(fullText);
+      if (damage) {
+        out.push({
+          doc_id: row.doc_id,
+          case_number: row.cause_num || undefined,
+          judge: row.judge || undefined,
+          adjudication_date: formatCourtDate(row.adjudication_date),
+          url,
+          text_unavailable: { kind: damage, reason: DAMAGED_TEXT_REASON[damage] },
+        });
+        continue;
       }
 
       const truncated = excerpt.length > snippetChars;
