@@ -47,21 +47,34 @@ AS $fn$
          END
   FROM (
     -- The multi-character replacements come FIRST and exist to keep the fold
-    -- injective. A plain 1:1 translate sends є and е both to "e" and й, і, ї
-    -- all to "i", which merges 2993е-12 with 2993є-12 and 2993й-12 with
-    -- 2993і-12 and 2993ї-12 -- five distinct acts whose letter index is the
-    -- only thing telling them apart. Measured: exactly these two collisions.
+    -- INJECTIVE, which is the whole point: a fold that merges two letters
+    -- merges the acts those letters distinguish. A plain 1:1 translate sends
+    -- є/е to "e" and й/і/ї to "i", which really did merge 2993е-12 with
+    -- 2993є-12 and 2993й-12 with 2993і-12 and 2993ї-12 -- five distinct acts
+    -- whose letter index is the only thing telling them apart.
+    --
+    -- Every remaining many-to-one case is handled here too, even though none
+    -- of ш щ ю я ґ ь currently appears in any nreg: ш/щ both to "w", ю/у both
+    -- to "u", я/а both to "a", г/ґ both to "g", and ь dropped outright so that
+    -- «2993ь» collapsed onto «2993». Those are latent traps, not live bugs,
+    -- and they cost nothing to close.
+    --
+    -- "h" is deliberately never emitted by the 1:1 table below, so the digraphs
+    -- zh/sh/ch/shch/gh cannot be forged by any pair of single letters.
     SELECT translate(
-             replace(replace(replace(
+             replace(replace(replace(replace(replace(replace(replace(
+             replace(replace(replace(replace(
                lower(
                  regexp_replace(
                    normalize(regexp_replace(raw, '№', '', 'g'), NFKC),
                    '[[:space:]]', '', 'g'
                  )
                ),
-             'є', 'ye'), 'ї', 'yi'), 'ж', 'zh'),
-             'абвгдезиійклмнопрстуфхцчшщюяґь',
-             'abvgdezyijklmnoprstufxcqwwuag'
+             'щ', 'shch'), 'ш', 'sh'), 'ч', 'ch'), 'ж', 'zh'),
+             'ц', 'ts'), 'є', 'ye'), 'ї', 'yi'), 'ю', 'yu'),
+             'я', 'ya'), 'ґ', 'gh'), 'ь', 'q'),
+             'абвгдезиійклмнопрстуфх',
+             'abvgdezyijklmnoprstufx'
            ) AS v
   ) s;
 $fn$;
@@ -228,10 +241,11 @@ LEFT JOIN npa.act_number alt
        ON alt.nreg = a.nreg AND alt.kind = 'official_alt' AND alt.is_primary;
 
 -- ---------------------------------------------------------------------------
--- search_edrnpa matched c.number by raw equality against a column holding
--- 5 435 NULLs, 97 zero-padded numbers ("007"), 11 929 with Roman characters
--- and shapes like 08-а, 02/01, 1-зп, 10-VII. This index makes the normalized
--- comparison in opendata-tools.ts an index scan.
-CREATE INDEX IF NOT EXISTS idx_edrnpa_number_norm
-  ON public.opendata_edrnpa_cards (npa.norm_number(number))
-  WHERE number IS NOT NULL;
+-- NOT here: the expression index on public.opendata_edrnpa_cards
+-- (npa.norm_number(number)). search_edrnpa still compares c.number by raw
+-- equality (opendata-tools.ts), so the index would carry maintenance cost
+-- while accelerating nothing. It ships in the same PR that normalizes both
+-- sides of that comparison, together with the rest of the resolver wiring.
+--
+-- npa.norm_number is declared IMMUTABLE precisely so that index is possible
+-- when the query is ready for it.
