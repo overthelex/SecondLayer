@@ -218,7 +218,7 @@ best_art AS (
   FROM (SELECT legislation_id, article_number, id, is_current, version_date,
                public.lcl_art_key(article_number) AS art_key
           FROM legislation_articles) x
-  ORDER BY legislation_id, art_key, (article_number NOT LIKE 'п.%') DESC,
+  ORDER BY legislation_id, art_key, (btrim(article_number) NOT LIKE 'п.%') DESC,
            is_current DESC, version_date DESC NULLS LAST),
 -- ---------------------------------------------------------------------------
 -- The NUMBER leg. Native port of scripts/citation-graph/repair-lcl-by-number.sql
