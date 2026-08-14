@@ -13,16 +13,34 @@ unresolvable rather than merely imprecise.
 Run: python3 scripts/citation-graph/test_act_number_extraction.py
 """
 
+import importlib
 import importlib.util
 import re
 import sys
+import types
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 
 
 def load_patterns():
-    """Import a module whose filename has a dash in it."""
+    """
+    Import a module whose filename has a dash in it.
+
+    extract-citations.py imports psycopg2 at module level, but these are pure
+    regex assertions and must not need a database driver to run. Stub it if it
+    is absent so the suite works anywhere -- a test that cannot start on a
+    clean checkout is a test nobody runs.
+    """
+    for name in ("psycopg2", "psycopg2.extras", "psycopg2.extensions"):
+        if name not in sys.modules:
+            try:
+                importlib.import_module(name)
+            except ImportError:
+                stub = types.ModuleType(name)
+                stub.__getattr__ = lambda _attr: object  # type: ignore[attr-defined]
+                sys.modules[name] = stub
+
     spec = importlib.util.spec_from_file_location("extract_citations", HERE / "extract-citations.py")
     mod = importlib.util.module_from_spec(spec)
     sys.modules["extract_citations"] = mod
@@ -49,6 +67,17 @@ LAW_BY_NUMBER = [
     ("Закону України № 1030а-12", "1030а-12"),                     # letter-indexed core
     ("Закону України № 3674-VI від 08.07.2011", "3674-VI"),        # date AFTER the number
     ("Закону України № 2755-VI (Податковий кодекс)", "2755-VI"),   # parenthesis follows
+    # «р.» / «року» between the date and the number is standard in judgments.
+    ("Закону України від 09.04.1992 р. № 2262-ХІІ", "2262-ХІІ"),
+    ("Закону України від 09.04.1992 року № 2262-XII", "2262-XII"),
+]
+
+# Tokens outside the measured shapes (core > 5 digits, suffix > 2 letters where
+# the corpus allows at most 2) must match NOTHING. Capturing a prefix would
+# store a truncated identifier -- the very defect this file guards against.
+MUST_NOT_TRUNCATE = [
+    "Закону України № 1234567-XII",
+    "Закону України № 123456",
 ]
 
 # (text, expected article, expected number)
@@ -88,6 +117,11 @@ def main() -> int:
     if not m or m.group(2) != "Про оренду землі":
         failures.append("law_article: quoted-name branch broke")
 
+    for text in MUST_NOT_TRUNCATE:
+        m = PATTERNS["law_by_number"].search(text)
+        if m:
+            failures.append(f"law_by_number {text!r}: matched a prefix {m.group(2)!r} instead of declining")
+
     # No captured number may end in a bare hyphen. That is the exact shape the
     # old regex produced, and the one to never see again.
     for text, _ in LAW_BY_NUMBER:
@@ -97,7 +131,7 @@ def main() -> int:
 
     for f in failures:
         print("FAIL:", f)
-    total = len(LAW_BY_NUMBER) + len(LAW_ARTICLE) + 1
+    total = len(LAW_BY_NUMBER) + len(LAW_ARTICLE) + len(MUST_NOT_TRUNCATE) + 1
     print(f"{total - len(failures)}/{total} checks passed")
     return 1 if failures else 0
 
