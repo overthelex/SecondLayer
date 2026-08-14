@@ -82,7 +82,11 @@ SELECT l.id,
        art.body || '',
        art.ed_date,
        e.is_current,
-       length(art.body),
+       -- octet_length, not length: the column stores BYTES, and every one of
+       -- the 25 213 existing rows sampled matches octet_length while ZERO match
+       -- the character count. Cyrillic is 2 bytes per character, so length()
+       -- would have halved it and made this act the only inconsistent one.
+       octet_length(art.body),
        now(), now()
 FROM npa.article art
 JOIN npa.edition e ON e.nreg = art.nreg AND e.ed_date = art.ed_date
