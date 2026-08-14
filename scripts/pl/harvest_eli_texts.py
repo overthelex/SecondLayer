@@ -127,6 +127,18 @@ def fetch(url, path, use_cache=True):
     return b"", 599
 
 
+def _full_text(html):
+    """Whole-document text, gloss footnotes removed.
+
+    Stored ONLY when no article came out, so a provision is never held twice -
+    the rule migration 191 inherits from nl_law_edition_texts.
+    """
+    doc = lxml.html.document_fromstring(
+        html, parser=lxml.html.HTMLParser(encoding="utf-8"))
+    P.strip_glosses(doc)
+    return P._clean("".join(doc.itertext()))
+
+
 def handle(row, reparse=False):
     act_eli, snap_eli, is_cons = row[0], row[1], row[2] == "t"
 
@@ -148,11 +160,19 @@ def handle(row, reparse=False):
                          0, 0, None, 0, None, 0, 0, None)]
 
     try:
-        struct = json.loads(sj)
+        # Not json.loads: ISAP does not escape ASCII double quotes inside string
+        # values, so any act whose title closes a „ quotation with a straight "
+        # returns unparseable JSON. DU/2024/561 is 76 KB of valid structure
+        # behind one such quote, and 140 articles would be lost with it.
+        struct, _repaired = P.repair_struct_json(sj)
     except json.JSONDecodeError:
         counts["failed"] += 1
+        # Still store the document text. Without a struct there are no articles,
+        # but losing the act entirely is worse than holding it unsegmented, and
+        # verdict 901 records exactly which of the two this row is.
+        full = _full_text(html)
         return [], [], [(snap_eli, act_eli, 901, len(html), len(sj), None, 0, 0,
-                         None, 0, None, 0, 0, None)]
+                         full, len(full), None, 0, 0, None)]
 
     r = P.parse(struct, html, is_consolidation=is_cons)
 
@@ -168,12 +188,7 @@ def handle(row, reparse=False):
 
     # Whole-document text is kept ONLY when no article came out, so a provision
     # is never stored twice (the rule migration 182 set for the Dutch corpus).
-    full = None
-    if not r.articles:
-        doc = lxml.html.document_fromstring(
-            html, parser=lxml.html.HTMLParser(encoding="utf-8"))
-        P.strip_glosses(doc)
-        full = P._clean("".join(doc.itertext()))
+    full = _full_text(html) if not r.articles else None
 
     if r.verdict == P.OK:
         counts["ok"] += 1

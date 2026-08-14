@@ -25,6 +25,7 @@ Verified against fixtures on 2026-08-14:
   DU/2020/1320 struct 494 arti in annex, DOM 497 anchors, 3 out of scope
   DU/1964/93   2,290 struct nodes / 2,289 distinct ids - ids DO repeat
 """
+import json
 import re
 import unicodedata
 
@@ -120,6 +121,67 @@ def art_no_from_heading(display):
     elif sup_letter:
         canon += sup_letter
     return canon
+
+
+def repair_struct_json(raw):
+    """Parse a /struct payload, repairing the source's unescaped quotes.
+
+    ISAP does not escape ASCII double quotes inside JSON string values. Polish
+    typography opens a quotation with „ and the source often closes it with a
+    straight ", so titles like
+
+        "title" : "...przedsiębiorstwa państwowego „Polskie Koleje Państwowe"1)",
+
+    terminate the JSON string early and make the whole document unparseable
+    (DU/2024/561, 76 KB, is one). Without this the act has no struct, so it gets
+    no articles at all - the entire text of a code lost to one quotation mark.
+
+    The repair walks the payload and escapes any " inside a string that is not
+    followed by a structural delimiter. Returns (parsed, repaired_bool) and
+    raises json.JSONDecodeError if it still will not parse, so a genuinely
+    broken payload is still an honest failure rather than a silent empty result.
+    """
+    if isinstance(raw, (bytes, bytearray)):
+        raw = raw.decode("utf-8", errors="replace")
+    try:
+        return json.loads(raw), False
+    except json.JSONDecodeError:
+        pass
+
+    out = []
+    in_string = False
+    escaped = False
+    for i, ch in enumerate(raw):
+        if escaped:
+            out.append(ch)
+            escaped = False
+            continue
+        if ch == "\\":
+            out.append(ch)
+            escaped = True
+            continue
+        if ch == '"':
+            if not in_string:
+                in_string = True
+                out.append(ch)
+                continue
+            # Closing quote only if the next non-space character is one that can
+            # legally follow a string. Anything else means the source left a
+            # quote inside the value.
+            nxt = ""
+            for c in raw[i + 1:]:
+                if not c.isspace():
+                    nxt = c
+                    break
+            if nxt in (",", ":", "}", "]", ""):
+                in_string = False
+                out.append(ch)
+            else:
+                out.append('\\"')
+            continue
+        out.append(ch)
+
+    return json.loads("".join(out)), True
 
 
 def _iter_struct(struct):
