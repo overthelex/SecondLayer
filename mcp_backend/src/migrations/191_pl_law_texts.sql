@@ -1,4 +1,4 @@
--- Migration 185: Polish legislation text, article by article.
+-- Migration 191: Polish legislation text, article by article.
 --
 -- 39,110 of 97,681 Dziennik Ustaw acts serve text.html (40.0%). Monitor Polski
 -- serves none - 0 of 66,532, checked across all 92 MP year listings - so MP is

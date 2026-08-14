@@ -1,4 +1,4 @@
--- Companion to migrations 184/185. NOT run by mcp_backend/src/migrations/migrate.ts.
+-- Companion to migrations 190/191. NOT run by mcp_backend/src/migrations/migrate.ts.
 --
 -- migrate.ts executes each file as one db.query(), i.e. inside one implicit
 -- transaction, and CREATE INDEX CONCURRENTLY cannot run in a transaction. The
@@ -6,9 +6,9 @@
 -- the precedent is scripts/nl/179b_nl_decisions_indexes_concurrently.sql.
 --
 -- Apply on prod:
---   docker cp scripts/pl/186_pl_indexes_concurrently.sql secondlayer-postgres-prod:/tmp/
+--   docker cp scripts/pl/192_pl_indexes_concurrently.sql secondlayer-postgres-prod:/tmp/
 --   docker exec secondlayer-postgres-prod psql -U secondlayer -d secondlayer_prod \
---       -f /tmp/186_pl_indexes_concurrently.sql
+--       -f /tmp/192_pl_indexes_concurrently.sql
 --
 -- Then ALWAYS check for a build that was interrupted, which leaves an INVALID
 -- index that silently does not serve queries:

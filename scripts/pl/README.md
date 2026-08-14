@@ -28,8 +28,8 @@ PG_DB=secondlayer_prod
 | legacy repair | `repair_legacy.py` | not written |
 
 Parser: `pl_article_parser.py`, tests `test_pl_article_parser.py` (all passing).
-Schema: `mcp_backend/src/migrations/184_pl_legislation.sql`, `185_pl_law_texts.sql`,
-plus `186_pl_indexes_concurrently.sql` **which the migration runner must not run**
+Schema: `mcp_backend/src/migrations/190_pl_legislation.sql`, `191_pl_law_texts.sql`,
+plus `192_pl_indexes_concurrently.sql` **which the migration runner must not run**
 (it wraps each file in one transaction and `CREATE INDEX CONCURRENTLY` cannot run
 in one - same reason as `scripts/nl/179b_*`).
 

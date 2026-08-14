@@ -1,4 +1,4 @@
--- Migration 184: Polish legislation register and amendment graph (Sejm ELI API)
+-- Migration 190: Polish legislation register and amendment graph (Sejm ELI API)
 --
 -- Source: https://api.sejm.gov.pl/eli, no auth, JSON. 164,213 acts as of
 -- 2026-08-14: Dziennik Ustaw (DU) 97,681 and Monitor Polski (MP) 66,532,
