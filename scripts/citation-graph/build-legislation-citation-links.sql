@@ -56,6 +56,16 @@ $fn$;
 -- the shared resource is removed instead of defended.
 SELECT 'lcl_stg_' || to_char(clock_timestamp(), 'YYYYMMDDHH24MISSMS') || '_' || pg_backend_pid() AS stg \gset
 
+-- One definition of the article key. It was written out twice — once in
+-- best_art, once in the withart join — and the two have to agree exactly or
+-- the join silently stops matching. That is the same drift this whole effort
+-- has been removing elsewhere, so it gets a single home. An IMMUTABLE SQL
+-- function with a one-expression body is inlined by the planner, so this costs
+-- nothing at runtime.
+CREATE OR REPLACE FUNCTION public.lcl_art_key(t text)
+RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS
+$fn$ SELECT regexp_replace(btrim(t), '^п\.', '') $fn$;
+
 DROP TABLE IF EXISTS public.:"stg";
 CREATE TABLE public.:"stg" (
   id bigserial PRIMARY KEY, doc_id bigint NOT NULL, legislation_id integer, article_id integer,
@@ -206,7 +216,7 @@ best_art AS (
   SELECT DISTINCT ON (legislation_id, art_key)
          legislation_id, article_number, id AS article_id, art_key
   FROM (SELECT legislation_id, article_number, id, is_current, version_date,
-               regexp_replace(article_number, '^п\.', '') AS art_key
+               public.lcl_art_key(article_number) AS art_key
           FROM legislation_articles) x
   ORDER BY legislation_id, art_key, (article_number NOT LIKE 'п.%') DESC,
            is_current DESC, version_date DESC NULLS LAST),
@@ -295,7 +305,7 @@ withart AS (
   SELECT m.*, ba.article_id, ba.article_number
   FROM matched m
   LEFT JOIN best_art ba ON ba.legislation_id = m.lid
-                       AND ba.art_key = regexp_replace(btrim(m.law_article), '^п\.', '')),
+                       AND ba.art_key = public.lcl_art_key(m.law_article)),
 pick AS (
   SELECT DISTINCT ON (cid) doc_id, lid, article_id, article_number, law_number, law_article,
          citation_type, citation_context, v, method, cid
