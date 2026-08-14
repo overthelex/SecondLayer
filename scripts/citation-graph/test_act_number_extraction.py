@@ -32,14 +32,18 @@ def load_patterns():
     is absent so the suite works anywhere -- a test that cannot start on a
     clean checkout is a test nobody runs.
     """
-    for name in ("psycopg2", "psycopg2.extras", "psycopg2.extensions"):
-        if name not in sys.modules:
-            try:
-                importlib.import_module(name)
-            except ImportError:
-                stub = types.ModuleType(name)
-                stub.__getattr__ = lambda _attr: object  # type: ignore[attr-defined]
-                sys.modules[name] = stub
+    try:
+        importlib.import_module("psycopg2")
+    except ImportError:
+        # Stub the package AND its submodules in one pass. Importing the
+        # submodules instead would make the machinery read psycopg2.__path__,
+        # and a module __getattr__ that answers every name would hand it a
+        # non-iterable -- TypeError, not a clean stub.
+        for name in ("psycopg2", "psycopg2.extras", "psycopg2.extensions"):
+            stub = types.ModuleType(name)
+            stub.__path__ = []  # type: ignore[attr-defined]  # package-like
+            stub.__getattr__ = lambda _attr: object  # type: ignore[attr-defined]
+            sys.modules[name] = stub
 
     spec = importlib.util.spec_from_file_location("extract_citations", HERE / "extract-citations.py")
     mod = importlib.util.module_from_spec(spec)
