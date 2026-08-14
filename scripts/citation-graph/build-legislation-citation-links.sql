@@ -27,13 +27,12 @@ BEGIN
 END
 $lock$;
 
--- A session lock is only a lock if the session is really ours for the whole
--- run. Behind PgBouncer in transaction mode each statement can land on a
--- different server connection, which silently voids both this lock and the
--- temp table below. Record the backend now and re-check it immediately before
--- the swap: if it moved, we were pooled and the lock protected nothing.
--- Run this script DIRECTLY against Postgres (port 5432), never via pgbouncer.
-CREATE TEMP TABLE _rebuild_session AS SELECT pg_backend_pid() AS pid;
+-- Best-effort only, and deliberately so. A session advisory lock does not
+-- survive a transaction-pooled connection, so it cannot be what makes the
+-- swap safe — that job belongs to the ACCESS EXCLUSIVE lock inside the swap
+-- transaction at the end of this file. All this buys is stopping a second run
+-- from burning 90 minutes before discovering it was redundant.
+-- Run DIRECTLY against Postgres (port 5432), never through pgbouncer.
 
 -- to_date does not merely reject impossible field values, it VALIDATES the day
 -- against the month, so it THROWS on «19.19.2010» AND on «29.02.1991». Both are
@@ -276,38 +275,41 @@ CREATE INDEX idx_lcl_article_new ON public.legislation_citation_links_new(articl
 CREATE INDEX idx_lcl_legis_new ON public.legislation_citation_links_new(legislation_id, article_number);
 CREATE INDEX idx_lcl_resolved_new ON public.legislation_citation_links_new(resolved);
 
--- Refuse to swap in a table that is obviously worse than the one being
--- replaced. A rebuild that lost most of the graph must not go live silently.
-DO $guard$
-DECLARE old_n bigint; new_n bigint; started_pid int;
+-- The swap, and the check that gates it, are ONE transaction that first takes
+-- an ACCESS EXCLUSIVE lock on the live table.
+--
+-- That is what actually makes this safe. The advisory lock above is only
+-- best-effort: it is session-scoped, and no session-scoped mechanism survives
+-- a transaction-pooled connection, so it can do no more than stop a second run
+-- wasting 90 minutes. Correctness rests here instead — a transaction-scoped
+-- table lock is honoured whatever the connection topology, and it serialises
+-- the destructive step against any concurrent rebuild or writer. The row-count
+-- comparison happens INSIDE that lock, so nothing can change between the
+-- check and the swap.
+BEGIN;
+
+DO $swap$
+DECLARE old_n bigint; new_n bigint;
 BEGIN
-  -- If the connection was pooled, the temp table is gone or the pid moved, and
-  -- the advisory lock above never covered this statement. Refuse rather than
-  -- swap an 87 GB table under an unheld lock.
-  IF to_regclass('pg_temp._rebuild_session') IS NULL THEN
-    RAISE EXCEPTION 'session state lost: this looks like a pooled connection, refusing to swap';
-  END IF;
-  SELECT pid INTO started_pid FROM _rebuild_session;
-  IF started_pid <> pg_backend_pid() THEN
-    RAISE EXCEPTION 'backend changed (% -> %): pooled connection, advisory lock is void',
-      started_pid, pg_backend_pid();
+  IF to_regclass('public.legislation_citation_links') IS NOT NULL THEN
+    EXECUTE 'LOCK TABLE public.legislation_citation_links IN ACCESS EXCLUSIVE MODE';
+    EXECUTE 'SELECT count(*) FROM public.legislation_citation_links' INTO old_n;
+  ELSE
+    old_n := NULL;  -- first build, nothing to compare against
   END IF;
 
   SELECT count(*) INTO new_n FROM public.legislation_citation_links_new;
-  -- A fresh database has no live table yet; that is a first build, not a
-  -- shrunken rebuild, so there is nothing to compare against.
-  IF to_regclass('public.legislation_citation_links') IS NULL THEN
+
+  IF old_n IS NULL THEN
     RAISE NOTICE 'first build: no live table to compare against, % rows', new_n;
-    RETURN;
-  END IF;
-  EXECUTE 'SELECT count(*) FROM public.legislation_citation_links' INTO old_n;
-  IF new_n < old_n * 0.9 THEN
+  ELSIF new_n < old_n * 0.9 THEN
     RAISE EXCEPTION 'refusing swap: new table has % rows, live table has % (< 90%%)', new_n, old_n;
+  ELSE
+    RAISE NOTICE 'swap approved: % rows replacing %', new_n, old_n;
   END IF;
 END
-$guard$;
+$swap$;
 
-BEGIN;
 DROP TABLE IF EXISTS public.legislation_citation_links;
 ALTER TABLE public.legislation_citation_links_new RENAME TO legislation_citation_links;
 ALTER INDEX public.idx_lcl_doc_new      RENAME TO idx_lcl_doc;
@@ -315,11 +317,13 @@ ALTER INDEX public.idx_lcl_article_new  RENAME TO idx_lcl_article;
 ALTER INDEX public.idx_lcl_legis_new    RENAME TO idx_lcl_legis;
 ALTER INDEX public.idx_lcl_resolved_new RENAME TO idx_lcl_resolved;
 -- The bigserial and the primary key were created under the _new name and keep
--- it through a table rename, so every later run would collide on
--- legislation_citation_links_new_pkey. Rename them too.
+-- it through a table rename, so a later run would collide on
+-- legislation_citation_links_new_pkey.
 ALTER INDEX public.legislation_citation_links_new_pkey RENAME TO legislation_citation_links_pkey;
 ALTER SEQUENCE public.legislation_citation_links_new_id_seq RENAME TO legislation_citation_links_id_seq;
+
 COMMIT;
+
 \echo '=== COVERAGE ==='
 SELECT count(*) total, count(*) FILTER (WHERE resolved) resolved,
        round(100.0*count(*) FILTER (WHERE resolved)/count(*),1) pct,
