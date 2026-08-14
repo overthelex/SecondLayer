@@ -19,16 +19,17 @@ PG_DB=secondlayer_prod
 | stage | script | status |
 |---|---|---|
 | 0 pin baseline | `pin_baseline.py` | **done** - runs in 89 s, 0 problems |
-| 1 register + graph | `harvest_eli_register.py` | **built**, smoke-tested; full run not started |
+| 1 register + graph | `harvest_eli_register.py` | **listings done** (164,213 acts on prod); details pass running |
 | 2 snapshot chain | `build_pl_snapshots.sql` | **built**, verified on the real Kodeks pracy |
-| 3+4 struct + text | `harvest_eli_texts.py` | not written |
+| 3+4 struct + text | `harvest_eli_texts.py` | **built**, not yet run (needs stage 2) |
 | 5 incremental sync | `sync_eli_changes.py` | not written |
 | 6 audit | `audit_pl_load.sh` | not written |
 | courts | `harvest_ncourt.py`, `harvest_cbosa.py`, `harvest_sn_tk.py` | not written |
 | legacy repair | `repair_legacy.py` | not written |
 
 Parser: `pl_article_parser.py`, tests `test_pl_article_parser.py` (all passing).
-Schema: `mcp_backend/src/migrations/190_pl_legislation.sql`, `191_pl_law_texts.sql`,
+Schema: `mcp_backend/src/migrations/190_pl_legislation.sql`, `191_pl_law_texts.sql`
+(applied to prod 2026-08-14; 184/185 were already taken, hence 190/191),
 plus `192_pl_indexes_concurrently.sql` **which the migration runner must not run**
 (it wraps each file in one transaction and `CREATE INDEX CONCURRENTLY` cannot run
 in one - same reason as `scripts/nl/179b_*`).
