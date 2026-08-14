@@ -50,6 +50,31 @@ def get_conn():
 
 # ── Citation patterns ────────────────────────────────────────
 
+# Act number as it appears after «№», e.g. 2262-XII / 2262-ХІІ / 254к/96-ВР /
+# 1199-2022-п / 1030а-12.
+#
+# The previous class was `[\d\-]{1,20}(?:\-[IVX]{1,5})?` and it captured NONE of
+# these suffixes. `[\d\-]` is greedy and swallows the separating hyphen, after
+# which the optional group needs a SECOND one and matches empty without
+# backtracking — so Latin «2262-XII» was truncated to «2262-» exactly as
+# reliably as Cyrillic «2262-ХІІ». The Latin-only [IVX] was a second, smaller
+# defect on top. Measured on prod: of 168K sampled citation rows, not one
+# carried a Roman suffix in either alphabet.
+#
+# Built piece by piece instead: numeric core, optional index letter, optional
+# /YY, optional -YYYY, then ONE optional tail that is either a two-digit
+# convocation code or a letter suffix. Letters are Latin and Cyrillic together
+# because court texts mix them inside a single numeral («2755-VІ» is Latin V
+# plus Cyrillic І); normalisation decides what they mean, extraction only has
+# to keep them.
+_ACT_NUM = (
+    r'(\d{1,5}[а-яіїєґa-z]?'
+    r'(?:/\d{2,4})?'
+    r'(?:-\d{4})?'
+    r'(?:-(?:\d{2}(?!\d)|[A-Za-zА-Яа-яІіЇїЄєҐґ]{1,6}))?)'
+)
+
+
 # Ukrainian law reference patterns
 PATTERNS = {
     # "статті 3, 5 Закону України «Про ...»" or "ст. 3 ЗУ «Про ...»"
@@ -57,7 +82,13 @@ PATTERNS = {
         r'(?:стат(?:т[іея]|ей)|ст\.)\s*'
         r'([\d,\s\-]{1,50})'
         r'\s+(?:Закону\s+України|ЗУ|Закону)\s+'
-        r'(?:[«"]([^»"]{1,200})[»"]|(?:від|№)\s*(\d[\d.\-/]{1,30}))',
+        # The number branch now REQUIRES «№», with the date optional in front of
+        # it. It used to be (?:від|№), and «від» wins the alternation, so
+        # «від 09.04.1992 № 2262-ХІІ» stored the DATE as the law number —
+        # «20.12.1991» and «09.04.1992» are really sitting in law_number_raw
+        # on prod today. A citation that gives only a date identifies nothing.
+        r'(?:[«"]([^»"]{1,200})[»"]'
+        r'|(?:від\s+\d{1,2}\.\d{1,2}\.\d{4}\s+)?№\s*' + _ACT_NUM + r')',
         re.IGNORECASE | re.UNICODE
     ),
     # Codex references: "ст. 625 ЦК України", "ч. 1 ст. 3 КАС України"
@@ -101,7 +132,7 @@ PATTERNS = {
     "law_by_number": re.compile(
         r'Закон(?:у|ом)?\s+України\s+'
         r'(?:від\s+(\d{2}\.\d{2}\.\d{4})\s+)?'
-        r'№\s*([\d\-]{1,20}(?:\-[IVX]{1,5})?)',
+        r'№\s*' + _ACT_NUM,
         re.IGNORECASE | re.UNICODE
     ),
     # Постанова Пленуму Верховного Суду
