@@ -13,7 +13,13 @@
 
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { normalizeActNumber, pickActNumber, type ActNumberMatch } from '../act-number.js';
+import {
+  normalizeActNumber,
+  normalizeArticleNumber,
+  looksLikeOfficialNumber,
+  pickActNumber,
+  type ActNumberMatch,
+} from '../act-number.js';
 
 interface Vector { in: string; norm: string; note: string }
 
@@ -46,17 +52,9 @@ describe('normalizeActNumber (TypeScript port)', () => {
   });
 });
 
-describe('article-number prefix stripping (npa-tools mode=article)', () => {
-  // Mirrors the expression in npa-tools.ts. Longest-first alternation is the
-  // whole point: with (ст|стаття|…) the engine matches «ст», the optional dot
-  // and spaces match empty, and it never backtracks — «стаття 111» came out as
-  // «аття111» and matched no article at all.
-  const strip = (s: string) =>
-    s.replace(/^\s*(стаття|статті|статтею|ст|пункт|пп|п)\.?\s*/i, '')
-      .replace(/[–—]/g, '-')
-      .replace(/\s+/g, '')
-      .trim();
-
+describe('normalizeArticleNumber (the real npa-tools mode=article path)', () => {
+  // Exercises the SHIPPED function, not a copy of its regex. A test that
+  // re-implements the expression it guards passes whatever the code does.
   it.each([
     ['стаття 111', '111'],
     ['статті 111-1', '111-1'],
@@ -67,17 +65,33 @@ describe('article-number prefix stripping (npa-tools mode=article)', () => {
     ['п. 3', '3'],
     ['111', '111'],
     ['111 - 1', '111-1'],
-    ['111–1', '111-1'],
+    ['111\u2013 1', '111-1'],
     ['205-1', '205-1'],
   ])('%s -> %s', (input, expected) => {
-    expect(strip(input)).toBe(expected);
+    expect(normalizeArticleNumber(input)).toBe(expected);
   });
 
   it('never leaves a Cyrillic remnant', () => {
+    // Alternation order: with (ст|стаття|…) the engine matched «ст» and never
+    // backtracked, so «стаття 111» became «аття111» and found nothing.
     for (const s of ['стаття 111', 'статті 12', 'пункт 3', 'статтею 625']) {
-      expect(strip(s)).toMatch(/^[0-9-]+$/);
+      expect(normalizeArticleNumber(s)).toMatch(/^[0-9-]+$/);
     }
   });
+});
+
+describe('looksLikeOfficialNumber', () => {
+  // Gates whether the caller resolves the alias BEFORE ensureLegislationExists,
+  // which fetches from zakon.rada on a miss.
+  it.each(['2755-VI', '2262-ХІІ', '8073-X', '435-IV', '№ 1402-VIII'])('%s is an official number', (s) => {
+    expect(looksLikeOfficialNumber(s)).toBe(true);
+  });
+
+  it.each(['2755-17', '254к/96-вр', '154-2022-п', 'z0001-00', '995_004', 'n0001001-01'])(
+    '%s is a registry id, not an official number', (s) => {
+      expect(looksLikeOfficialNumber(s)).toBe(false);
+    }
+  );
 });
 
 describe('pickActNumber', () => {

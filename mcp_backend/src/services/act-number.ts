@@ -172,3 +172,40 @@ export function pickActNumber(matches: ActNumberMatch[]): { nreg: string | null;
   if (strongerKind || strongerConfidence) return { nreg: first.nreg, ambiguous: [] };
   return { nreg: null, ambiguous: matches };
 }
+
+/**
+ * Does this string look like an OFFICIAL act number rather than a registry id?
+ *
+ * A registry id never ends in a Roman numeral — the corpus shapes are
+ * {n}-{cc}, {n}/{yy}-вр, {n}-{yyyy}-п, z####-##, {n}_{n}, n#######-##. An
+ * official number does exactly that: 2755-VI, 2262-ХІІ, 8073-X.
+ *
+ * Pure string test, no query. It exists so callers can resolve the alias BEFORE
+ * ensureLegislationExists, which fetches from zakon.rada on a miss — passing it
+ * «2755-VI» buys a guaranteed 404 over the network before the fallback ever runs.
+ */
+export function looksLikeOfficialNumber(raw: string): boolean {
+  const v = normalizeActNumber(raw);
+  return /^[0-9]{1,5}[a-z]?-[ivxlcdm]+$/.test(v);
+}
+
+/**
+ * Normalise a caller-supplied article reference to the form npa.article.art_no
+ * is stored in: «стаття 111-1», «ст.111 - 1», «111–1» all become «111-1».
+ *
+ * Lives here rather than inline in npa-tools so the regression test exercises
+ * the REAL function. A test that re-implements the expression it is guarding
+ * passes no matter what the shipped code does.
+ *
+ * The alternation is LONGEST-FIRST and must stay that way. With
+ * (ст|стаття|…) the engine matches «ст», the optional dot and spaces match
+ * empty, and it never backtracks to the longer branch — «стаття 111» came out
+ * as «аття111» and matched no article at all.
+ */
+export function normalizeArticleNumber(raw: string): string {
+  return String(raw ?? '')
+    .replace(/^\s*(стаття|статті|статтею|ст|пункт|пп|п)\.?\s*/i, '')
+    .replace(/[–—]/g, '-')
+    .replace(/\s+/g, '')
+    .trim();
+}

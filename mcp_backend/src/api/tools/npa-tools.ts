@@ -17,7 +17,7 @@
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { legislationStems } from '../../services/legislation-search-utils.js';
-import { resolveActNumber, pickActNumber, type ActNumberMatch } from '../../services/act-number.js';
+import { resolveActNumber, pickActNumber, normalizeArticleNumber, type ActNumberMatch } from '../../services/act-number.js';
 import {
   NPA_REPEALED_CODES,
   NPA_STATUS_ARG,
@@ -439,15 +439,9 @@ export class NpaTools extends BaseToolHandler {
         // dashes folded to "-". The INPUT gets the same treatment, so «ст. 111-1»,
         // «111 - 1» and «111–1» all reach the same key instead of missing by a
         // space. Matching art_no = $3 raw is how «ст. 111-1» used to 404.
-        // Alternation is LONGEST-FIRST on purpose. With (ст|стаття|…) the engine
-        // matches «ст», the optional dot and spaces match empty, and it never
-        // backtracks to the longer branch -- so «стаття 111» came out as
-        // «аття111» and matched nothing. Measured, not theorised.
-        const wanted = String(article_number)
-          .replace(/^\s*(стаття|статті|статтею|ст|пункт|пп|п)\.?\s*/i, '')
-          .replace(/[–—]/g, '-')
-          .replace(/\s+/g, '')
-          .trim();
+        // Normalisation lives in act-number.ts so the regression test can
+        // exercise the shipped function instead of a copy of its regex.
+        const wanted = normalizeArticleNumber(String(article_number));
 
         const rows = (await this.db.query(
           `SELECT art_no,

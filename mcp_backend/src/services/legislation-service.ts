@@ -1,5 +1,5 @@
 import type { IDatabase, IEmbeddingPort } from '../domain/ports/index.js';
-import { resolveActNumber, pickActNumber } from './act-number.js';
+import { resolveActNumber, pickActNumber, looksLikeOfficialNumber } from './act-number.js';
 import { RadaLegislationAdapter, LegislationArticle } from '../adapters/rada-legislation-adapter';
 import { logger } from '../utils/logger';
 import { createHash } from 'crypto';
@@ -575,6 +575,12 @@ export class LegislationService {
       radaId = resolved;
     }
     radaId = normalizeRadaId(radaId);
+    // Resolve an official number BEFORE ensureLegislationExists, which fetches
+    // from zakon.rada on a miss: handing it «2755-VI» buys a guaranteed 404 over
+    // the network. Pure string test, so the ordinary registry-id path is untouched.
+    if (looksLikeOfficialNumber(radaId)) {
+      radaId = await this.canonicalRadaId(radaId);
+    }
     await this.ensureLegislationExists(radaId);
 
     const lookup = async (id: string) => {
@@ -642,6 +648,9 @@ export class LegislationService {
 
   async getMultipleArticles(radaId: string, articleNumbers: string[], asOfDate?: string): Promise<LegislationReference[]> {
     radaId = normalizeRadaId(radaId);
+    if (looksLikeOfficialNumber(radaId)) {
+      radaId = await this.canonicalRadaId(radaId);
+    }
     await this.ensureLegislationExists(radaId);
 
     // КУпАП spans two RADA documents (80731-10 / 80732-10); widen the lookup to
