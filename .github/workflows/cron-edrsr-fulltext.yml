@@ -36,7 +36,7 @@ jobs:
   harvest:
     name: Harvest missing fulltexts
     runs-on: [self-hosted, prod-deploy]
-    timeout-minutes: 180
+    timeout-minutes: 300
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -65,15 +65,37 @@ jobs:
           done
           ip -4 -o addr show dev ens5 | awk '{print "  configured:", $4}'
 
-      - name: Harvest
+      - name: Harvest (recent window)
         run: |
           DAYS="${{ inputs.days_back || '10' }}"
           FROM=$(date -u -d "-${DAYS} days" +%Y-%m-%d)
           TO=$(date -u -d "+1 day" +%Y-%m-%d)
           echo "Harvesting $FROM .. $TO (exclusive)"
+          # --threads 2 is not a default worth trusting: at 5 threads x 14 IPs (~1200
+          # docs/s) the registry answers HTTP 200 with an overload page instead of the
+          # decision, which is how 3.8M rows came to hold that page. 2 threads measured
+          # 287-650 docs/s with zero overload responses across 1.3M documents.
           python3 scripts/edrsr/download-fulltext-prod.py \
-            --from "$FROM" --to "$TO" \
+            --from "$FROM" --to "$TO" --threads 2 \
             --rtf-dir "/home/ubuntu/edrsr-rtf-daily"
+
+      - name: Sweep the late-URL tail (Mondays)
+        if: github.event_name == 'schedule'
+        run: |
+          # data.gov.ua publishes a decision first WITHOUT a doc_url and adds the link in
+          # a later re-publication, so a document whose link arrives more than `days_back`
+          # after its adjudication date falls out of the daily window and is never
+          # harvested. Measured 2026-08-14: 7,411 such documents for 2023-2026 alone,
+          # every sampled one still served by the registry. A weekly pass over the last
+          # year closes that tail; it fetches only what is missing, so a quiet week costs
+          # one query.
+          if [ "$(date -u +%u)" != "1" ]; then echo "not Monday — skipping the sweep"; exit 0; fi
+          FROM=$(date -u -d "-1 year" +%Y-%m-%d)
+          TO=$(date -u -d "+1 day" +%Y-%m-%d)
+          echo "Sweeping $FROM .. $TO for documents whose URL arrived late"
+          python3 scripts/edrsr/download-fulltext-prod.py \
+            --from "$FROM" --to "$TO" --threads 2 \
+            --rtf-dir "/home/ubuntu/edrsr-rtf-sweep"
 
       - name: Coverage report
         if: always()
@@ -95,5 +117,7 @@ jobs:
           # The RTFs are a download scratch area — the text lives in Postgres
           # once imported. Keeping them lets a re-run skip re-downloading, but
           # they accumulate at ~30GB per million documents.
-          find /home/ubuntu/edrsr-rtf-daily -type f -mtime +3 -delete 2>/dev/null || true
-          du -sh /home/ubuntu/edrsr-rtf-daily 2>/dev/null || true
+          for d in /home/ubuntu/edrsr-rtf-daily /home/ubuntu/edrsr-rtf-sweep; do
+            find "$d" -type f -mtime +3 -delete 2>/dev/null || true
+            du -sh "$d" 2>/dev/null || true
+          done

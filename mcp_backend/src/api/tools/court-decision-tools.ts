@@ -574,7 +574,9 @@ total_resolved_links=0 означає відсутність даних граф
     // metadata, so without this check the answer looks like a genuine decision and
     // only its content is garbage. Refuse the text (and the sections derived from it)
     // rather than pass it on — sectionising mojibake would only make it look parsed.
-    const damage = detectDamagedCourtText(fullText);
+    // No text at all is the same failure in a quieter form: the payload used to come
+    // back with empty sections and nothing saying why.
+    const damage = fullText ? detectDamagedCourtText(fullText) : 'not_harvested';
     if (damage) {
       logger.warn('[MCP Tool] get_court_decision: damaged stored text', {
         docId: row.doc_id,
@@ -1291,7 +1293,7 @@ total_resolved_links=0 означає відсутність даних граф
 
       // Same guard as get_court_decision: this is the bulk path a report builds on,
       // so a stored overload page here would be quoted as the decision's content.
-      const damage = detectDamagedCourtText(fullText);
+      const damage = fullText ? detectDamagedCourtText(fullText) : 'not_harvested';
       if (damage) {
         out.push({
           doc_id: row.doc_id,

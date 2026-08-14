@@ -28,7 +28,7 @@
  * length are real decisions, while 2,670 overload pages have other lengths.
  */
 
-export type DamagedTextKind = 'registry_overload_page' | 'undecoded_html';
+export type DamagedTextKind = 'registry_overload_page' | 'undecoded_html' | 'not_harvested';
 
 /**
  * Double-mojibake of "Єдиний державний реєстр судових рішень" — the header of the
@@ -84,6 +84,14 @@ export function detectDamagedCourtText(text: string | null | undefined): Damaged
 
 /** Human-readable reason, in the product's language, for surfacing to the model. */
 export const DAMAGED_TEXT_REASON: Record<DamagedTextKind, string> = {
+  // A document whose text was never harvested used to be served as `sections: []` with
+  // `full_text_length: 0` — indistinguishable from a decision that simply says little.
+  // Silent incompleteness reads as completeness, which is the failure this quarantine
+  // exists to prevent. Measured 2026-08-14: ~119K such documents for 2023-2026 whose
+  // metadata carries no usable link, so no harvest run will fill them.
+  not_harvested:
+    'Текст цього документа ще не завантажено до бази — є лише метадані (суд, суддя, дата, номер справи). ' +
+    'Зміст недоступний: не переказуй його, не цитуй і не роби висновків про те, що вирішив суд у цьому документі.',
   registry_overload_page:
     'Замість тексту рішення в базі збережено службову сторінку реєстру («Сервер перевантажений запитами»). ' +
     'Текст потребує повторного завантаження з ЄДРСР. Не переказуй вміст цього документа і не цитуй його.',
