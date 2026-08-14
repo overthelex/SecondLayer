@@ -287,9 +287,15 @@ withart AS (
   -- the stripped key reproduces 21 004 of 21 004 with zero lost and binds
   -- 1 103 further rows that are unresolved today, across the 71 acts that keep
   -- п.-prefixed articles.
+  -- Stripped on BOTH sides. No citation in the corpus carries the prefix
+  -- today — 0 of 168 819 sampled source rows and 0 in the built links — but
+  -- normalising only one side would silently miss the day the extractor starts
+  -- emitting «п.38.6», and symmetry costs +0.011% of planner cost with the
+  -- plan shape unchanged.
   SELECT m.*, ba.article_id, ba.article_number
   FROM matched m
-  LEFT JOIN best_art ba ON ba.legislation_id = m.lid AND ba.art_key = btrim(m.law_article)),
+  LEFT JOIN best_art ba ON ba.legislation_id = m.lid
+                       AND ba.art_key = regexp_replace(btrim(m.law_article), '^п\.', '')),
 pick AS (
   SELECT DISTINCT ON (cid) doc_id, lid, article_id, article_number, law_number, law_article,
          citation_type, citation_context, v, method, cid
