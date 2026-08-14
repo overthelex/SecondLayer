@@ -15,6 +15,7 @@ Usage:
 
 import argparse
 import asyncio
+import html
 import aiofiles
 import csv
 import io
@@ -118,11 +119,7 @@ def remove_nested_group(text, keyword):
     return text
 
 
-def rtf_to_text(filepath: Path) -> str | None:
-    try:
-        raw = filepath.read_bytes()
-    except (IOError, OSError):
-        return None
+def rtf_to_text(raw: bytes) -> str | None:
     text = raw.decode('latin1')
     for kw in ['fonttbl', 'colortbl', 'stylesheet', 'info', '*\\']:
         text = remove_nested_group(text, kw)
@@ -139,6 +136,67 @@ def rtf_to_text(filepath: Path) -> str | None:
     text = re.sub(r'\n{3,}', '\n\n', text)
     text = text.strip()
     return text if text else None
+
+
+
+def _html_charset(raw: bytes) -> str:
+    """Charset declared by the document, defaulting to the registry's own encoding."""
+    m = re.search(rb'charset\s*=\s*["\']?([A-Za-z0-9_-]+)', raw[:4096])
+    if not m:
+        return 'windows-1251'
+    enc = m.group(1).decode('ascii', errors='ignore').lower()
+    return 'utf-8' if enc in ('utf8', 'utf-8') else enc
+
+
+def html_to_text(raw: bytes) -> str | None:
+    """Decode registry HTML with its real encoding and strip it down to the decision.
+
+    The registry serves a large share of documents as windows-1251 HTML. They used to
+    fall through to the RTF branch, which decodes latin1 — that is how ~427K documents
+    of 2016-2018 came to hold `<HTML>… Íàéìåíóâàííÿ ñóäó` and not one Cyrillic
+    character, unfindable by any Ukrainian query.
+    """
+    try:
+        text = raw.decode(_html_charset(raw), errors='replace')
+    except LookupError:
+        text = raw.decode('windows-1251', errors='replace')
+
+    text = re.sub(r'(?is)<(script|style)[^>]*>.*?</\1>', ' ', text)
+    text = re.sub(r'(?s)<!--.*?-->', ' ', text)
+    # Block-level ends become newlines so paragraphs survive as paragraphs.
+    text = re.sub(r'(?i)<br\s*/?>|</p>|</div>|</tr>|</h[1-6]>', '\n', text)
+    text = re.sub(r'(?s)<[^>]+>', ' ', text)
+    text = html.unescape(text)
+    text = text.replace('\xa0', ' ').replace('\x00', '')
+    text = re.sub(r'[ \t]{2,}', ' ', text)
+    text = re.sub(r'\n{3,}', '\n\n', text)
+    text = text.strip()
+    return text or None
+
+
+def file_to_text(filepath: Path) -> str | None:
+    """Pick the parser by what the bytes ARE, not by what the URL was called.
+
+    The old sniff keyed on an exact prefix, so anything that did not start exactly with
+    an HTML doctype went to the RTF parser regardless of content — the defect behind the
+    2016-2018 mojibake population, and still live: a 2026 refetch had 41 documents
+    rejected as undecoded HTML.
+    """
+    try:
+        raw = filepath.read_bytes()
+    except (IOError, OSError):
+        return None
+    if not raw:
+        return None
+
+    head = raw[:2048].lstrip()
+    if head[:5] == b'{\\rtf':
+        return rtf_to_text(raw)
+    lowered = head.lower()
+    if any(marker in lowered for marker in (b'<html', b'<!doctype html', b'<?xml', b'<head', b'<body', b'<meta')):
+        return html_to_text(raw)
+    # Unknown shape: the RTF branch is the historical default and copes with plain text.
+    return rtf_to_text(raw)
 
 
 # ── DB helpers ──
@@ -435,7 +493,7 @@ def _convert_one(doc_id):
     Reads RTF_DIR as a module global — set in main() before the Pool is created, so
     fork start method carries it into the children.
     """
-    text = rtf_to_text(RTF_DIR / f"{doc_id}.rtf")
+    text = file_to_text(RTF_DIR / f"{doc_id}.rtf")
     if not text:
         return None
     kind = damage_kind(text)
