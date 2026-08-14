@@ -56,6 +56,16 @@ $fn$;
 -- the shared resource is removed instead of defended.
 SELECT 'lcl_stg_' || to_char(clock_timestamp(), 'YYYYMMDDHH24MISSMS') || '_' || pg_backend_pid() AS stg \gset
 
+-- One definition of the article key. It was written out twice — once in
+-- best_art, once in the withart join — and the two have to agree exactly or
+-- the join silently stops matching. That is the same drift this whole effort
+-- has been removing elsewhere, so it gets a single home. An IMMUTABLE SQL
+-- function with a one-expression body is inlined by the planner, so this costs
+-- nothing at runtime.
+CREATE OR REPLACE FUNCTION public.lcl_art_key(t text)
+RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS
+$fn$ SELECT regexp_replace(btrim(t), '^п\.', '') $fn$;
+
 DROP TABLE IF EXISTS public.:"stg";
 CREATE TABLE public.:"stg" (
   id bigserial PRIMARY KEY, doc_id bigint NOT NULL, legislation_id integer, article_id integer,
@@ -196,8 +206,20 @@ canon AS (
   FROM legislation l LEFT JOIN la_cur cu ON cu.legislation_id=l.id LEFT JOIN la_any an ON an.legislation_id=l.id
   ORDER BY l.title, COALESCE(cu.c,0) DESC, COALESCE(an.a,0) DESC, l.id),
 best_art AS (
-  SELECT DISTINCT ON (legislation_id, article_number) legislation_id, article_number, id AS article_id
-  FROM legislation_articles ORDER BY legislation_id, article_number, is_current DESC, version_date DESC NULLS LAST),
+  -- Keyed on the article number with any «п.» prefix stripped, so the join in
+  -- withart stays a plain equality and therefore a Hash Left Join. Matching
+  -- both spellings with IN instead costs a Materialize and a nested loop:
+  -- measured, planner cost 7.0e9 against 3.7e8, nineteen times worse.
+  --
+  -- 780 acts hold BOTH «X» and «п.X»; the ordering prefers the bare form, so
+  -- the collision is resolved once here rather than per citation.
+  SELECT DISTINCT ON (legislation_id, art_key)
+         legislation_id, article_number, id AS article_id, art_key
+  FROM (SELECT legislation_id, article_number, id, is_current, version_date,
+               public.lcl_art_key(article_number) AS art_key
+          FROM legislation_articles) x
+  ORDER BY legislation_id, art_key, (btrim(article_number) NOT LIKE 'п.%') DESC,
+           is_current DESC, version_date DESC NULLS LAST),
 -- ---------------------------------------------------------------------------
 -- The NUMBER leg. Native port of scripts/citation-graph/repair-lcl-by-number.sql
 -- (PR #2275), which bound 604 379 citations that name a law only by number.
@@ -263,9 +285,27 @@ matched AS (
   LEFT JOIN canon can ON can.title = nrm.v
   LEFT JOIN numbermap nb ON nb.v = nrm.v),
 withart AS (
+  -- Articles match under both the bare number and the «п.» prefix, because
+  -- best_art is keyed on the stripped form.
+  --
+  -- This is the leg that was being applied out of band. On prod today,
+  -- match_method='transitional_point' holds 21 169 rows / 21 004 resolved that
+  -- nothing in this repository produces — every one a ПКУ transitional
+  -- provision where the citation says «69.1» and the article is stored as
+  -- «п.69.1». The act already bound by title; only the article was lost.
+  -- Reproducing it here means a rebuild stops destroying those rows: measured,
+  -- the stripped key reproduces 21 004 of 21 004 with zero lost and binds
+  -- 1 103 further rows that are unresolved today, across the 71 acts that keep
+  -- п.-prefixed articles.
+  -- Stripped on BOTH sides. No citation in the corpus carries the prefix
+  -- today — 0 of 168 819 sampled source rows and 0 in the built links — but
+  -- normalising only one side would silently miss the day the extractor starts
+  -- emitting «п.38.6», and symmetry costs +0.011% of planner cost with the
+  -- plan shape unchanged.
   SELECT m.*, ba.article_id, ba.article_number
   FROM matched m
-  LEFT JOIN best_art ba ON ba.legislation_id = m.lid AND ba.article_number = btrim(m.law_article)),
+  LEFT JOIN best_art ba ON ba.legislation_id = m.lid
+                       AND ba.art_key = public.lcl_art_key(m.law_article)),
 pick AS (
   SELECT DISTINCT ON (cid) doc_id, lid, article_id, article_number, law_number, law_article,
          citation_type, citation_context, v, method, cid
