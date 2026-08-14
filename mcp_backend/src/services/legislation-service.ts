@@ -541,29 +541,24 @@ export class LegislationService {
    * Constitution. This adds the corpus: npa.act_number (migration 187) carries
    * every official number, its second Roman form, the upper-case legacy
    * spellings and the visual Latin variants, so «2755-VI», «№ 2262-ХІІ» and
-   * «254k/96-bp» now land on the right act instead of 404ing.
+   * «254k/96-bp» reach the right act instead of 404ing.
    *
-   * Conservative by construction. It only fires when the input is NOT already a
-   * known rada_id, and it only rewrites when the alias is unambiguous — where
-   * one number answers to several acts (КУпАП's three halves, the 70 UРСР/
-   * Ukraine Roman collisions) the input is returned untouched rather than
-   * pointed at a guess. Falling back to the original also means a corpus miss
-   * can never make an existing lookup worse.
+   * Called ONLY after the normal lookup has already missed, so the common case
+   * -- a real rada_id -- costs nothing. An earlier revision probed on every
+   * call and put a round-trip on the hot path for no benefit.
+   *
+   * Rewrites only on an unambiguous alias. Where one number answers to several
+   * acts (КУпАП's three halves, the 70 УРСР/Ukraine Roman collisions) the input
+   * is returned untouched rather than pointed at a guess, and any failure falls
+   * back to the original so this can never make an existing lookup worse.
    */
   private async canonicalRadaId(radaId: string): Promise<string> {
     const raw = String(radaId ?? '').trim();
     if (!raw) return radaId;
     try {
-      const known = await this.db.query(
-        'SELECT 1 FROM legislation WHERE LOWER(rada_id) = LOWER($1) LIMIT 1',
-        [raw]
-      );
-      if (known.rows.length > 0) return raw;
-
       const matches = await resolveActNumber(this.db, raw);
       const { nreg } = pickActNumber(matches);
       if (!nreg || nreg.toLowerCase() === raw.toLowerCase()) return raw;
-
       logger.info(`canonicalRadaId: «${raw}» → ${nreg}`);
       return nreg;
     } catch (error: any) {
@@ -580,14 +575,29 @@ export class LegislationService {
       radaId = resolved;
     }
     radaId = normalizeRadaId(radaId);
-    radaId = await this.canonicalRadaId(radaId);
     await this.ensureLegislationExists(radaId);
 
-    let article = await this.adapter.getArticleByNumber(radaId, articleNumber, asOfDate);
-    // Fallback: transitional provisions stored as "п.38.6" / "п.16-1" but the caller may
-    // request the bare point number ("38.6", "16-1" — dash-indexed units, LEXAI-1821).
-    if (!article && /^\d+[.-]\d/.test(articleNumber)) {
-      article = await this.adapter.getArticleByNumber(radaId, `п.${articleNumber}`, asOfDate);
+    const lookup = async (id: string) => {
+      let a = await this.adapter.getArticleByNumber(id, articleNumber, asOfDate);
+      // Fallback: transitional provisions stored as "п.38.6" / "п.16-1" but the caller may
+      // request the bare point number ("38.6", "16-1" — dash-indexed units, LEXAI-1821).
+      if (!a && /^\d+[.-]\d/.test(articleNumber)) {
+        a = await this.adapter.getArticleByNumber(id, `п.${articleNumber}`, asOfDate);
+      }
+      return a;
+    };
+
+    let article = await lookup(radaId);
+
+    // Only now, having missed, is it worth asking whether the caller gave us an
+    // official number rather than a registry id.
+    if (!article) {
+      const canonical = await this.canonicalRadaId(radaId);
+      if (canonical !== radaId) {
+        radaId = canonical;
+        await this.ensureLegislationExists(radaId);
+        article = await lookup(radaId);
+      }
     }
     if (!article) {
       return null;
@@ -631,31 +641,47 @@ export class LegislationService {
   }
 
   async getMultipleArticles(radaId: string, articleNumbers: string[], asOfDate?: string): Promise<LegislationReference[]> {
+    radaId = normalizeRadaId(radaId);
     await this.ensureLegislationExists(radaId);
 
     // КУпАП spans two RADA documents (80731-10 / 80732-10); widen the lookup to
     // both halves. Article numbers don't overlap, so this stays unambiguous.
-    const radaIds = expandKupapRadaIds(radaId).map((id) => id.toLowerCase());
+    let radaIds = expandKupapRadaIds(radaId).map((id) => id.toLowerCase());
 
-    let result;
-    if (asOfDate) {
-      result = await this.db.query(
-        `SELECT DISTINCT ON (la.article_number) la.*, l.rada_id, l.title as npa_title
-         FROM legislation_articles la
-         JOIN legislation l ON la.legislation_id = l.id
-         WHERE LOWER(l.rada_id) = ANY($1) AND la.article_number = ANY($2) AND la.version_date <= $3
-         ORDER BY la.article_number, la.version_date DESC`,
-        [radaIds, articleNumbers, asOfDate]
-      );
-    } else {
-      result = await this.db.query(
+    const runQuery = async (ids: string[]) => {
+      if (asOfDate) {
+        return this.db.query(
+          `SELECT DISTINCT ON (la.article_number) la.*, l.rada_id, l.title as npa_title
+           FROM legislation_articles la
+           JOIN legislation l ON la.legislation_id = l.id
+           WHERE LOWER(l.rada_id) = ANY($1) AND la.article_number = ANY($2) AND la.version_date <= $3
+           ORDER BY la.article_number, la.version_date DESC`,
+          [ids, articleNumbers, asOfDate]
+        );
+      }
+      return this.db.query(
         `SELECT DISTINCT ON (la.article_number) la.*, l.rada_id, l.title as npa_title
          FROM legislation_articles la
          JOIN legislation l ON la.legislation_id = l.id
          WHERE LOWER(l.rada_id) = ANY($1) AND la.article_number = ANY($2) AND la.is_current = true
          ORDER BY la.article_number, la.version_date DESC NULLS LAST, la.id DESC`,
-        [radaIds, articleNumbers]
+        [ids, articleNumbers]
       );
+    };
+
+    let result = await runQuery(radaIds);
+
+    // Only after a miss is it worth asking whether the caller passed an official
+    // number rather than a registry id. get_legislation_articles was the one
+    // tool that could never take one.
+    if (result.rows.length === 0) {
+      const canonical = await this.canonicalRadaId(radaId);
+      if (canonical !== radaId) {
+        radaId = canonical;
+        await this.ensureLegislationExists(radaId);
+        radaIds = expandKupapRadaIds(radaId).map((id) => id.toLowerCase());
+        result = await runQuery(radaIds);
+      }
     }
 
     return result.rows.map((row: any) => ({

@@ -111,13 +111,21 @@ export async function resolveActNumber(
   const minConfidence = opts.minConfidence ?? 0;
   const limit = opts.limit ?? 10;
 
+  // The LIMIT has to sit OUTSIDE the DISTINCT ON. DISTINCT ON forces ORDER BY
+  // to lead with nreg, so applying LIMIT there would truncate the candidate set
+  // lexicographically by registry id — dropping the best match before it was
+  // ever ranked. The inner query dedupes per act, the outer one ranks and cuts.
   const res = await db.query(
-    `SELECT DISTINCT ON (an.nreg)
-            an.nreg, an.kind, an.alias_raw, an.confidence
-       FROM npa.act_number an
-      WHERE an.alias_norm = npa.norm_number($1)
-        AND an.confidence >= $2
-      ORDER BY an.nreg, ${KIND_RANK}, an.confidence DESC
+    `SELECT d.nreg, d.kind, d.alias_raw, d.confidence
+       FROM (
+         SELECT DISTINCT ON (an.nreg)
+                an.nreg, an.kind, an.alias_raw, an.confidence, ${KIND_RANK} AS rk
+           FROM npa.act_number an
+          WHERE an.alias_norm = npa.norm_number($1)
+            AND an.confidence >= $2
+          ORDER BY an.nreg, ${KIND_RANK}, an.confidence DESC
+       ) d
+      ORDER BY d.rk, d.confidence DESC, d.nreg
       LIMIT $3`,
     [raw, minConfidence, limit]
   );

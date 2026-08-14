@@ -46,6 +46,40 @@ describe('normalizeActNumber (TypeScript port)', () => {
   });
 });
 
+describe('article-number prefix stripping (npa-tools mode=article)', () => {
+  // Mirrors the expression in npa-tools.ts. Longest-first alternation is the
+  // whole point: with (ст|стаття|…) the engine matches «ст», the optional dot
+  // and spaces match empty, and it never backtracks — «стаття 111» came out as
+  // «аття111» and matched no article at all.
+  const strip = (s: string) =>
+    s.replace(/^\s*(стаття|статті|статтею|ст|пункт|пп|п)\.?\s*/i, '')
+      .replace(/[–—]/g, '-')
+      .replace(/\s+/g, '')
+      .trim();
+
+  it.each([
+    ['стаття 111', '111'],
+    ['статті 111-1', '111-1'],
+    ['статтею 625', '625'],
+    ['ст. 111', '111'],
+    ['ст.111', '111'],
+    ['пункт 3', '3'],
+    ['п. 3', '3'],
+    ['111', '111'],
+    ['111 - 1', '111-1'],
+    ['111–1', '111-1'],
+    ['205-1', '205-1'],
+  ])('%s -> %s', (input, expected) => {
+    expect(strip(input)).toBe(expected);
+  });
+
+  it('never leaves a Cyrillic remnant', () => {
+    for (const s of ['стаття 111', 'статті 12', 'пункт 3', 'статтею 625']) {
+      expect(strip(s)).toMatch(/^[0-9-]+$/);
+    }
+  });
+});
+
 describe('pickActNumber', () => {
   const m = (nreg: string, kind: string, confidence = 1): ActNumberMatch =>
     ({ nreg, kind, aliasRaw: nreg, confidence });

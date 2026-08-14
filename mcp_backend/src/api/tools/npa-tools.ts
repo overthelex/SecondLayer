@@ -439,8 +439,12 @@ export class NpaTools extends BaseToolHandler {
         // dashes folded to "-". The INPUT gets the same treatment, so «ст. 111-1»,
         // «111 - 1» and «111–1» all reach the same key instead of missing by a
         // space. Matching art_no = $3 raw is how «ст. 111-1» used to 404.
+        // Alternation is LONGEST-FIRST on purpose. With (ст|стаття|…) the engine
+        // matches «ст», the optional dot and spaces match empty, and it never
+        // backtracks to the longer branch -- so «стаття 111» came out as
+        // «аття111» and matched nothing. Measured, not theorised.
         const wanted = String(article_number)
-          .replace(/^\s*(ст|стаття|статті|п|пункт)\.?\s*/i, '')
+          .replace(/^\s*(стаття|статті|статтею|ст|пункт|пп|п)\.?\s*/i, '')
           .replace(/[–—]/g, '-')
           .replace(/\s+/g, '')
           .trim();
@@ -457,12 +461,18 @@ export class NpaTools extends BaseToolHandler {
           // «Стаття 111» may exist only as the inserted 111-1/111-2 family, and
           // an inserted article is what a citation usually means. Offer them
           // rather than reporting nothing.
-          const kin = (await this.db.query(
-            `SELECT art_no FROM npa.article
-              WHERE nreg = $1 AND ed_date = $2::date AND art_no LIKE $3 || '-%'
-              ORDER BY art_ord LIMIT 10`,
-            [resolved, edition.ed_date, wanted]
-          )).rows.map((r: any) => r.art_no);
+          // art_no is always \d+(-\d+)?, so a non-numeric base cannot have a
+          // derivative family. Guarding on that also keeps user input out of
+          // LIKE, where a «%» or «_» would act as a wildcard and return
+          // unrelated articles.
+          const kin = /^[0-9]+$/.test(wanted)
+            ? (await this.db.query(
+                `SELECT art_no FROM npa.article
+                  WHERE nreg = $1 AND ed_date = $2::date AND art_no LIKE $3 || '-%'
+                  ORDER BY art_ord LIMIT 10`,
+                [resolved, edition.ed_date, wanted]
+              )).rows.map((r: any) => r.art_no)
+            : [];
 
           return this.wrapResponse({
             ...base,
