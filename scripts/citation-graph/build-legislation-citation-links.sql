@@ -49,13 +49,20 @@ EXCEPTION WHEN others THEN
 END
 $fn$;
 
-DROP TABLE IF EXISTS public.legislation_citation_links_new;
-CREATE TABLE public.legislation_citation_links_new (
+-- The staging table is named per run. A fixed name is a SHARED resource: two
+-- overlapping runs would each DROP and re-CREATE the same table and write into
+-- each other's rows long before either reached the swap. The advisory lock
+-- cannot be relied on to prevent that (it is session-scoped, see above), so
+-- the shared resource is removed instead of defended.
+SELECT 'lcl_stg_' || to_char(clock_timestamp(), 'YYYYMMDDHH24MISSMS') || '_' || pg_backend_pid() AS stg \gset
+
+DROP TABLE IF EXISTS public.:"stg";
+CREATE TABLE public.:"stg" (
   id bigserial PRIMARY KEY, doc_id bigint NOT NULL, legislation_id integer, article_id integer,
   article_number varchar, law_number_raw text NOT NULL, law_article_raw text, citation_type text,
   citation_context text, match_method text NOT NULL, resolved boolean NOT NULL DEFAULT false,
   unresolved_reason text, src_citation_id bigint, created_at timestamptz DEFAULT now());
-INSERT INTO public.legislation_citation_links_new
+INSERT INTO public.:"stg"
   (doc_id, legislation_id, article_id, article_number, law_number_raw, law_article_raw,
    citation_type, citation_context, match_method, resolved, unresolved_reason, src_citation_id)
 WITH
@@ -270,10 +277,10 @@ SELECT doc_id, lid, article_id, article_number, law_number, law_article, citatio
        WHEN lid IS NULL THEN 'law_not_in_registry' ELSE 'article_not_found' END,
   cid
 FROM pick;
-CREATE INDEX idx_lcl_doc_new ON public.legislation_citation_links_new(doc_id);
-CREATE INDEX idx_lcl_article_new ON public.legislation_citation_links_new(article_id);
-CREATE INDEX idx_lcl_legis_new ON public.legislation_citation_links_new(legislation_id, article_number);
-CREATE INDEX idx_lcl_resolved_new ON public.legislation_citation_links_new(resolved);
+CREATE INDEX ON public.:"stg"(doc_id);
+CREATE INDEX ON public.:"stg"(article_id);
+CREATE INDEX ON public.:"stg"(legislation_id, article_number);
+CREATE INDEX ON public.:"stg"(resolved);
 
 -- The swap, and the check that gates it, are ONE transaction that first takes
 -- an ACCESS EXCLUSIVE lock on the live table.
@@ -298,7 +305,7 @@ BEGIN
     old_n := NULL;  -- first build, nothing to compare against
   END IF;
 
-  SELECT count(*) INTO new_n FROM public.legislation_citation_links_new;
+  EXECUTE format('SELECT count(*) FROM public.%I', :'stg') INTO new_n;
 
   IF old_n IS NULL THEN
     RAISE NOTICE 'first build: no live table to compare against, % rows', new_n;
@@ -311,16 +318,38 @@ END
 $swap$;
 
 DROP TABLE IF EXISTS public.legislation_citation_links;
-ALTER TABLE public.legislation_citation_links_new RENAME TO legislation_citation_links;
-ALTER INDEX public.idx_lcl_doc_new      RENAME TO idx_lcl_doc;
-ALTER INDEX public.idx_lcl_article_new  RENAME TO idx_lcl_article;
-ALTER INDEX public.idx_lcl_legis_new    RENAME TO idx_lcl_legis;
-ALTER INDEX public.idx_lcl_resolved_new RENAME TO idx_lcl_resolved;
--- The bigserial and the primary key were created under the _new name and keep
--- it through a table rename, so a later run would collide on
--- legislation_citation_links_new_pkey.
-ALTER INDEX public.legislation_citation_links_new_pkey RENAME TO legislation_citation_links_pkey;
-ALTER SEQUENCE public.legislation_citation_links_new_id_seq RENAME TO legislation_citation_links_id_seq;
+ALTER TABLE public.:"stg" RENAME TO legislation_citation_links;
+
+-- Indexes, the primary key and the bigserial were all created under the
+-- staging name and keep it through a table rename, so they are renamed by
+-- catalogue lookup rather than by guessing at names.
+DO $rename$
+DECLARE r record; n int := 0;
+BEGIN
+  FOR r IN SELECT i.indexrelid::regclass::text AS idxname, a.attname
+             FROM pg_index i
+             JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = i.indkey[0]
+            WHERE i.indrelid = 'public.legislation_citation_links'::regclass
+              AND NOT i.indisprimary
+  LOOP
+    n := n + 1;
+    EXECUTE format('ALTER INDEX %s RENAME TO %I', r.idxname,
+                   CASE r.attname WHEN 'doc_id' THEN 'idx_lcl_doc'
+                                  WHEN 'article_id' THEN 'idx_lcl_article'
+                                  WHEN 'legislation_id' THEN 'idx_lcl_legis'
+                                  WHEN 'resolved' THEN 'idx_lcl_resolved'
+                                  ELSE 'idx_lcl_' || r.attname END);
+  END LOOP;
+
+  EXECUTE format('ALTER INDEX %s RENAME TO legislation_citation_links_pkey',
+                 (SELECT i.indexrelid::regclass::text FROM pg_index i
+                   WHERE i.indrelid = 'public.legislation_citation_links'::regclass
+                     AND i.indisprimary));
+  EXECUTE format('ALTER SEQUENCE %s RENAME TO legislation_citation_links_id_seq',
+                 pg_get_serial_sequence('public.legislation_citation_links', 'id'));
+  RAISE NOTICE 'renamed % indexes plus pkey and sequence', n;
+END
+$rename$;
 
 COMMIT;
 
