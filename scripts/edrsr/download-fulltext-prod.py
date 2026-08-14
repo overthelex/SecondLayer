@@ -437,6 +437,14 @@ async def download_all(items, threads_per_ip, source_ips):
     return stats
 
 
+# Registry file layout changed: the old flat form (od.reyestr.court.gov.ua/files/<hash>.rtf)
+# is gone and answers 404, only the sharded form (/files/NN/<hash>.rtf) resolves. Measured
+# 2026-08-14 on samples from 2019, 2020, 2022 and 2023 — all flat URLs dead, all sharded
+# ones 200; guessing a shard directory for a flat hash does not find the file either.
+# Without this filter a refetch of 2019 queues 191,946 documents and fails every one of
+# them: the URL is stored, it just no longer points anywhere.
+LIVE_URL_SHAPE = '/files/[0-9]+/'
+
 # ── Selecting rows whose stored text is damaged ──
 # The detector is content-based, but a LIKE over full_text means detoasting the whole
 # partition (~90GB/year). The same populations are reachable through the GIN index on
@@ -676,7 +684,7 @@ def main():
                 WHERE f.adj_year BETWEEN {y_from} AND {y_to}
                   AND d.adjudication_date >= '{args.date_from}'
                   AND d.adjudication_date < '{args.date_to}'
-                  AND d.doc_url IS NOT NULL AND length(d.doc_url) > 0
+                  AND d.doc_url ~ '{LIVE_URL_SHAPE}'
                   AND {DAMAGED_PREDICATE}
                 ORDER BY d.doc_id;
             """, tuples=True)
@@ -699,6 +707,19 @@ def main():
                 items.append((int(parts[0]), parts[1]))
 
         print(f"  Total URLs: {len(items)}", flush=True)
+        if args.refetch_damaged:
+            y_from, y_to = int(args.date_from[:4]), int(args.date_to[:4])
+            skipped = psql(f"""
+                SELECT count(*)
+                FROM edrsr_fulltext f
+                JOIN edrsr_documents d ON d.doc_id = f.doc_id
+                WHERE f.adj_year BETWEEN {y_from} AND {y_to}
+                  AND d.adjudication_date >= '{args.date_from}'
+                  AND d.adjudication_date < '{args.date_to}'
+                  AND (d.doc_url IS NULL OR d.doc_url !~ '{LIVE_URL_SHAPE}')
+                  AND {DAMAGED_PREDICATE};
+            """)
+            print(f"  Damaged but unreachable (no URL, or dead flat-format URL): {skipped}", flush=True)
 
         # Filter already on disk
         before = len(items)
