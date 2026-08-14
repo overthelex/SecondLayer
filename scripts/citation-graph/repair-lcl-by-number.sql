@@ -75,15 +75,22 @@ WITH parsed AS (
            (regexp_match(l.law_number_raw, 'від\s+([0-9]{1,2}\.[0-9]{1,2}\.[0-9]{4})'))[1],
            'DD.MM.YYYY') AS dt
   FROM public.legislation_citation_links l
-  WHERE NOT l.resolved AND l.unresolved_reason = 'law_not_in_registry'
+  -- Includes rows a previous pass of THIS script already attributed, so a
+  -- re-run can still bind their article; otherwise the first pass would lock
+  -- in its own under-binding.
+  WHERE NOT l.resolved
+    AND (l.unresolved_reason = 'law_not_in_registry' OR l.match_method = 'number')
 ), hit AS (
   -- Exactly one act, or nothing. The date pins the convocation; without it the
   -- core has to be globally unique among law-shaped acts.
+  -- npa.norm_number, not the raw capture: core_only aliases were stored
+  -- normalised, which strips leading zeros from an all-digit token, so a
+  -- citation written «№ 007» never matches the stored «7» without this.
   SELECT p.id, p.law_article_raw,
          (SELECT array_agg(DISTINCT an.nreg)
             FROM npa.act_number an
             JOIN npa.act a ON a.nreg = an.nreg
-           WHERE an.alias_norm = p.core
+           WHERE an.alias_norm = npa.norm_number(p.core)
              AND an.kind = 'core_only'
              AND (p.dt IS NULL OR a.first_ed = p.dt)) AS nregs
   FROM parsed p
@@ -103,11 +110,15 @@ ANALYZE public.lcl_number_repair;
 DROP TABLE IF EXISTS public.lcl_number_repair_bound;
 CREATE TABLE public.lcl_number_repair_bound AS
 WITH byart AS (
+  -- Identical to best_art in build-legislation-citation-links.sql: prefer the
+  -- current row but FALL BACK to a historical one. Filtering to is_current
+  -- here instead was strictly narrower than the builder and silently
+  -- suppressed article binding -- the first pass resolved only 16 249 of
+  -- 604 377 partly because of it.
   SELECT DISTINCT ON (legislation_id, article_number)
          legislation_id, article_number, id AS article_id
   FROM public.legislation_articles
-  WHERE is_current
-  ORDER BY legislation_id, article_number, version_date DESC
+  ORDER BY legislation_id, article_number, is_current DESC, version_date DESC NULLS LAST
 )
 SELECT r.id,
        pl.id  AS legislation_id,
@@ -162,9 +173,9 @@ BEGIN
       FROM public.lcl_number_repair_bound b
      WHERE l.id = b.id
        AND l.id >= lo AND l.id < lo + step
-       -- re-check the precondition: never re-touch a row another pass resolved
+       -- never re-touch a row something else already resolved
        AND NOT l.resolved
-       AND l.unresolved_reason = 'law_not_in_registry';
+       AND (l.unresolved_reason = 'law_not_in_registry' OR l.match_method = 'number');
     GET DIAGNOSTICS n = ROW_COUNT;
     total := total + n;
     lo := lo + step;
