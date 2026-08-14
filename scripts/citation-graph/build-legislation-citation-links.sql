@@ -12,6 +12,21 @@
 \set ON_ERROR_STOP on
 SET statement_timeout='4h';
 
+-- Only one rebuild at a time. This script drops and replaces the serving
+-- table, so two overlapping runs would each validate their own staging table
+-- and then race to drop whatever is live at that moment. A SESSION-level
+-- advisory lock spans the whole script and is released when psql disconnects,
+-- including on a crash. try_ rather than plain lock: waiting hours behind
+-- another rebuild is not useful, and failing loudly says what happened.
+DO $lock$
+BEGIN
+  IF NOT pg_try_advisory_lock(hashtext('build-legislation-citation-links')) THEN
+    RAISE EXCEPTION
+      'another rebuild already holds the advisory lock; refusing to run concurrently';
+  END IF;
+END
+$lock$;
+
 -- to_date does not merely reject impossible field values, it VALIDATES the day
 -- against the month, so it THROWS on «19.19.2010» AND on «29.02.1991». Both are
 -- in the corpus, and each one aborted a 14-minute pass while the repair was
