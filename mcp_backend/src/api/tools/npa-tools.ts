@@ -17,6 +17,7 @@
 
 import { BaseToolHandler, ToolDefinition, ToolResult } from '../base-tool-handler.js';
 import { legislationStems } from '../../services/legislation-search-utils.js';
+import { resolveActNumber, pickActNumber, normalizeArticleNumber, type ActNumberMatch } from '../../services/act-number.js';
 import {
   NPA_REPEALED_CODES,
   NPA_STATUS_ARG,
@@ -133,14 +134,35 @@ export class NpaTools extends BaseToolHandler {
 
   // ─── helpers ────────────────────────────────────────────────────────
 
-  /** Resolve the act id as stored: exact PK hit first, case-insensitive fallback. */
+  /**
+   * Resolve the act id as stored: exact PK hit, then the alias table.
+   *
+   * The alias leg is what lets a caller pass the OFFICIAL number — «2755-VI»,
+   * «254к/96-ВР», «8073-X» — or a Latin retype of a Cyrillic id («254k/96-vr»),
+   * none of which are nregs and none of which used to resolve. It replaces the
+   * old lower() fallback, which only ever caught a difference in case.
+   *
+   * Ambiguity is surfaced rather than guessed: «8073-X» is КУпАП, split by Rada
+   * across three registry ids, and the УРСР convocations V–IX render to the
+   * same Roman string as the modern ones (70 measured collisions), so
+   * «117-VIII» really is two acts. resolveNregDetailed returns the candidates
+   * so the caller can say so instead of silently picking one.
+   */
   private async resolveNreg(input: string): Promise<string | null> {
+    return (await this.resolveNregDetailed(input)).nreg;
+  }
+
+  private async resolveNregDetailed(
+    input: string
+  ): Promise<{ nreg: string | null; ambiguous: ActNumberMatch[] }> {
     const raw = String(input || '').trim();
-    if (!raw) return null;
+    if (!raw) return { nreg: null, ambiguous: [] };
+
     const exact = await this.db.query('SELECT nreg FROM npa.act WHERE nreg = $1', [raw]);
-    if (exact.rows.length > 0) return exact.rows[0].nreg;
-    const ci = await this.db.query('SELECT nreg FROM npa.act WHERE lower(nreg) = lower($1) LIMIT 1', [raw]);
-    return ci.rows.length > 0 ? ci.rows[0].nreg : null;
+    if (exact.rows.length > 0) return { nreg: exact.rows[0].nreg, ambiguous: [] };
+
+    const matches = await resolveActNumber(this.db, raw);
+    return pickActNumber(matches);
   }
 
   /**
@@ -350,8 +372,22 @@ export class NpaTools extends BaseToolHandler {
     }
 
     try {
-      const resolved = await this.resolveNreg(String(nreg));
-      if (!resolved) return this.wrapResponse(`Акт «${nreg}» не знайдено у корпусі НПА.`);
+      const { nreg: resolved, ambiguous } = await this.resolveNregDetailed(String(nreg));
+      if (!resolved) {
+        // An ambiguous number is not a miss, and reporting it as one sends the
+        // caller looking for a document that is in fact right here, twice over.
+        if (ambiguous.length > 0) {
+          return this.wrapResponse({
+            error: `Номер «${nreg}» відповідає кільком актам — уточніть реєстровий номер.`,
+            candidates: ambiguous.map((m) => ({
+              nreg: m.nreg,
+              matched_as: m.aliasRaw,
+              kind: m.kind,
+            })),
+          });
+        }
+        return this.wrapResponse(`Акт «${nreg}» не знайдено у корпусі НПА.`);
+      }
 
       const actRow = (await this.db.query(
         `SELECT nreg, title, status_code, types_raw, editions_cnt, texts_cnt, has_articles,
@@ -398,15 +434,47 @@ export class NpaTools extends BaseToolHandler {
 
       if (mode === 'article') {
         if (!article_number) return this.wrapResponse('Для mode=article вкажіть article_number.');
+
+        // art_no is written by rebuild_articles.py as \d+(-\d+)? with en/em
+        // dashes folded to "-". The INPUT gets the same treatment, so «ст. 111-1»,
+        // «111 - 1» and «111–1» all reach the same key instead of missing by a
+        // space. Matching art_no = $3 raw is how «ст. 111-1» used to 404.
+        // Normalisation lives in act-number.ts so the regression test can
+        // exercise the shipped function instead of a copy of its regex.
+        const wanted = normalizeArticleNumber(String(article_number));
+
         const rows = (await this.db.query(
           `SELECT art_no,
                   NULLIF(btrim(split_part(title || '', E'\n', 1)), '') AS title,
                   body || '' AS full_text, length(body) AS char_len
              FROM npa.article WHERE nreg = $1 AND ed_date = $2::date AND art_no = $3`,
-          [resolved, edition.ed_date, String(article_number)]
+          [resolved, edition.ed_date, wanted]
         )).rows;
+
         if (rows.length === 0) {
-          return this.wrapResponse({ ...base, note: `Статтю ${article_number} не знайдено у редакції від ${edition.ed_date}. Перевірте перелік через mode=toc.` });
+          // «Стаття 111» may exist only as the inserted 111-1/111-2 family, and
+          // an inserted article is what a citation usually means. Offer them
+          // rather than reporting nothing.
+          // art_no is always \d+(-\d+)?, so a non-numeric base cannot have a
+          // derivative family. Guarding on that also keeps user input out of
+          // LIKE, where a «%» or «_» would act as a wildcard and return
+          // unrelated articles.
+          const kin = /^[0-9]+$/.test(wanted)
+            ? (await this.db.query(
+                `SELECT art_no FROM npa.article
+                  WHERE nreg = $1 AND ed_date = $2::date AND art_no LIKE $3 || '-%'
+                  ORDER BY art_ord LIMIT 10`,
+                [resolved, edition.ed_date, wanted]
+              )).rows.map((r: any) => r.art_no)
+            : [];
+
+          return this.wrapResponse({
+            ...base,
+            note: kin.length > 0
+              ? `Статті ${wanted} немає у редакції від ${edition.ed_date}, але є похідні: ${kin.join(', ')}.`
+              : `Статтю ${wanted} не знайдено у редакції від ${edition.ed_date}. Перевірте перелік через mode=toc.`,
+            ...(kin.length > 0 ? { related_articles: kin } : {}),
+          });
         }
         return this.wrapResponse({ ...base, article: rows[0] });
       }

@@ -39,6 +39,9 @@ export const NPA_DOC_TYPE: Record<number, string> = {
   2: 'Постанова',
   3: 'Указ',
   6: 'Розпорядження',
+  // Декрети КМУ of 1992-93, the acts whose nreg ends -92/-93 (83 of them).
+  // Missing here meant they rendered with no document type at all.
+  8: 'Декрет',
   9: 'Наказ',
   11: 'Положення',
   12: "Роз'яснення",
