@@ -152,7 +152,7 @@ def psql(sql: str, tuples=False) -> str:
     return r.stdout.strip()
 
 
-def psql_copy_rows(rows, date_from: str, date_to: str):
+def psql_copy_rows(rows, date_from: str, date_to: str, replace: bool = False):
     """COPY (doc_id, full_text) into a staging table, then insert with every column
     the readers depend on.
 
@@ -177,12 +177,21 @@ def psql_copy_rows(rows, date_from: str, date_to: str):
         return False
     copy_block = '\n'.join(lines)
 
-    sql = f"""
-CREATE TEMP TABLE _ft_stage (doc_id bigint, full_text text);
-COPY _ft_stage (doc_id, full_text) FROM STDIN;
-{copy_block}
-\\.
-INSERT INTO edrsr_fulltext (doc_id, full_text, text_length, tsv, adj_year, justice_kind)
+    if replace:
+        # Refetch mode: the row already exists and holds a damaged text, so the insert
+        # would be a no-op under ON CONFLICT DO NOTHING. adj_year is left alone — the
+        # document's date has not changed, only its text — which also keeps the row in
+        # its current partition.
+        y_from, y_to = int(date_from[:4]), int(date_to[:4])
+        write_stmt = f"""UPDATE edrsr_fulltext f
+   SET full_text = s.full_text,
+       text_length = length(s.full_text),
+       tsv = to_tsvector('simple', s.full_text)
+  FROM _ft_stage s
+ WHERE f.doc_id = s.doc_id
+   AND f.adj_year BETWEEN {y_from} AND {y_to};"""
+    else:
+        write_stmt = f"""INSERT INTO edrsr_fulltext (doc_id, full_text, text_length, tsv, adj_year, justice_kind)
 SELECT s.doc_id,
        s.full_text,
        length(s.full_text),
@@ -194,7 +203,14 @@ JOIN edrsr_documents d
   ON d.doc_id = s.doc_id
  AND d.adjudication_date >= '{date_from}'
  AND d.adjudication_date < '{date_to}'
-ON CONFLICT DO NOTHING;
+ON CONFLICT DO NOTHING;"""
+
+    sql = f"""
+CREATE TEMP TABLE _ft_stage (doc_id bigint, full_text text);
+COPY _ft_stage (doc_id, full_text) FROM STDIN;
+{copy_block}
+\\.
+{write_stmt}
 DROP TABLE _ft_stage;
 """
     cmd = ["docker", "exec", "-i", CONTAINER, "psql", "-U", PGUSER,
@@ -363,6 +379,20 @@ async def download_all(items, threads_per_ip, source_ips):
     return stats
 
 
+# ── Selecting rows whose stored text is damaged ──
+# The detector is content-based, but a LIKE over full_text means detoasting the whole
+# partition (~90GB/year). The same populations are reachable through the GIN index on
+# tsv, because both damage classes tokenise into stable mojibake lexemes. Verified
+# against the content census: 513,696 on 2026 for the overload page (identical to the
+# LIKE count) and 189,539 on 2016 for the latin1 HTML, in ~20s each instead of hours.
+OVERLOAD_TSQUERY = 'рґрёрѕрёр & рґрµсђр & сѓсѓрґрѕрірёс'   # "Єдиний державний …судових" as stored
+LATIN1_TSQUERY = 'ñóäó'                                   # "суду" read as latin1
+
+DAMAGED_PREDICATE = (
+    f"(f.tsv @@ to_tsquery('simple', '{OVERLOAD_TSQUERY}')"
+    f" OR f.tsv @@ to_tsquery('simple', '{LATIN1_TSQUERY}'))"
+)
+
 # ── Content gate ──
 # The registry answers HTTP 200 with an overload notice under load, and the downloader
 # counts any 200 as success. The 2026-04-19 run at ~1200 docs/s stored that page as the
@@ -422,7 +452,7 @@ def _convert_one(doc_id):
 
 
 # ── Import to DB ──
-def import_to_db(date_from, date_to, batch_size=2000, workers=None):
+def import_to_db(date_from, date_to, batch_size=2000, workers=None, replace=False):
     print("[3/4] Importing RTFs to edrsr_fulltext...", flush=True)
 
     downloaded = set()
@@ -440,9 +470,11 @@ def import_to_db(date_from, date_to, batch_size=2000, workers=None):
         tuples=True
     )
     existing = {int(x) for x in existing_raw}
-    print(f"  Already in DB: {len(existing)}", flush=True)
+    print(f"  Already in DB: {len(existing)}" + (" (these are the rows being replaced)" if replace else ""), flush=True)
 
-    to_import = sorted(downloaded - existing)
+    # In refetch mode the existing rows ARE the targets: they hold the damaged text we
+    # came to replace, so subtracting them would leave nothing to do.
+    to_import = sorted(downloaded if replace else downloaded - existing)
     print(f"  To import: {len(to_import)}", flush=True)
 
     if not to_import:
@@ -469,7 +501,7 @@ def import_to_db(date_from, date_to, batch_size=2000, workers=None):
                     rejected[r[2]] = rejected.get(r[2], 0) + 1
 
             if rows:
-                if psql_copy_rows(rows, date_from, date_to):
+                if psql_copy_rows(rows, date_from, date_to, replace=replace):
                     total_imported += len(rows)
 
             if (batch_idx + 1) % 10 == 0 or batch_idx == total_batches - 1:
@@ -529,6 +561,10 @@ def main():
                         help='CPU workers for RTF→text parsing (default: cores-1)')
     parser.add_argument('--ips', default=None,
                         help='Comma-separated egress IPs to use instead of discovering them')
+    parser.add_argument('--refetch-damaged', action='store_true',
+                        help='Re-fetch documents whose STORED text is damaged (registry overload page '
+                             'or latin1-mangled HTML) and replace it, instead of fetching documents '
+                             'that have no text at all')
     parser.add_argument('--allow-primary', action='store_true',
                         help=f"Permit the primary IP ({PRIMARY_IP}) in the pool — it carries prod's own traffic")
     args = parser.parse_args()
@@ -563,6 +599,7 @@ def main():
     print("=" * 60, flush=True)
     print(f"  ЄДРСР Fulltext — PROD multi-IP download", flush=True)
     print(f"  Range: {args.date_from} .. {args.date_to} (adjudication_date)", flush=True)
+    print(f"  Mode: {'REFETCH damaged texts (replaces rows)' if args.refetch_damaged else 'fetch missing texts'}", flush=True)
     print(f"  IPs: {len(source_ips)} × {threads_per_ip} threads = {total_workers} workers", flush=True)
     print(f"  Egress: {', '.join(source_ips) or 'n/a (import only)'}", flush=True)
     print(f"  RTF parse workers: {args.workers}", flush=True)
@@ -571,16 +608,31 @@ def main():
 
     if not args.skip_download:
         print(f"\n[1/4] Querying doc URLs from DB...", flush=True)
-        raw = psql(f"""
-            SELECT d.doc_id || '|' || d.doc_url
-            FROM edrsr_documents d
-            LEFT JOIN edrsr_fulltext ft ON d.doc_id = ft.doc_id
-            WHERE d.adjudication_date >= '{args.date_from}'
-              AND d.adjudication_date < '{args.date_to}'
-              AND d.doc_url IS NOT NULL AND length(d.doc_url) > 0
-              AND ft.doc_id IS NULL
-            ORDER BY d.doc_id;
-        """, tuples=True)
+        if args.refetch_damaged:
+            # adj_year prunes the fulltext side; the date range prunes the documents side.
+            y_from, y_to = int(args.date_from[:4]), int(args.date_to[:4])
+            raw = psql(f"""
+                SELECT d.doc_id || '|' || d.doc_url
+                FROM edrsr_fulltext f
+                JOIN edrsr_documents d ON d.doc_id = f.doc_id
+                WHERE f.adj_year BETWEEN {y_from} AND {y_to}
+                  AND d.adjudication_date >= '{args.date_from}'
+                  AND d.adjudication_date < '{args.date_to}'
+                  AND d.doc_url IS NOT NULL AND length(d.doc_url) > 0
+                  AND {DAMAGED_PREDICATE}
+                ORDER BY d.doc_id;
+            """, tuples=True)
+        else:
+            raw = psql(f"""
+                SELECT d.doc_id || '|' || d.doc_url
+                FROM edrsr_documents d
+                LEFT JOIN edrsr_fulltext ft ON d.doc_id = ft.doc_id
+                WHERE d.adjudication_date >= '{args.date_from}'
+                  AND d.adjudication_date < '{args.date_to}'
+                  AND d.doc_url IS NOT NULL AND length(d.doc_url) > 0
+                  AND ft.doc_id IS NULL
+                ORDER BY d.doc_id;
+            """, tuples=True)
 
         items = []
         for line in raw:
@@ -605,7 +657,7 @@ def main():
     else:
         print("[1-2/4] Skipped download", flush=True)
 
-    import_to_db(args.date_from, args.date_to, args.batch, args.workers)
+    import_to_db(args.date_from, args.date_to, args.batch, args.workers, replace=args.refetch_damaged)
     verify(args.date_from, args.date_to)
     print("\n=== Done! ===", flush=True)
 
