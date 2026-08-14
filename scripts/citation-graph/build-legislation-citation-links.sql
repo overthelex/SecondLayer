@@ -62,6 +62,13 @@ $fn$;
 -- cannot be relied on to prevent that (it is session-scoped, see above), so
 -- the shared resource is removed instead of defended.
 SELECT 'lcl_stg_' || to_char(clock_timestamp(), 'YYYYMMDDHH24MISSMS') || '_' || pg_backend_pid() AS stg \gset
+-- Also stash it server-side. psql does NOT interpolate :'stg' inside a
+-- dollar-quoted body, so the DO block that guards the swap cannot read the
+-- client variable — it reaches the server as a literal colon and raises
+-- "syntax error at or near :". That happened on the first real run: the build
+-- completed, all four indexes were created, and only then did the swap die,
+-- leaving 331 385 209 finished rows stranded in staging.
+SELECT set_config('lcl.stg', :'stg', false);
 
 -- One definition of the article key. It was written out twice — once in
 -- best_art, once in the withart join — and the two have to agree exactly or
@@ -352,7 +359,7 @@ BEGIN
     old_n := NULL;  -- first build, nothing to compare against
   END IF;
 
-  EXECUTE format('SELECT count(*) FROM public.%I', :'stg') INTO new_n;
+  EXECUTE format('SELECT count(*) FROM public.%I', current_setting('lcl.stg')) INTO new_n;
 
   IF old_n IS NULL THEN
     RAISE NOTICE 'first build: no live table to compare against, % rows', new_n;
