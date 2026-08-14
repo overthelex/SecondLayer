@@ -27,13 +27,13 @@ EXCEPTION WHEN others THEN
 END
 $fn$;
 
-DROP TABLE IF EXISTS legislation_citation_links_new;
-CREATE TABLE legislation_citation_links_new (
+DROP TABLE IF EXISTS public.legislation_citation_links_new;
+CREATE TABLE public.legislation_citation_links_new (
   id bigserial PRIMARY KEY, doc_id bigint NOT NULL, legislation_id integer, article_id integer,
   article_number varchar, law_number_raw text NOT NULL, law_article_raw text, citation_type text,
   citation_context text, match_method text NOT NULL, resolved boolean NOT NULL DEFAULT false,
   unresolved_reason text, src_citation_id bigint, created_at timestamptz DEFAULT now());
-INSERT INTO legislation_citation_links_new
+INSERT INTO public.legislation_citation_links_new
   (doc_id, legislation_id, article_id, article_number, law_number_raw, law_article_raw,
    citation_type, citation_context, match_method, resolved, unresolved_reason, src_citation_id)
 WITH
@@ -193,22 +193,29 @@ numparse AS (
            'DD.MM.YYYY') AS dt
   FROM public.law_court_citations
   WHERE law_number ~ '^\s*№?\s*[0-9]{1,5}-?\s*(?:від\s+[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{4})?\s*$'),
-numbermap AS (
-  -- Exactly one act, or nothing. The date pins the convocation; a bare core
-  -- must be globally unique. That is what keeps the three-way КУпАП split and
-  -- the 70 cross-era Roman collisions off the wrong act.
-  --
-  -- legislation_id references public.legislation (651 curated acts), so a
-  -- citation naming any of the other ~292 000 has no id to point at and stays
-  -- unresolved however well its number parses. That cap is structural.
-  SELECT p.v, min(pl.id) AS legislation_id
+numcand AS (
+  -- Ambiguity is judged over the WHOLE corpus, before anything narrows it.
+  -- Joining public.legislation here instead would filter the rival candidates
+  -- away BEFORE the count, so a number naming three acts of which only one
+  -- happens to be curated would look unambiguous and bind — silently
+  -- attributing law to whichever act we happen to hold. That is precisely the
+  -- guess this leg exists to refuse.
+  SELECT p.v, array_agg(DISTINCT an.nreg) AS nregs
   FROM numparse p
   JOIN npa.act_number an ON an.alias_norm = npa.norm_number(p.core) AND an.kind = 'core_only'
   JOIN npa.act a         ON a.nreg = an.nreg AND (p.dt IS NULL OR a.first_ed = p.dt)
-  JOIN public.legislation pl ON lower(pl.rada_id) = an.nreg
   WHERE p.core IS NOT NULL
-  GROUP BY p.v
-  HAVING count(DISTINCT an.nreg) = 1),
+  GROUP BY p.v),
+numbermap AS (
+  -- Exactly one act corpus-wide, and it has to be one we can point at.
+  -- legislation_id references public.legislation (651 curated acts), so a
+  -- citation naming any of the other ~292 000 stays unresolved however well
+  -- its number parses. That cap is structural, and it is applied AFTER the
+  -- ambiguity test, never as part of it.
+  SELECT c.v, pl.id AS legislation_id
+  FROM numcand c
+  JOIN public.legislation pl ON lower(pl.rada_id) = c.nregs[1]
+  WHERE array_length(c.nregs, 1) = 1),
 matched AS (
   SELECT lcc.id cid, lcc.court_case_id doc_id, lcc.law_number, lcc.law_article, lcc.citation_type,
          lcc.citation_context, nrm.v,
@@ -241,18 +248,24 @@ SELECT doc_id, lid, article_id, article_number, law_number, law_article, citatio
        WHEN lid IS NULL THEN 'law_not_in_registry' ELSE 'article_not_found' END,
   cid
 FROM pick;
-CREATE INDEX idx_lcl_doc_new ON legislation_citation_links_new(doc_id);
-CREATE INDEX idx_lcl_article_new ON legislation_citation_links_new(article_id);
-CREATE INDEX idx_lcl_legis_new ON legislation_citation_links_new(legislation_id, article_number);
-CREATE INDEX idx_lcl_resolved_new ON legislation_citation_links_new(resolved);
+CREATE INDEX idx_lcl_doc_new ON public.legislation_citation_links_new(doc_id);
+CREATE INDEX idx_lcl_article_new ON public.legislation_citation_links_new(article_id);
+CREATE INDEX idx_lcl_legis_new ON public.legislation_citation_links_new(legislation_id, article_number);
+CREATE INDEX idx_lcl_resolved_new ON public.legislation_citation_links_new(resolved);
 
 -- Refuse to swap in a table that is obviously worse than the one being
 -- replaced. A rebuild that lost most of the graph must not go live silently.
 DO $guard$
 DECLARE old_n bigint; new_n bigint;
 BEGIN
-  SELECT count(*) INTO new_n FROM legislation_citation_links_new;
-  SELECT count(*) INTO old_n FROM legislation_citation_links;
+  SELECT count(*) INTO new_n FROM public.legislation_citation_links_new;
+  -- A fresh database has no live table yet; that is a first build, not a
+  -- shrunken rebuild, so there is nothing to compare against.
+  IF to_regclass('public.legislation_citation_links') IS NULL THEN
+    RAISE NOTICE 'first build: no live table to compare against, % rows', new_n;
+    RETURN;
+  END IF;
+  EXECUTE 'SELECT count(*) FROM public.legislation_citation_links' INTO old_n;
   IF new_n < old_n * 0.9 THEN
     RAISE EXCEPTION 'refusing swap: new table has % rows, live table has % (< 90%%)', new_n, old_n;
   END IF;
@@ -260,22 +273,27 @@ END
 $guard$;
 
 BEGIN;
-DROP TABLE legislation_citation_links;
-ALTER TABLE legislation_citation_links_new RENAME TO legislation_citation_links;
-ALTER INDEX idx_lcl_doc_new      RENAME TO idx_lcl_doc;
-ALTER INDEX idx_lcl_article_new  RENAME TO idx_lcl_article;
-ALTER INDEX idx_lcl_legis_new    RENAME TO idx_lcl_legis;
-ALTER INDEX idx_lcl_resolved_new RENAME TO idx_lcl_resolved;
+DROP TABLE IF EXISTS public.legislation_citation_links;
+ALTER TABLE public.legislation_citation_links_new RENAME TO legislation_citation_links;
+ALTER INDEX public.idx_lcl_doc_new      RENAME TO idx_lcl_doc;
+ALTER INDEX public.idx_lcl_article_new  RENAME TO idx_lcl_article;
+ALTER INDEX public.idx_lcl_legis_new    RENAME TO idx_lcl_legis;
+ALTER INDEX public.idx_lcl_resolved_new RENAME TO idx_lcl_resolved;
+-- The bigserial and the primary key were created under the _new name and keep
+-- it through a table rename, so every later run would collide on
+-- legislation_citation_links_new_pkey. Rename them too.
+ALTER INDEX public.legislation_citation_links_new_pkey RENAME TO legislation_citation_links_pkey;
+ALTER SEQUENCE public.legislation_citation_links_new_id_seq RENAME TO legislation_citation_links_id_seq;
 COMMIT;
 \echo '=== COVERAGE ==='
 SELECT count(*) total, count(*) FILTER (WHERE resolved) resolved,
        round(100.0*count(*) FILTER (WHERE resolved)/count(*),1) pct,
        count(DISTINCT doc_id) decisions, count(DISTINCT article_id) FILTER (WHERE resolved) distinct_articles
-FROM legislation_citation_links;
+FROM public.legislation_citation_links;
 \echo '=== by match_method ==='
-SELECT match_method, count(*) n, count(*) FILTER (WHERE resolved) res FROM legislation_citation_links GROUP BY 1 ORDER BY 2 DESC;
+SELECT match_method, count(*) n, count(*) FILTER (WHERE resolved) res FROM public.legislation_citation_links GROUP BY 1 ORDER BY 2 DESC;
 \echo '=== number leg (was repair-lcl-by-number.sql) ==='
 SELECT count(*) n, count(*) FILTER (WHERE resolved) res, count(DISTINCT legislation_id) acts
-FROM legislation_citation_links WHERE match_method = 'number';
+FROM public.legislation_citation_links WHERE match_method = 'number';
 \echo '=== unresolved by reason ==='
-SELECT unresolved_reason, count(*) FROM legislation_citation_links WHERE NOT resolved GROUP BY 1 ORDER BY 2 DESC;
+SELECT unresolved_reason, count(*) FROM public.legislation_citation_links WHERE NOT resolved GROUP BY 1 ORDER BY 2 DESC;
