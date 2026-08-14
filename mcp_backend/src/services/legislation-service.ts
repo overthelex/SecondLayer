@@ -1,4 +1,5 @@
 import type { IDatabase, IEmbeddingPort } from '../domain/ports/index.js';
+import { resolveActNumber, pickActNumber } from './act-number.js';
 import { RadaLegislationAdapter, LegislationArticle } from '../adapters/rada-legislation-adapter';
 import { logger } from '../utils/logger';
 import { createHash } from 'crypto';
@@ -533,6 +534,44 @@ export class LegislationService {
     }
   }
 
+  /**
+   * Map an act reference onto the registry id `legislation` is keyed by.
+   *
+   * normalizeRadaId only ever knew two hardcoded Latin retypes of the
+   * Constitution. This adds the corpus: npa.act_number (migration 187) carries
+   * every official number, its second Roman form, the upper-case legacy
+   * spellings and the visual Latin variants, so «2755-VI», «№ 2262-ХІІ» and
+   * «254k/96-bp» now land on the right act instead of 404ing.
+   *
+   * Conservative by construction. It only fires when the input is NOT already a
+   * known rada_id, and it only rewrites when the alias is unambiguous — where
+   * one number answers to several acts (КУпАП's three halves, the 70 UРСР/
+   * Ukraine Roman collisions) the input is returned untouched rather than
+   * pointed at a guess. Falling back to the original also means a corpus miss
+   * can never make an existing lookup worse.
+   */
+  private async canonicalRadaId(radaId: string): Promise<string> {
+    const raw = String(radaId ?? '').trim();
+    if (!raw) return radaId;
+    try {
+      const known = await this.db.query(
+        'SELECT 1 FROM legislation WHERE LOWER(rada_id) = LOWER($1) LIMIT 1',
+        [raw]
+      );
+      if (known.rows.length > 0) return raw;
+
+      const matches = await resolveActNumber(this.db, raw);
+      const { nreg } = pickActNumber(matches);
+      if (!nreg || nreg.toLowerCase() === raw.toLowerCase()) return raw;
+
+      logger.info(`canonicalRadaId: «${raw}» → ${nreg}`);
+      return nreg;
+    } catch (error: any) {
+      logger.warn(`canonicalRadaId failed for «${raw}»: ${error.message}`);
+      return raw;
+    }
+  }
+
   async getArticle(radaId: string, articleNumber: string, asOfDate?: string): Promise<LegislationReference | null> {
     const kmuPrefix = parseKmuPrefix(radaId);
     if (kmuPrefix) {
@@ -541,6 +580,7 @@ export class LegislationService {
       radaId = resolved;
     }
     radaId = normalizeRadaId(radaId);
+    radaId = await this.canonicalRadaId(radaId);
     await this.ensureLegislationExists(radaId);
 
     let article = await this.adapter.getArticleByNumber(radaId, articleNumber, asOfDate);
