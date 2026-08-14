@@ -43,6 +43,8 @@ PRIMARY_IP = "172.31.29.20"
 EGRESS_IFACE = "ens5"
 PROBE_URL = "https://od.reyestr.court.gov.ua/"
 THREADS_PER_IP = 5
+# Share of overload responses above which a run is doing more harm than good.
+THROTTLE_ABORT_RATIO = 0.10
 
 
 def discover_source_ips(explicit=None, allow_primary=False, iface=EGRESS_IFACE):
@@ -205,12 +207,31 @@ DROP TABLE _ft_stage;
 
 
 # ── Download stats ──
+# ── Overload-page detection at download time ──
+# The registry answers HTTP 200 with an "overloaded, try later" page instead of the
+# decision. Caught only at import, those bytes are already on disk and the run reports
+# them as downloaded; caught here, the request is simply retried with backoff, which is
+# what a 429 would have got. The page is cp1251 HTML, which is exactly why it ends up as
+# mojibake when the RTF path decodes it as latin1.
+OVERLOAD_PHRASES = ('Сервер перевантажений', 'Перегляд сторінки недоступний')
+
+
+def is_overload_payload(data: bytes) -> bool:
+    if len(data) > 32768:          # the notice is ~2KB; real decisions are far bigger
+        return False
+    if data[:5] == b'{\\rtf1':     # a real RTF is never the notice
+        return False
+    head = data[:8192].decode('cp1251', errors='ignore')
+    return any(p in head for p in OVERLOAD_PHRASES)
+
+
 class DownloadStats:
     def __init__(self, total: int):
         self.total = total
         self.downloaded = 0
         self.failed = 0
         self.skipped = 0
+        self.throttled = 0
         self.start = time.time()
         self.lock = asyncio.Lock()
         self.per_ip = defaultdict(int)
@@ -230,7 +251,8 @@ class DownloadStats:
         ip_stats = " | ".join(f"{ip.split('.')[-1]}={cnt}" for ip, cnt in sorted(self.per_ip.items()))
         return (
             f"[{done}/{self.total}] "
-            f"ok={self.downloaded} fail={self.failed} skip={self.skipped} | "
+            f"ok={self.downloaded} fail={self.failed} skip={self.skipped} "
+            f"throttled={self.throttled} | "
             f"{rate:.0f}/s | ETA {eta/60:.0f}m | IPs: {ip_stats}"
         )
 
@@ -249,6 +271,12 @@ async def download_one(session, doc_id, url, stats, semaphore, source_ip):
                 async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as resp:
                     if resp.status == 200:
                         data = await resp.read()
+                        if data and is_overload_payload(data):
+                            # Same handling as an explicit 429 — the server IS throttling,
+                            # it just says so with a 200 and a page.
+                            await stats.inc('throttled')
+                            await asyncio.sleep(5 * (attempt + 1))
+                            continue
                         if data:
                             async with aiofiles.open(outpath, 'wb') as f:
                                 await f.write(data)
@@ -306,6 +334,21 @@ async def download_all(items, threads_per_ip, source_ips):
         while True:
             await asyncio.sleep(15)
             print(f"  {stats.report()}", flush=True)
+            # The rate is the knob that decides whether the registry serves decisions or
+            # overload pages: the 2026-04-19 run at ~1200 docs/s poisoned 36% of April,
+            # 100 docs/s gave 0.03%. Rather than let a fast pool burn a whole range,
+            # say so early — the operator lowers --threads and re-runs, and nothing is
+            # lost because the harvest is resumable.
+            attempted = stats.downloaded + stats.throttled
+            if attempted >= 500 and stats.throttled / attempted > THROTTLE_ABORT_RATIO:
+                print(
+                    f"\n  ABORTING: {stats.throttled} of {attempted} responses were the registry's "
+                    f"overload page (>{THROTTLE_ABORT_RATIO:.0%}). The pool is fetching faster than "
+                    f"the registry will serve. Lower --threads and re-run; already-downloaded files "
+                    f"are kept and skipped.",
+                    flush=True,
+                )
+                raise SystemExit(2)
 
     prog_task = asyncio.create_task(progress())
 
