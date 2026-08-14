@@ -10,7 +10,14 @@
 -- Now: fail fast, build beside the live table, and swap only once the new one
 -- is complete. A failure at any point leaves the serving table untouched.
 \set ON_ERROR_STOP on
-SET statement_timeout='4h';
+-- 8h, not 4h. Measured on prod by EXPLAIN (ANALYZE) over a contiguous 10M-row
+-- slice and scaled by 33.36x: the SELECT alone is ~57 minutes, and the run then
+-- has to write 87 GB of heap and build four indexes on top — call it 2.5 to 4
+-- hours end to end. A 4h ceiling was close enough to that to lose an entire
+-- run to the clock. Hitting the timeout is no longer destructive (the build
+-- happens beside the live table and the swap is the last thing that runs), but
+-- it still throws away hours of work.
+SET statement_timeout='8h';
 
 -- Only one rebuild at a time. This script drops and replaces the serving
 -- table, so two overlapping runs would each validate their own staging table
