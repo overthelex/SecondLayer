@@ -695,7 +695,7 @@ def main():
                 LEFT JOIN edrsr_fulltext ft ON d.doc_id = ft.doc_id
                 WHERE d.adjudication_date >= '{args.date_from}'
                   AND d.adjudication_date < '{args.date_to}'
-                  AND d.doc_url IS NOT NULL AND length(d.doc_url) > 0
+                  AND d.doc_url ~ '{LIVE_URL_SHAPE}'
                   AND ft.doc_id IS NULL
                 ORDER BY d.doc_id;
             """, tuples=True)

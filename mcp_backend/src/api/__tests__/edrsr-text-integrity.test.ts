@@ -66,6 +66,21 @@ describe('detectDamagedCourtText', () => {
   });
 });
 
+describe('a document with no text at all', () => {
+  it('has a reason of its own, distinct from a damaged text', () => {
+    expect(DAMAGED_TEXT_REASON.not_harvested).toMatch(/ще не завантажено/);
+    expect(DAMAGED_TEXT_REASON.not_harvested).toMatch(/не роби висновків/);
+    expect(DAMAGED_TEXT_REASON.not_harvested).not.toBe(DAMAGED_TEXT_REASON.registry_overload_page);
+  });
+
+  it('is not something the content detector can find — the caller must supply it', () => {
+    // detectDamagedCourtText inspects text; "no row in edrsr_fulltext" has none to
+    // inspect. The read paths translate that absence into `not_harvested`, which is why
+    // an empty string must NOT come back as a damage kind here.
+    expect(detectDamagedCourtText('')).toBeNull();
+  });
+});
+
 describe('guardCourtText', () => {
   it('returns the text when it is sound', () => {
     const out = guardCourtText(REAL_RULING);
