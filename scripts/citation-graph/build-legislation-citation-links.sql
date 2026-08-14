@@ -27,6 +27,14 @@ BEGIN
 END
 $lock$;
 
+-- A session lock is only a lock if the session is really ours for the whole
+-- run. Behind PgBouncer in transaction mode each statement can land on a
+-- different server connection, which silently voids both this lock and the
+-- temp table below. Record the backend now and re-check it immediately before
+-- the swap: if it moved, we were pooled and the lock protected nothing.
+-- Run this script DIRECTLY against Postgres (port 5432), never via pgbouncer.
+CREATE TEMP TABLE _rebuild_session AS SELECT pg_backend_pid() AS pid;
+
 -- to_date does not merely reject impossible field values, it VALIDATES the day
 -- against the month, so it THROWS on «19.19.2010» AND on «29.02.1991». Both are
 -- in the corpus, and each one aborted a 14-minute pass while the repair was
@@ -271,8 +279,20 @@ CREATE INDEX idx_lcl_resolved_new ON public.legislation_citation_links_new(resol
 -- Refuse to swap in a table that is obviously worse than the one being
 -- replaced. A rebuild that lost most of the graph must not go live silently.
 DO $guard$
-DECLARE old_n bigint; new_n bigint;
+DECLARE old_n bigint; new_n bigint; started_pid int;
 BEGIN
+  -- If the connection was pooled, the temp table is gone or the pid moved, and
+  -- the advisory lock above never covered this statement. Refuse rather than
+  -- swap an 87 GB table under an unheld lock.
+  IF to_regclass('pg_temp._rebuild_session') IS NULL THEN
+    RAISE EXCEPTION 'session state lost: this looks like a pooled connection, refusing to swap';
+  END IF;
+  SELECT pid INTO started_pid FROM _rebuild_session;
+  IF started_pid <> pg_backend_pid() THEN
+    RAISE EXCEPTION 'backend changed (% -> %): pooled connection, advisory lock is void',
+      started_pid, pg_backend_pid();
+  END IF;
+
   SELECT count(*) INTO new_n FROM public.legislation_citation_links_new;
   -- A fresh database has no live table yet; that is a first build, not a
   -- shrunken rebuild, so there is nothing to compare against.
