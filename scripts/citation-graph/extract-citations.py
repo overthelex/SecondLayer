@@ -332,6 +332,11 @@ _NO_ENRICH = False
 # Targeted mode (LEXAI-1817): restrict scanned rows to tsv @@ to_tsquery('simple', _TSQUERY).
 # Lets a backfill touch only candidate docs (e.g. '38.6 | 69.22') instead of the whole corpus.
 _TSQUERY = None
+# Targeted mode by DOC ID (LEXAI-1947). --tsquery restricts by text, which cannot
+# express "the documents whose stored citations are damaged". This takes a table
+# of doc_ids instead, so a backfill can re-read exactly the affected decisions
+# rather than the whole corpus.
+_DOC_IDS_TABLE = None
 # Effective per-doc scan window; --max-text-len can raise it for targeted backfills
 # where the citation may sit deep in a long decision.
 _MAX_TEXT_LEN = MAX_TEXT_LEN
@@ -370,6 +375,8 @@ def process_chunk(args: tuple) -> dict:
             conds.append("justice_kind = %s"); params.append(_JUSTICE_KIND_FILTER)
         if _TSQUERY is not None:
             conds.append("tsv @@ to_tsquery('simple', %s)"); params.append(_TSQUERY)
+        if _DOC_IDS_TABLE is not None:
+            conds.append(f"doc_id IN (SELECT doc_id FROM {_DOC_IDS_TABLE})")
         where = f"WHERE {' AND '.join(conds)} " if conds else ""
         cur.execute(
             f"SELECT doc_id, full_text, justice_kind FROM {table} {where}OFFSET %s LIMIT %s",
@@ -381,6 +388,8 @@ def process_chunk(args: tuple) -> dict:
             conds.append("justice_kind = %s"); params.append(_JUSTICE_KIND_FILTER)
         if _TSQUERY is not None:
             conds.append("tsv @@ to_tsquery('simple', %s)"); params.append(_TSQUERY)
+        if _DOC_IDS_TABLE is not None:
+            conds.append(f"doc_id IN (SELECT doc_id FROM {_DOC_IDS_TABLE})")
         cur.execute(
             f"SELECT doc_id, full_text, justice_kind FROM edrsr_fulltext WHERE {' AND '.join(conds)} OFFSET %s LIMIT %s",
             tuple(params + [offset, chunk_size]),
@@ -575,13 +584,16 @@ def main():
     parser.add_argument("--bulk-load", action="store_true", help="Plain INSERT, no ON CONFLICT (deferred index: target tables must have NO unique index; dedup+index built afterwards)")
     parser.add_argument("--no-enrich", action="store_true", help="Skip per-year justice_kind enrich UPDATE (defer to a single end-of-run pass)")
     parser.add_argument("--tsquery", type=str, default=None, help="Targeted mode: only rows matching to_tsquery('simple', TSQUERY), e.g. '38.6 | 69.22' (LEXAI-1817)")
+    parser.add_argument("--doc-ids-table", type=str, default=None,
+                        help="Targeted mode: only doc_ids present in this table (must have a doc_id column). "
+                             "Use for backfills that must re-read specific decisions (LEXAI-1947).")
     parser.add_argument("--max-text-len", type=int, default=MAX_TEXT_LEN, help=f"Per-doc scan window in chars (default {MAX_TEXT_LEN}); raise for targeted backfills")
     args = parser.parse_args()
 
     if not args.year and not args.all:
         parser.error("Specify --year YYYY or --all")
 
-    global _JUSTICE_KIND_FILTER, _TARGET_TABLE, _CASE_TABLE, _BULK_LOAD, _NO_ENRICH, _TSQUERY, _MAX_TEXT_LEN
+    global _JUSTICE_KIND_FILTER, _TARGET_TABLE, _CASE_TABLE, _BULK_LOAD, _NO_ENRICH, _TSQUERY, _MAX_TEXT_LEN, _DOC_IDS_TABLE
     _JUSTICE_KIND_FILTER = args.justice_kind
     _TARGET_TABLE = args.target_table
     _CASE_TABLE = args.case_table
@@ -589,6 +601,12 @@ def main():
     _NO_ENRICH = args.no_enrich
     _TSQUERY = args.tsquery
     _MAX_TEXT_LEN = args.max_text_len
+    if args.doc_ids_table:
+        # Interpolated into SQL as an identifier, so it is validated rather than
+        # trusted: operator-supplied is not the same as safe.
+        if not re.fullmatch(r'[A-Za-z_][A-Za-z0-9_]*(\.[A-Za-z_][A-Za-z0-9_]*)?', args.doc_ids_table):
+            parser.error(f"--doc-ids-table must be a plain identifier, got {args.doc_ids_table!r}")
+    _DOC_IDS_TABLE = args.doc_ids_table
 
     years = list(range(args.years_from, args.years_to + 1)) if args.all else [args.year]
 
