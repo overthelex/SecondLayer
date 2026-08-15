@@ -337,6 +337,19 @@ _TSQUERY = None
 # of doc_ids instead, so a backfill can re-read exactly the affected decisions
 # rather than the whole corpus.
 _DOC_IDS_TABLE = None
+
+
+def _doc_ids_cond() -> str | None:
+    """The doc-id restriction, in one place.
+
+    It is needed at four sites — both branches of process_chunk and both
+    COUNT(*) queries in process_year — and the count MUST match the select or
+    the chunk plan is sized for rows the query never returns.
+    """
+    if _DOC_IDS_TABLE is None:
+        return None
+    return f"doc_id IN (SELECT doc_id FROM {_DOC_IDS_TABLE})"
+
 # Effective per-doc scan window; --max-text-len can raise it for targeted backfills
 # where the citation may sit deep in a long decision.
 _MAX_TEXT_LEN = MAX_TEXT_LEN
@@ -375,8 +388,8 @@ def process_chunk(args: tuple) -> dict:
             conds.append("justice_kind = %s"); params.append(_JUSTICE_KIND_FILTER)
         if _TSQUERY is not None:
             conds.append("tsv @@ to_tsquery('simple', %s)"); params.append(_TSQUERY)
-        if _DOC_IDS_TABLE is not None:
-            conds.append(f"doc_id IN (SELECT doc_id FROM {_DOC_IDS_TABLE})")
+        if (_c := _doc_ids_cond()) is not None:
+            conds.append(_c)
         where = f"WHERE {' AND '.join(conds)} " if conds else ""
         cur.execute(
             f"SELECT doc_id, full_text, justice_kind FROM {table} {where}OFFSET %s LIMIT %s",
@@ -388,8 +401,8 @@ def process_chunk(args: tuple) -> dict:
             conds.append("justice_kind = %s"); params.append(_JUSTICE_KIND_FILTER)
         if _TSQUERY is not None:
             conds.append("tsv @@ to_tsquery('simple', %s)"); params.append(_TSQUERY)
-        if _DOC_IDS_TABLE is not None:
-            conds.append(f"doc_id IN (SELECT doc_id FROM {_DOC_IDS_TABLE})")
+        if (_c := _doc_ids_cond()) is not None:
+            conds.append(_c)
         cur.execute(
             f"SELECT doc_id, full_text, justice_kind FROM edrsr_fulltext WHERE {' AND '.join(conds)} OFFSET %s LIMIT %s",
             tuple(params + [offset, chunk_size]),
@@ -501,12 +514,9 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
             conds.append("justice_kind = %s"); params.append(_JUSTICE_KIND_FILTER)
         if _TSQUERY is not None:
             conds.append("tsv @@ to_tsquery('simple', %s)"); params.append(_TSQUERY)
-        # Must mirror the WHERE in process_chunk exactly. Counting the whole
-        # partition while the chunks read a filtered subset would size the chunk
-        # plan for millions of rows that are never returned, so the run would
-        # grind through empty offsets — defeating the point of targeting.
-        if _DOC_IDS_TABLE is not None:
-            conds.append(f"doc_id IN (SELECT doc_id FROM {_DOC_IDS_TABLE})")
+        # Mirrors process_chunk via the shared _doc_ids_cond().
+        if (_c := _doc_ids_cond()) is not None:
+            conds.append(_c)
         where = f" WHERE {' AND '.join(conds)}" if conds else ""
         cur.execute(f"SELECT COUNT(*) FROM {table}{where}", tuple(params))
     else:
@@ -515,8 +525,8 @@ def process_year(year: int, workers: int, dry_run: bool, chunk_size: int = 50000
             conds.append("justice_kind = %s"); params.append(_JUSTICE_KIND_FILTER)
         if _TSQUERY is not None:
             conds.append("tsv @@ to_tsquery('simple', %s)"); params.append(_TSQUERY)
-        if _DOC_IDS_TABLE is not None:
-            conds.append(f"doc_id IN (SELECT doc_id FROM {_DOC_IDS_TABLE})")
+        if (_c := _doc_ids_cond()) is not None:
+            conds.append(_c)
         cur.execute(f"SELECT COUNT(*) FROM edrsr_fulltext WHERE {' AND '.join(conds)}", tuple(params))
     total = cur.fetchone()[0]
     cur.close()
