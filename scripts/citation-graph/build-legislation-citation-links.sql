@@ -258,6 +258,36 @@ numparse AS (
            'DD.MM.YYYY') AS dt
   FROM public.law_court_citations
   WHERE law_number ~ '^\s*№?\s*[0-9]{1,5}-?\s*(?:від\s+[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{4})?\s*$'),
+-- The OFFICIAL-number leg. After LEXAI-1947 re-extracted 2 011 252 decisions,
+-- law_number holds the real number — «2262-XII», «1058-IV», «254к/96-ВР» —
+-- instead of the truncated «2262-» the old extractor produced.
+--
+-- numparse above only understands the DAMAGED shape (digits, optional trailing
+-- hyphen), so on corrected data it matches nothing: the first rebuild after the
+-- re-extraction dropped the number leg from 28 617 resolved to 3 108 precisely
+-- because fixing the data broke a parser written for the breakage.
+--
+-- npa.act_number already holds these as 'official'/'official_alt' aliases, so
+-- the whole value is looked up directly. Measured: 2 688 605 rows now carry a
+-- Roman suffix and 2 311 894 of them resolve to exactly one curated act.
+numfull AS (
+  SELECT DISTINCT btrim(regexp_replace(law_number, '\s+', ' ', 'g')) AS v
+  FROM public.law_court_citations
+  WHERE law_number ~ '^\s*№?\s*[0-9]{1,5}[а-яіїєґ]?[-/][0-9A-Za-zА-Яа-яІЇЄҐіїєґ/-]{1,12}\s*$'),
+numfullcand AS (
+  -- Ambiguity judged over the WHOLE corpus before the curated set narrows it,
+  -- for the same reason as numcand: filtering first makes a number that names
+  -- several acts look unambiguous.
+  SELECT f.v, array_agg(DISTINCT an.nreg) AS nregs
+  FROM numfull f
+  JOIN npa.act_number an ON an.alias_norm = npa.norm_number(f.v)
+                        AND an.kind IN ('official', 'official_alt', 'nreg')
+  GROUP BY f.v),
+numfullmap AS (
+  SELECT c.v, pl.id AS legislation_id
+  FROM numfullcand c
+  JOIN public.legislation pl ON lower(pl.rada_id) = c.nregs[1]
+  WHERE array_length(c.nregs, 1) = 1),
 numcand AS (
   -- Ambiguity is judged over the WHOLE corpus, before anything narrows it.
   -- Joining public.legislation here instead would filter the rival candidates
@@ -288,16 +318,17 @@ matched AS (
          -- left NULL. Measured on prod: of 160 708 already-bound rows, ZERO
          -- carry a number-shaped law_number, so the two populations are
          -- disjoint and this can never override a working binding.
-         COALESCE(lm.legislation_id, can.legislation_id, nb.legislation_id) lid,
+         COALESCE(lm.legislation_id, can.legislation_id, nf.legislation_id, nb.legislation_id) lid,
          CASE WHEN lm.v IS NOT NULL THEN lm.method
               WHEN can.title IS NOT NULL AND nrm.v<>lcc.law_number THEN 'normalized'
               WHEN can.title IS NOT NULL THEN 'exact_title'
-              WHEN nb.legislation_id IS NOT NULL THEN 'number' END method
+              WHEN COALESCE(nf.legislation_id, nb.legislation_id) IS NOT NULL THEN 'number' END method
   FROM public.law_court_citations lcc
   CROSS JOIN LATERAL (SELECT btrim(regexp_replace(lcc.law_number,'\s+',' ','g')) v) nrm
   LEFT JOIN lawmap lm ON lm.v = nrm.v
   LEFT JOIN canon can ON can.title = nrm.v
-  LEFT JOIN numbermap nb ON nb.v = nrm.v),
+  LEFT JOIN numfullmap nf ON nf.v = nrm.v
+  LEFT JOIN numbermap  nb ON nb.v = nrm.v),
 withart AS (
   -- Articles match under both the bare number and the «п.» prefix, because
   -- best_art is keyed on the stripped form.
