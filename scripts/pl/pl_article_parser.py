@@ -124,22 +124,32 @@ def art_no_from_heading(display):
 
 
 def repair_struct_json(raw):
-    """Parse a /struct payload, repairing the source's unescaped quotes.
+    """Parse a /struct payload, repairing the source's malformed JSON.
 
-    ISAP does not escape ASCII double quotes inside JSON string values. Polish
-    typography opens a quotation with „ and the source often closes it with a
-    straight ", so titles like
+    ISAP's /struct serialiser has two independent defects, both appearing in
+    title fields, and either one makes the entire payload unparseable - so the
+    act gets no struct, and therefore no articles at all.
 
-        "title" : "...przedsiębiorstwa państwowego „Polskie Koleje Państwowe"1)",
+    Defect 1, unescaped ASCII double quotes. Polish typography opens a
+    quotation with the low quote and the source often closes it with a straight
+    ", which terminates the JSON string early:
 
-    terminate the JSON string early and make the whole document unparseable
-    (DU/2024/561, 76 KB, is one). Without this the act has no struct, so it gets
-    no articles at all - the entire text of a code lost to one quotation mark.
+        "title" : "...panstwowego ,,Polskie Koleje Panstwowe"1)",
 
-    The repair walks the payload and escapes any " inside a string that is not
-    followed by a structural delimiter. Returns (parsed, repaired_bool) and
-    raises json.JSONDecodeError if it still will not parse, so a genuinely
-    broken payload is still an honest failure rather than a silent empty result.
+    DU/2024/561 is 76 KB and 140 articles behind one such quotation mark.
+
+    Defect 2, literal control characters. Long table captions are wrapped
+    across physical lines and the newline is emitted raw inside the string,
+    which JSON forbids (DU/2020/2075).
+
+    The repair walks the payload, escaping a quote inside a string that is not
+    followed by a structural delimiter, and escaping raw newline/CR/tab while
+    inside a string. Outside a string those characters are legal whitespace,
+    hence the in_string guard on both rules.
+
+    Returns (parsed, repaired_bool) and still raises json.JSONDecodeError if
+    the payload will not parse, so a genuinely broken one stays an honest
+    failure rather than a silent empty result.
     """
     if isinstance(raw, (bytes, bytearray)):
         raw = raw.decode("utf-8", errors="replace")
@@ -159,6 +169,13 @@ def repair_struct_json(raw):
         if ch == "\\":
             out.append(ch)
             escaped = True
+            continue
+        if in_string and ch in "\n\r\t":
+            # Defect 2: literal control characters inside a string value. JSON
+            # forbids them; the source wraps long table captions across lines
+            # and emits the newline raw. Outside a string they are legal
+            # whitespace, hence the in_string guard.
+            out.append({"\n": "\\n", "\r": "\\r", "\t": "\\t"}[ch])
             continue
         if ch == '"':
             if not in_string:
