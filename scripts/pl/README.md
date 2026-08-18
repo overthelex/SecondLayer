@@ -19,9 +19,9 @@ PG_DB=secondlayer_prod
 | stage | script | status |
 |---|---|---|
 | 0 pin baseline | `pin_baseline.py` | **done** - runs in 89 s, 0 problems |
-| 1 register + graph | `harvest_eli_register.py` | **listings done** (164,213 acts on prod); details pass running |
-| 2 snapshot chain | `build_pl_snapshots.sql` | **built**, verified on the real Kodeks pracy |
-| 3+4 struct + text | `harvest_eli_texts.py` | **built**, not yet run (needs stage 2) |
+| 1 register + graph | `harvest_eli_register.py` | **done** - 164,213 acts, 732,983 edges, 0 failures |
+| 2 snapshot chain | `build_pl_snapshots.sql` | **done** - 164,206 snapshots, 154,843 laws, 4,223 with >1 |
+| 3+4 struct + text | `harvest_eli_texts.py` | **done** - 673,735 articles, 5.5M units, 7 unresolved of 39,106 |
 | 5 incremental sync | `sync_eli_changes.py` | not written |
 | 6 audit | `audit_pl_load.sh` | not written |
 | courts | `harvest_ncourt.py`, `harvest_cbosa.py`, `harvest_sn_tk.py` | not written |
