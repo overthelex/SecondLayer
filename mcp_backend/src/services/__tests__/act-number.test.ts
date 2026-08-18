@@ -18,6 +18,7 @@ import {
   normalizeArticleNumber,
   looksLikeOfficialNumber,
   pickActNumber,
+  ARTICLE_NUMBER_PATTERN,
   type ActNumberMatch,
 } from '../act-number.js';
 
@@ -152,5 +153,34 @@ describeDb('npa.norm_number parity (requires DATABASE_URL)', () => {
       if (ts !== sql) drift.push(`TS ${JSON.stringify(c.in)} -> ${JSON.stringify(ts)}, SQL ${JSON.stringify(sql)}`);
     }
     expect(drift).toEqual([]);
+  });
+});
+
+describe('ARTICLE_NUMBER_PATTERN', () => {
+  // Rada writes the index hyphen with spaces around it and sometimes as an en
+  // dash — the stored ЦПК heading is «Стаття 350 - 1 .». The historical-editions
+  // importer allowed neither, captured «350», collided with the real article 350
+  // and lost the row; 1 018 in-force indexed articles ended up with no row at all
+  // (LEXAI-1957). This guards the shipped pattern, not a copy of it.
+  const rx = new RegExp(`Стаття\\s+(${ARTICLE_NUMBER_PATTERN})`);
+
+  it.each([
+    ['Стаття 350. Рішення', '350'],
+    ['Стаття 350-1. Підсудність', '350-1'],
+    ['Стаття 350 - 1 . Підсудність', '350 - 1'],
+    ['Стаття 350–1. Підсудність', '350–1'],
+    ['Стаття 350 — 1. Підсудність', '350 — 1'],
+  ])('captures the whole number in %s', (heading, expected) => {
+    expect(rx.exec(heading)?.[1]).toBe(expected);
+  });
+
+  it('every spelling normalises to the stored form', () => {
+    const stored = ['Стаття 350-1.', 'Стаття 350 - 1 .', 'Стаття 350–1.', 'Стаття 350 — 1.']
+      .map((h) => normalizeArticleNumber(rx.exec(h)![1]));
+    expect(new Set(stored)).toEqual(new Set(['350-1']));
+  });
+
+  it('does not swallow the next article number', () => {
+    expect(rx.exec('Стаття 350. Текст')?.[1]).toBe('350');
   });
 });
