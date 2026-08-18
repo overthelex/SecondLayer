@@ -198,7 +198,7 @@ class PartitionStats:
 MAX_RANGE_SPAN = 20
 
 
-def parse_article_numbers(raw: str) -> list[str]:
+def parse_article_numbers(raw: str, act: str | None = None) -> list[str]:
     """Parse an article enumeration into a list of canonical article numbers.
 
     Handles three shapes:
@@ -237,35 +237,83 @@ def parse_article_numbers(raw: str) -> list[str]:
                 # superscript list mis-joined by a stray hyphen: keep only the
                 # endpoints in canonical dashed form, drop the phantom middle.
                 else:
-                    articles.append(normalize_flattened(a))
-                    articles.append(normalize_flattened(b))
+                    articles.append(normalize_flattened(a, act))
+                    articles.append(normalize_flattened(b, act))
             else:
                 articles.append(part)
         elif part.isdigit():
-            articles.append(normalize_flattened(part))
+            articles.append(normalize_flattened(part, act))
     return articles
 
 
-def normalize_flattened(num: str) -> str:
+_ART_INDEX: dict[str, set[str]] = {}
+_ART_INDEX_READY = False
+
+
+def _load_article_index() -> None:
+    """Current article numbers per act, keyed on the act title the builder matches.
+
+    One query per worker process. Failure is not fatal: an empty index makes
+    normalize_flattened keep what the document actually says, which is the safe
+    direction — see the note there.
+    """
+    global _ART_INDEX_READY
+    if _ART_INDEX_READY:
+        return
+    _ART_INDEX_READY = True
+    titles = sorted(set(CODEX_NAMES.values()) | {"Конституція України"})
+    try:
+        with get_conn() as conn, conn.cursor() as cur:
+            cur.execute(
+                "SELECT l.title, a.article_number "
+                "FROM legislation l JOIN legislation_articles a ON a.legislation_id = l.id "
+                "WHERE a.is_current AND l.title = ANY(%s)",
+                (titles,),
+            )
+            for title, art in cur.fetchall():
+                _ART_INDEX.setdefault(title, set()).add(str(art).strip())
+    except Exception as e:                                    # noqa: BLE001
+        print(f"[warn] article index unavailable ({type(e).__name__}); "
+              f"flattened-superscript splitting disabled", flush=True)
+
+
+def normalize_flattened(num: str, act: str | None = None) -> str:
     """Map an OCR-flattened superscript article number to canonical 'base-index'.
 
     Ukrainian procedural codes number inserted articles with a superscript:
     стаття 111⁵ (article 111, insert 5). When the superscript collapses into the
-    base it becomes '1115'. Heuristic: a 4-5 digit token whose leading 1-3 digits
-    form a plausible base article and trailing 1-2 digits a plausible insert index
-    is rewritten as 'base-index'. Plain 1-3 digit articles pass through unchanged.
+    base it becomes '1115', which has to be read as 111-5.
 
-    NOTE: this is a best-effort heuristic for the regex capture path. The
-    authoritative disambiguation against the legislation_articles registry happens
-    in the backfill SQL; here we only avoid emitting raw 4-5 digit garbage.
+    This USED to split every 4-5 digit token unconditionally, and that was wrong
+    for any act with genuine four-digit articles. The Civil Code has 301 of them
+    (up to 1308), so «ст. 1054 ЦК» was stored as '105-4', «ст. 1268» as '126-8',
+    «ст. 1166» as '116-6' — the whole law of obligations, delict and inheritance.
+    Measured on prod 2026-08-18: 9 536 839 rows carried the split signature across
+    65 acts, of which 5 320 562 resolved to nothing; on the Civil Code alone
+    4 624 318 citations pointed at articles that cannot exist. The docstring
+    promised the registry would disambiguate downstream. Nothing did.
+
+    So the registry decides here, where the act is still known: keep the literal
+    reading when the act really has that article, split only when it does not and
+    the split form does exist. With no index (act unknown, or the DB unreachable)
+    keep the literal — it is what the document says, and a wrong split loses the
+    citation silently.
     """
     if len(num) <= 3 or not num.isdigit():
         return num
-    # Prefer a 2-digit insert index for 5-digit tokens, 1-digit for 4-digit tokens.
-    if len(num) == 5:
-        return f"{num[:3]}-{num[3:]}"
-    # 4 digits: split as 3+1 (e.g. 1115 -> 111-5). Callers reconcile against registry.
-    return f"{num[:3]}-{num[3:]}"
+    split = f"{num[:3]}-{num[3:]}"
+    if not act:
+        return num
+    _load_article_index()
+    known = _ART_INDEX.get(act)
+    if not known:
+        return num
+    if num in known:
+        return num
+    if split in known:
+        return split
+    return num
+
 
 MAX_TEXT_LEN = 10_000
 
@@ -277,19 +325,19 @@ def extract_citations_from_text(doc_id: int, text: str) -> list[Citation]:
     for m in PATTERNS["law_article"].finditer(text):
         articles_raw = m.group(1)
         law_name = m.group(2) or m.group(3) or ""
-        for art in parse_article_numbers(articles_raw):
+        for art in parse_article_numbers(articles_raw, law_name.strip()):
             citations.append(Citation(doc_id, "law_article", law_name.strip(), art, m.group(0)[:200]))
 
     for m in PATTERNS["codex_article"].finditer(text):
         articles_raw = m.group(1)
         codex_abbr = m.group(2).upper()
         codex_name = CODEX_NAMES.get(codex_abbr, codex_abbr)
-        for art in parse_article_numbers(articles_raw):
+        for art in parse_article_numbers(articles_raw, codex_name):
             citations.append(Citation(doc_id, "codex_article", codex_name, art, m.group(0)[:200]))
 
     for m in PATTERNS["constitution"].finditer(text):
         articles_raw = m.group(1)
-        for art in parse_article_numbers(articles_raw):
+        for art in parse_article_numbers(articles_raw, "Конституція України"):
             citations.append(Citation(doc_id, "constitution", "Конституція України", art, m.group(0)[:200]))
 
     # Transitional provisions (LEXAI-1817): dotted point numbers must NOT go through
