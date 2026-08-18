@@ -167,6 +167,20 @@ def repair_struct_json(raw):
             escaped = False
             continue
         if ch == "\\":
+            # Defect 3: a trailing backslash in the content, unescaped. A title
+            # ending "Zalacznik - WZOR\" leaves \" looking like an escaped
+            # quote, so the string never closes. If what follows the quote is a
+            # structural delimiter, the backslash is literal content and the
+            # quote really is the terminator (DU/2018/428).
+            if in_string and i + 1 < len(raw) and raw[i + 1] == '"':
+                after = ""
+                for c in raw[i + 2:]:
+                    if not c.isspace():
+                        after = c
+                        break
+                if after in (",", ":", "}", "]", ""):
+                    out.append("\\\\")
+                    continue
             out.append(ch)
             escaped = True
             continue
