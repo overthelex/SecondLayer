@@ -11,12 +11,83 @@
 import { Router, Request, Response } from 'express';
 import { load } from 'cheerio';
 import { logger } from '../utils/logger.js';
-import { ERAUCacheService } from '../services/erau-cache-service.js';
+import { ERAUCacheService, ERAULawyer } from '../services/erau-cache-service.js';
 import { BaseDatabase } from '@secondlayer/shared';
 
 const ERAU_BASE_URL = 'https://erau.unba.org.ua';
 const PROFILE_REDIS_PREFIX = 'erau:profile:';
 const PROFILE_REDIS_TTL = 86400; // 24 hours
+
+// ERAU serves at most `limit` rows per request — 10 by default — ordered by ascending
+// registry id, which is the order of admission. Reading only the first page therefore
+// returns the oldest advocates and hides everyone certified in recent years, so the full
+// result set has to be paged through.
+const ERAU_PAGE_SIZE = 200;
+const ERAU_MAX_RESULTS = 2000;
+
+class ERAUUpstreamError extends Error {
+  constructor(public readonly status: number) {
+    super(`ERAU returned status ${status}`);
+    this.name = 'ERAUUpstreamError';
+  }
+}
+
+function normaliseLawyer(raw: any): ERAULawyer {
+  return {
+    id: Number(raw?.id),
+    surname: raw?.surname ?? '',
+    firstname: raw?.firstname ?? '',
+    middlename: raw?.middlename ?? undefined,
+    racalc: raw?.racalc ?? undefined,
+    certnum: raw?.certnum ?? undefined,
+    certat: raw?.certat ?? undefined,
+    certcalc: raw?.certcalc ?? undefined,
+  };
+}
+
+async function fetchAllFromERAU(surname: string): Promise<{ items: ERAULawyer[]; total: number }> {
+  const items: ERAULawyer[] = [];
+  const seen = new Set<number>();
+  let total = 0;
+  let offset = 0;
+
+  for (;;) {
+    const url = `${ERAU_BASE_URL}/search?surname=${encodeURIComponent(surname)}`
+      + `&limit=${ERAU_PAGE_SIZE}&offset=${offset}`;
+
+    const response = await fetch(url, {
+      headers: {
+        'Accept': 'application/json',
+        'User-Agent': 'SecondLayer/1.0',
+      },
+      signal: AbortSignal.timeout(20000),
+    });
+
+    if (!response.ok) throw new ERAUUpstreamError(response.status);
+
+    const data = await response.json() as any;
+    const page: any[] = Array.isArray(data) ? data : (data?.items || []);
+    if (typeof data?.total === 'number') total = data.total;
+
+    for (const raw of page) {
+      const lawyer = normaliseLawyer(raw);
+      if (Number.isFinite(lawyer.id) && !seen.has(lawyer.id)) {
+        seen.add(lawyer.id);
+        items.push(lawyer);
+      }
+    }
+
+    offset += page.length;
+    if (page.length < ERAU_PAGE_SIZE) break;
+    if (total > 0 && offset >= total) break;
+    if (items.length >= ERAU_MAX_RESULTS) {
+      logger.warn(`[ERAU] Result set for "${surname}" capped at ${items.length} of ${total}`);
+      break;
+    }
+  }
+
+  return { items, total: total || items.length };
+}
 
 export interface ERAUProfile {
   id: string;
@@ -373,57 +444,42 @@ export function createERAUProxyRoutes(erauCacheService?: ERAUCacheService, db?: 
 
       const trimmed = surname.trim();
 
-      // 1. Check cache (Redis → PG)
+      // 1. Check cache (Redis → PG). An empty array is a valid cached answer.
       if (erauCacheService) {
         const cached = await erauCacheService.getBySurname(trimmed);
-        if (cached && cached.length > 0) {
+        if (cached) {
           logger.info(`[ERAU] Serving ${cached.length} cached results for "${trimmed}"`);
           return res.json(cached);
         }
       }
 
-      // 2. Fetch from external API
-      const url = `${ERAU_BASE_URL}/search?surname=${encodeURIComponent(trimmed)}`;
+      // 2. Fetch every page from the external API
       logger.info(`[ERAU] Proxying search for surname="${trimmed}"`);
 
-      let items: any[];
+      let items: ERAULawyer[];
+      let total: number;
       try {
-        const response = await fetch(url, {
-          headers: {
-            'Accept': 'application/json',
-            'User-Agent': 'SecondLayer/1.0',
-          },
-          signal: AbortSignal.timeout(15000),
-        });
-
-        if (!response.ok) {
-          logger.warn(`[ERAU] Upstream returned ${response.status}`);
-          // Fallback to PG on upstream error
-          if (erauCacheService) {
-            const fallback = await erauCacheService.getBySurname(trimmed);
-            if (fallback && fallback.length > 0) {
-              logger.info(`[ERAU] Serving ${fallback.length} PG fallback results for "${trimmed}"`);
-              return res.json(fallback);
-            }
-          }
-          return res.status(502).json({ error: `ERAU returned status ${response.status}` });
-        }
-
-        const data = await response.json() as any;
-        items = Array.isArray(data) ? data : (data.items || []);
+        ({ items, total } = await fetchAllFromERAU(trimmed));
       } catch (fetchErr: unknown) {
         const msg = fetchErr instanceof Error ? fetchErr.message : String(fetchErr);
-        logger.error('[ERAU] External API error', { error: msg });
+        if (fetchErr instanceof ERAUUpstreamError) {
+          logger.warn(`[ERAU] Upstream returned ${fetchErr.status}`);
+        } else {
+          logger.error('[ERAU] External API error', { error: msg });
+        }
 
-        // Fallback to PG on network/timeout errors
+        // Fall back to the last known result set, even if it is past its TTL
         if (erauCacheService) {
-          const fallback = await erauCacheService.getBySurname(trimmed);
+          const fallback = await erauCacheService.getBySurname(trimmed, { allowStale: true });
           if (fallback && fallback.length > 0) {
-            logger.info(`[ERAU] Serving ${fallback.length} PG fallback results after external failure for "${trimmed}"`);
+            logger.info(`[ERAU] Serving ${fallback.length} stale results for "${trimmed}" after upstream failure`);
             return res.json(fallback);
           }
         }
 
+        if (fetchErr instanceof ERAUUpstreamError) {
+          return res.status(502).json({ error: `ERAU returned status ${fetchErr.status}` });
+        }
         if (msg.includes('timeout') || msg.includes('abort')) {
           return res.status(504).json({ error: 'ERAU request timed out' });
         }
@@ -431,12 +487,13 @@ export function createERAUProxyRoutes(erauCacheService?: ERAUCacheService, db?: 
       }
 
       // 3. Cache results (fire-and-forget)
-      if (erauCacheService && items.length > 0) {
-        erauCacheService.cacheResults(trimmed, items).catch((err) => {
+      if (erauCacheService) {
+        erauCacheService.cacheResults(trimmed, items, total).catch((err) => {
           logger.warn('[ERAU] Background cache write failed', { error: err.message });
         });
       }
 
+      logger.info(`[ERAU] Returning ${items.length} of ${total} results for "${trimmed}"`);
       res.json(items);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
