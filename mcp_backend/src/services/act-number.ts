@@ -202,6 +202,20 @@ export function looksLikeOfficialNumber(raw: string): boolean {
  * empty, and it never backtracks to the longer branch — «стаття 111» came out
  * as «аття111» and matched no article at all.
  */
+/**
+ * Article-number sub-pattern, as it appears in a heading — «350», «350-1»,
+ * «350 - 1», «350–1». Rada surrounds the index hyphen with spaces and sometimes
+ * writes it as an en/em dash: the stored ЦПК heading is «Стаття 350 - 1 .».
+ *
+ * Anything that reads an article number out of a heading builds its regex from
+ * this, so there is one definition to keep right. The historical-editions
+ * importer used a pattern that allowed neither spaces nor the dash variants, so
+ * it captured «350», collided with the real article 350 and lost the row to
+ * ON CONFLICT DO NOTHING — 1 018 in-force indexed articles had no row at all
+ * (LEXAI-1957). Pair it with normalizeArticleNumber to get the stored form.
+ */
+export const ARTICLE_NUMBER_PATTERN = String.raw`\d+(?:\s*[-–—]\s*\d+)?`;
+
 export function normalizeArticleNumber(raw: string): string {
   return String(raw ?? '')
     .replace(/^\s*(стаття|статті|статтею|ст|пункт|пп|п)\.?\s*/i, '')
