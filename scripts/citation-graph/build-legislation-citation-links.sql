@@ -80,6 +80,16 @@ CREATE OR REPLACE FUNCTION public.lcl_art_key(t text)
 RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS
 $fn$ SELECT regexp_replace(btrim(t), '^п\.', '') $fn$;
 
+-- Title fold for the fallback title leg. Court texts spell the apostrophe several
+-- ways — «загальнообов`язкове» with a backtick, «обов'язкове» straight, plus the
+-- two curly forms — and the exact-title join treats each spelling as a different
+-- act. Measured on prod: 2 208 distinct law_number values covering 755 300 rows
+-- name an act we DO curate and miss it on nothing but punctuation. «Про
+-- соціальний захист дітей війни» alone appears under three spellings.
+CREATE OR REPLACE FUNCTION public.lcl_title_key(t text)
+RETURNS text LANGUAGE sql IMMUTABLE STRICT PARALLEL SAFE AS
+$fn$ SELECT lower(btrim(regexp_replace(translate(t, '`´''’‘', '     '), '\s+', ' ', 'g'))) $fn$;
+
 DROP TABLE IF EXISTS public.:"stg";
 CREATE TABLE public.:"stg" (
   id bigserial PRIMARY KEY, doc_id bigint NOT NULL, legislation_id integer, article_id integer,
@@ -219,6 +229,15 @@ canon AS (
   SELECT DISTINCT ON (l.title) l.title, l.id AS legislation_id
   FROM legislation l LEFT JOIN la_cur cu ON cu.legislation_id=l.id LEFT JOIN la_any an ON an.legislation_id=l.id
   ORDER BY l.title, COALESCE(cu.c,0) DESC, COALESCE(an.a,0) DESC, l.id),
+canon_fold AS (
+  -- The same acts keyed on the folded title, used only where the exact join
+  -- missed. Ambiguity is REFUSED, not settled by preference: 13 folded keys
+  -- cover 34 acts, and «про виконавче провадження» is two genuinely different
+  -- laws (1999 and 2016). Binding either would be a guess dressed as a match.
+  SELECT k, min(legislation_id) AS legislation_id
+  FROM (SELECT public.lcl_title_key(l.title) AS k, l.id AS legislation_id
+        FROM legislation l WHERE l.title IS NOT NULL AND btrim(l.title) <> '') f
+  GROUP BY k HAVING count(DISTINCT legislation_id) = 1),
 best_art AS (
   -- Keyed on the article number with any «п.» prefix stripped, so the join in
   -- withart stays a plain equality and therefore a Hash Left Join. Matching
@@ -271,17 +290,32 @@ numparse AS (
 -- the whole value is looked up directly. Measured: 2 688 605 rows now carry a
 -- Roman suffix and 2 311 894 of them resolve to exactly one curated act.
 numfull AS (
-  SELECT DISTINCT btrim(regexp_replace(law_number, '\s+', ' ', 'g')) AS v
+  -- The date suffix is part of how courts write a number: «№2262-ХІІ від
+  -- 09.04.1992». Anchoring the pattern at the number's end rejected all of it —
+  -- 22 254 distinct values over 3 148 057 rows — even though numparse beside it
+  -- has understood the date form all along. The number and the date are captured
+  -- separately: the number does the lookup, the date settles the convocation.
+  SELECT DISTINCT
+         btrim(regexp_replace(law_number, '\s+', ' ', 'g')) AS v,
+         (regexp_match(law_number,
+            '^\s*№?\s*([0-9]{1,5}[а-яіїєґ]?(?:[-/][0-9A-Za-zА-Яа-яІЇЄҐіїєґ/-]{1,12})?)'))[1] AS num,
+         public.try_to_date(
+           (regexp_match(law_number, 'від\s+([0-9]{1,2}\.[0-9]{1,2}\.[0-9]{4})'))[1],
+           'DD.MM.YYYY') AS dt
   FROM public.law_court_citations
-  WHERE law_number ~ '^\s*№?\s*[0-9]{1,5}[а-яіїєґ]?[-/][0-9A-Za-zА-Яа-яІЇЄҐіїєґ/-]{1,12}\s*$'),
+  WHERE law_number ~ '^\s*№?\s*[0-9]{1,5}[а-яіїєґ]?(?:[-/][0-9A-Za-zА-Яа-яІЇЄҐіїєґ/-]{1,12})?\s*(?:від\s+[0-9]{1,2}\.[0-9]{1,2}\.[0-9]{4})?\s*$'),
 numfullcand AS (
   -- Ambiguity judged over the WHOLE corpus before the curated set narrows it,
   -- for the same reason as numcand: filtering first makes a number that names
-  -- several acts look unambiguous.
+  -- several acts look unambiguous. Where the citation gives a date, only acts
+  -- adopted on it stay in the running — that is what takes «2262» from six
+  -- convocations down to one.
   SELECT f.v, array_agg(DISTINCT an.nreg) AS nregs
   FROM numfull f
-  JOIN npa.act_number an ON an.alias_norm = npa.norm_number(f.v)
+  JOIN npa.act_number an ON an.alias_norm = npa.norm_number(f.num)
                         AND an.kind IN ('official', 'official_alt', 'nreg')
+  JOIN npa.act a ON a.nreg = an.nreg AND (f.dt IS NULL OR a.first_ed = f.dt)
+  WHERE f.num IS NOT NULL
   GROUP BY f.v),
 numfullmap AS (
   SELECT c.v, pl.id AS legislation_id
@@ -318,15 +352,21 @@ matched AS (
          -- left NULL. Measured on prod: of 160 708 already-bound rows, ZERO
          -- carry a number-shaped law_number, so the two populations are
          -- disjoint and this can never override a working binding.
-         COALESCE(lm.legislation_id, can.legislation_id, nf.legislation_id, nb.legislation_id) lid,
+         COALESCE(lm.legislation_id, can.legislation_id, cf.legislation_id,
+                  nf.legislation_id, nb.legislation_id) lid,
          CASE WHEN lm.v IS NOT NULL THEN lm.method
               WHEN can.title IS NOT NULL AND nrm.v<>lcc.law_number THEN 'normalized'
               WHEN can.title IS NOT NULL THEN 'exact_title'
+              WHEN cf.legislation_id IS NOT NULL THEN 'title_fold'
               WHEN COALESCE(nf.legislation_id, nb.legislation_id) IS NOT NULL THEN 'number' END method
   FROM public.law_court_citations lcc
   CROSS JOIN LATERAL (SELECT btrim(regexp_replace(lcc.law_number,'\s+',' ','g')) v) nrm
   LEFT JOIN lawmap lm ON lm.v = nrm.v
   LEFT JOIN canon can ON can.title = nrm.v
+  -- Ranked after the exact title so a working binding can never be displaced;
+  -- it only fills rows canon left NULL. Its own method name keeps the gain
+  -- measurable instead of hiding inside 'normalized'.
+  LEFT JOIN canon_fold cf ON cf.k = public.lcl_title_key(nrm.v)
   LEFT JOIN numfullmap nf ON nf.v = nrm.v
   LEFT JOIN numbermap  nb ON nb.v = nrm.v),
 withart AS (
